@@ -1,5 +1,6 @@
 package com.fichestu.frontend.ui
 
+import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fichestu.frontend.BuildConfig
@@ -16,6 +17,8 @@ data class AuthUiState(
     val password: String = "",
     val isLoginMode: Boolean = true,
     val isLoading: Boolean = false,
+    val isAuthenticated: Boolean = false,
+    val token: String = "",
     val message: String = ""
 )
 
@@ -26,18 +29,37 @@ class AuthViewModel(
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
-    fun updateUsername(value: String) = _uiState.update { it.copy(username = value) }
-    fun updateEmail(value: String) = _uiState.update { it.copy(email = value) }
-    fun updatePassword(value: String) = _uiState.update { it.copy(password = value) }
+    fun updateUsername(value: String) = _uiState.update { it.copy(username = value, message = "") }
+    fun updateEmail(value: String) = _uiState.update { it.copy(email = value, message = "") }
+    fun updatePassword(value: String) = _uiState.update { it.copy(password = value, message = "") }
 
     fun toggleMode() {
-        _uiState.update { it.copy(isLoginMode = !it.isLoginMode, message = "") }
+        _uiState.update {
+            it.copy(
+                isLoginMode = !it.isLoginMode,
+                message = "",
+                password = "",
+                token = "",
+                isAuthenticated = false
+            )
+        }
+    }
+
+    fun logout() {
+        _uiState.update {
+            it.copy(
+                isAuthenticated = false,
+                token = "",
+                password = "",
+                message = "Sesion cerrada"
+            )
+        }
     }
 
     fun submit() {
         val state = _uiState.value
-        if (state.email.isBlank() || state.password.isBlank() || (!state.isLoginMode && state.username.isBlank())) {
-            _uiState.update { it.copy(message = "Completa los campos obligatorios") }
+
+        if (!isValidInput(state)) {
             return
         }
 
@@ -45,17 +67,68 @@ class AuthViewModel(
             _uiState.update { it.copy(isLoading = true, message = "") }
 
             val result = if (state.isLoginMode) {
-                repository.login(BuildConfig.BASE_URL, state.email.trim(), state.password)
+                repository.login(
+                    baseUrl = BuildConfig.BASE_URL,
+                    email = state.email.trim(),
+                    password = state.password
+                )
             } else {
-                repository.register(BuildConfig.BASE_URL, state.username.trim(), state.email.trim(), state.password)
+                repository.register(
+                    baseUrl = BuildConfig.BASE_URL,
+                    username = state.username.trim(),
+                    email = state.email.trim(),
+                    password = state.password
+                )
             }
 
-            _uiState.update {
-                it.copy(
-                    isLoading = false,
-                    message = result.getOrElse { error -> error.message ?: "Error de conexión" }
+            _uiState.update { current ->
+                result.fold(
+                    onSuccess = { authResult ->
+                        if (state.isLoginMode) {
+                            current.copy(
+                                isLoading = false,
+                                isAuthenticated = true,
+                                token = authResult.token.orEmpty(),
+                                password = "",
+                                message = authResult.message
+                            )
+                        } else {
+                            current.copy(
+                                isLoading = false,
+                                isLoginMode = true,
+                                username = "",
+                                password = "",
+                                message = "${authResult.message}. Ya puedes iniciar sesion"
+                            )
+                        }
+                    },
+                    onFailure = { error ->
+                        current.copy(
+                            isLoading = false,
+                            message = error.message ?: "Error de conexion"
+                        )
+                    }
                 )
             }
         }
+    }
+
+    private fun isValidInput(state: AuthUiState): Boolean {
+        if (!state.isLoginMode && state.username.isBlank()) {
+            _uiState.update { it.copy(message = "El usuario es obligatorio") }
+            return false
+        }
+
+        if (state.email.isBlank() || !Patterns.EMAIL_ADDRESS.matcher(state.email.trim()).matches()) {
+            _uiState.update { it.copy(message = "Introduce un email valido") }
+            return false
+        }
+
+        if (state.password.isBlank()) {
+            _uiState.update { it.copy(message = "La password es obligatoria") }
+            return false
+        }
+
+        return true
     }
 }

@@ -35,67 +35,80 @@ fun AuthScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = if (state.isLoginMode) "Login" else "Register",
+            text = if (state.isAuthenticated) "Sesion iniciada" else if (state.isLoginMode) "Login" else "Register",
             style = MaterialTheme.typography.headlineMedium
         )
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (!state.isLoginMode) {
+        if (state.isAuthenticated) {
+            Text(text = "Token: ${state.token}")
+            Spacer(modifier = Modifier.height(16.dp))
+            OutlinedButton(
+                onClick = viewModel::logout,
+                enabled = !state.isLoading,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Cerrar sesion")
+            }
+        } else {
+            if (!state.isLoginMode) {
+                OutlinedTextField(
+                    value = state.username,
+                    onValueChange = viewModel::updateUsername,
+                    label = { Text("Usuario") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             OutlinedTextField(
-                value = state.username,
-                onValueChange = viewModel::updateUsername,
-                label = { Text("Usuario") },
+                value = state.email,
+                onValueChange = viewModel::updateEmail,
+                label = { Text("Email") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(8.dp))
-        }
 
-        OutlinedTextField(
-            value = state.email,
-            onValueChange = viewModel::updateEmail,
-            label = { Text("Email") },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
+            OutlinedTextField(
+                value = state.password,
+                onValueChange = viewModel::updatePassword,
+                label = { Text("Password") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                visualTransformation = PasswordVisualTransformation(),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
 
-        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-        OutlinedTextField(
-            value = state.password,
-            onValueChange = viewModel::updatePassword,
-            label = { Text("Password") },
-            visualTransformation = PasswordVisualTransformation(),
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth()
-        )
+            Button(
+                onClick = viewModel::submit,
+                enabled = !state.isLoading,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (state.isLoading) "Procesando..." else if (state.isLoginMode) "Entrar" else "Crear cuenta")
+            }
 
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        Button(
-            onClick = viewModel::submit,
-            enabled = !state.isLoading,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(if (state.isLoading) "Procesando..." else if (state.isLoginMode) "Entrar" else "Crear cuenta")
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        OutlinedButton(
-            onClick = viewModel::toggleMode,
-            enabled = !state.isLoading,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(if (state.isLoginMode) "Ir a register" else "Ir a login")
+            OutlinedButton(
+                onClick = viewModel::toggleMode,
+                enabled = !state.isLoading,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (state.isLoginMode) "Ir a register" else "Ir a login")
+            }
         }
 
         if (state.message.isNotBlank()) {
             Spacer(modifier = Modifier.height(12.dp))
-            Text(state.message)
+            Text(text = state.message)
         }
     }
 }

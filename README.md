@@ -16,27 +16,26 @@ El backend Spring Boot vive en otro repositorio:
 
 1. Abre este proyecto en Android Studio.
 2. Sincroniza Gradle.
-3. Ejecuta el módulo `app` en un emulador o dispositivo.
+3. Ejecuta el modulo `app` en un emulador o dispositivo.
 
-También puedes compilar por consola:
+Tambien puedes compilar por consola:
 
 ```powershell
 .\gradlew.bat :app:assembleDebug
 ```
 
-## Configuración del backend
+## Configuracion del backend
 
 La URL por defecto del backend es:
 
-- `http://10.0.2.2:8080/`
+- `http://10.0.2.2:8081/`
 
-Esta URL funciona desde el emulador Android cuando el backend corre en tu PC local.
-
-La app se conecta automáticamente a esta URL y no permite cambiarla desde el frontend.
+Esta URL funciona desde el emulador Android cuando el backend corre en Docker.
+Si arrancas backend en local con `spring-boot:run` (puerto `8080`), la app intenta fallback automatico entre `8081` y `8080`.
 
 ## Endpoints usados por la app
 
-La app está simplificada a autenticación básica:
+La app usa autenticacion JSON contra el backend Spring:
 
 - `POST /api/auth/login`
 - `POST /api/auth/register`

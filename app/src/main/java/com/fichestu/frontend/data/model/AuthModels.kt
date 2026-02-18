@@ -16,3 +16,16 @@ data class AuthResponse(
     val message: String? = null,
     val success: Boolean? = null
 )
+
+data class ApiErrorResponse(
+    val timestamp: String? = null,
+    val status: Int? = null,
+    val error: String? = null,
+    val message: String? = null,
+    val path: String? = null
+)
+
+data class AuthResult(
+    val message: String,
+    val token: String? = null
+)
