@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
+import com.fichestu.frontend.ui.game.FichestuGameScreen
 import com.fichestu.frontend.ui.theme.AuthTab
 import com.fichestu.frontend.ui.theme.CasinoAuthScaffold
 import com.fichestu.frontend.ui.theme.CasinoOutlinedTextField
@@ -99,13 +100,10 @@ fun AuthScreen(viewModel: AuthViewModel = viewModel()) {
     var dest by remember { mutableStateOf(AuthDest.FORM) }
 
     if (state.isAuthenticated) {
-        // Animated entrance para la pantalla de bienvenida
-        AnimatedVisibility(
-            visible = true,
-            enter   = fadeIn(tween(400)) + slideInVertically(tween(400)) { it / 3 }
-        ) {
-            AuthenticatedScreen(token = state.token, onLogout = viewModel::logout)
-        }
+        FichestuGameScreen(
+            playerName = state.displayName,
+            onLogout = viewModel::logout
+        )
     } else {
         // Transición horizontal entre pantallas (type-safe)
         AnimatedContent(
