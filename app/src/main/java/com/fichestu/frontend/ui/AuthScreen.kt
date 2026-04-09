@@ -93,8 +93,37 @@ private enum class AuthDest { FORM, FORGOT }
 // AuthScreen — punto de entrada único (Login / Register / Authenticated)
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-fun AuthScreen(viewModel: AuthViewModel = viewModel()) {
+fun AuthScreen(
+    viewModel: AuthViewModel = viewModel(),
+    onForgotPassword: () -> Unit = {},
+    onAuthenticated: (String) -> Unit = {},
+    onShowGameInline: Boolean = true
+) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+
+    if (!onShowGameInline && state.isAuthenticated) {
+        LaunchedEffect(state.isAuthenticated, state.displayName) {
+            onAuthenticated(state.displayName)
+        }
+    }
+
+    if (!onShowGameInline) {
+        CasinoAuthScaffold(
+            title = "FICHESTU",
+            subtitle = "CASINO  •  CRYPTO  •  MINIGAMES"
+        ) {
+            AuthFormContent(
+                state = state,
+                onUpdateUsername = viewModel::updateUsername,
+                onUpdateEmail = viewModel::updateEmail,
+                onUpdatePassword = viewModel::updatePassword,
+                onToggleMode = viewModel::toggleMode,
+                onSubmit = viewModel::submit,
+                onForgotPassword = onForgotPassword
+            )
+        }
+        return
+    }
 
     // UI-only navigation: FORM ↔ FORGOT (no ViewModel)
     var dest by remember { mutableStateOf(AuthDest.FORM) }
