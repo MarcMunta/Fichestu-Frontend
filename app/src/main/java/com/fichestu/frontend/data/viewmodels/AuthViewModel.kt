@@ -1,4 +1,4 @@
-package com.fichestu.frontend.ui
+package com.fichestu.frontend.data.viewmodels
 
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
@@ -39,7 +39,6 @@ class AuthViewModel(
                 isLoginMode = !it.isLoginMode,
                 message = "",
                 password = "",
-                token = "",
                 isAuthenticated = false
             )
         }
@@ -51,30 +50,56 @@ class AuthViewModel(
                 isAuthenticated = false,
                 token = "",
                 password = "",
-                message = "Sesion cerrada"
+                message = "Sesión cerrada"
             )
         }
     }
 
+//    // --- FUNCIÓN PARA LOGIN CON GOOGLE ---
+    fun onGoogleLoginSuccess(idToken: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, message = "") }
+
+            val result = repository.loginWithGoogle(idToken)
+
+            _uiState.update { current ->
+                result.fold(
+                    onSuccess = { authResult ->
+                        current.copy(
+                            isLoading = false,
+                            isAuthenticated = true,
+                            token = authResult.token.orEmpty(),
+                            message = authResult.message
+                        )
+                    },
+                    onFailure = { error ->
+                        current.copy(
+                            isLoading = false,
+                            message = error.message ?: "Error al conectar con Google"
+                        )
+                    }
+                )
+            }
+        }
+    }
+
+    // --- LOGIN / REGISTRO TRADICIONAL ---
     fun submit() {
         val state = _uiState.value
 
-        if (!isValidInput(state)) {
-            return
-        }
+        if (!isValidInput(state)) return
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = "") }
 
+            // Fíjate que ya NO pasamos la baseUrl, el repositorio ya sabe dónde ir
             val result = if (state.isLoginMode) {
                 repository.login(
-                    baseUrl = BuildConfig.BASE_URL,
                     email = state.email.trim(),
                     password = state.password
                 )
             } else {
                 repository.register(
-                    baseUrl = BuildConfig.BASE_URL,
                     username = state.username.trim(),
                     email = state.email.trim(),
                     password = state.password
@@ -96,16 +121,15 @@ class AuthViewModel(
                             current.copy(
                                 isLoading = false,
                                 isLoginMode = true,
-                                username = "",
                                 password = "",
-                                message = "${authResult.message}. Ya puedes iniciar sesion"
+                                message = "${authResult.message}. Ya puedes iniciar sesión"
                             )
                         }
                     },
                     onFailure = { error ->
                         current.copy(
                             isLoading = false,
-                            message = error.message ?: "Error de conexion"
+                            message = error.message ?: "Error de conexión"
                         )
                     }
                 )
@@ -119,13 +143,14 @@ class AuthViewModel(
             return false
         }
 
-        if (state.email.isBlank() || !Patterns.EMAIL_ADDRESS.matcher(state.email.trim()).matches()) {
-            _uiState.update { it.copy(message = "Introduce un email valido") }
+        val emailMatches = Patterns.EMAIL_ADDRESS.matcher(state.email.trim()).matches()
+        if (state.email.isBlank() || !emailMatches) {
+            _uiState.update { it.copy(message = "Introduce un email válido") }
             return false
         }
 
         if (state.password.isBlank()) {
-            _uiState.update { it.copy(message = "La password es obligatoria") }
+            _uiState.update { it.copy(message = "La contraseña es obligatoria") }
             return false
         }
 
