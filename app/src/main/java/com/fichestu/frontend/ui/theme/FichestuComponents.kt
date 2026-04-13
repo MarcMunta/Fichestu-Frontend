@@ -65,7 +65,7 @@ import androidx.compose.ui.unit.sp
 enum class AuthTab { LOGIN, REGISTER }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CasinoAuthScaffold
+// FichestuAuthScaffold
 // Fondo radial degradado DeepBlue → NightBlue + overlay dorado tenue,
 // centrado vertical con la AuthCard interior rodeando el contenido.
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,16 +1,24 @@
 package com.fichestu.frontend.navigation
 
+import android.app.Activity
 import android.net.Uri
+import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.runtime.remember
 import androidx.navigation.NavGraph.Companion.findStartDestination
-import com.fichestu.frontend.ui.AuthScreen
-import com.fichestu.frontend.ui.ForgotPasswordScreen
+import com.fichestu.frontend.data.viewmodels.AuthViewModel
+import com.fichestu.frontend.views.AuthScreen
+import com.fichestu.frontend.views.ForgotPasswordScreen
 import com.fichestu.frontend.ui.game.FichestuGameScreen
+import com.fichestu.frontend.util.GoogleAuthHelper
+
 
 private object AppRoute {
     const val AUTH = "auth"
@@ -26,21 +34,24 @@ private object AppRoute {
 @Composable
 fun AppNavGraph() {
     val navController = rememberNavController()
+    val context = LocalContext.current as ComponentActivity
+    val googleAuthHelper = remember { GoogleAuthHelper(context) }
 
     NavHost(
         navController = navController,
         startDestination = AppRoute.AUTH
     ) {
         composable(AppRoute.AUTH) {
+            val authViewModel: AuthViewModel = viewModel()
+
             AuthScreen(
-                onForgotPassword = { navController.navigate(AppRoute.FORGOT) },
-                onAuthenticated = { playerName ->
-                    navController.navigate(AppRoute.game(playerName)) {
-                        popUpTo(AppRoute.AUTH) { inclusive = true }
-                        launchSingleTop = true
+                viewModel = authViewModel,
+                navController = navController,
+                onGoogleClick = {
+                    googleAuthHelper.launchGoogleLogin { token ->
+                        authViewModel.onGoogleLoginSuccess(token)
                     }
-                },
-                onShowGameInline = false
+                }
             )
         }
 

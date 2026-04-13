@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import com.fichestu.frontend.data.viewmodels.AuthUiState
 import com.fichestu.frontend.data.viewmodels.AuthViewModel
 import com.fichestu.frontend.ui.theme.AuthScaffold
@@ -92,13 +93,19 @@ import com.fichestu.frontend.R
 private enum class AuthDest { FORM, FORGOT }
 
 @Composable
-fun AuthScreen(viewModel: AuthViewModel = viewModel(), onGoogleClick: () -> Unit) {
+fun AuthScreen(viewModel: AuthViewModel = viewModel(), navController: NavHostController, onGoogleClick: () -> Unit) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var dest by remember { mutableStateOf(AuthDest.FORM) }
+    var dest by rememberSaveable { mutableStateOf(AuthDest.FORM) }
 
-    if (state.isAuthenticated) {
-        AuthenticatedScreen(token = state.token, onLogout = viewModel::logout)
-    } else {
+    LaunchedEffect(state.isAuthenticated) {
+        if (state.isAuthenticated) {
+            navController.navigate("game/${state.displayName}") {
+                popUpTo("auth") { inclusive = true }
+            }
+        }
+    }
+
+    if (!state.isAuthenticated) {
         AnimatedContent(targetState = dest, label = "main_nav") { currentDest ->
             when (currentDest) {
                 AuthDest.FORM -> AuthScaffold(
@@ -131,8 +138,7 @@ private fun AuthFormContent(
         ChipAuthTabs(
             selected = if (state.isLoginMode) AuthTab.LOGIN else AuthTab.REGISTER,
             onSelect = { tab ->
-                val clickingLogin = (tab == AuthTab.LOGIN)
-                if (clickingLogin != state.isLoginMode) {
+                if ((tab == AuthTab.LOGIN) != state.isLoginMode) {
                     viewModel.toggleMode()
                 }
             },
@@ -141,9 +147,16 @@ private fun AuthFormContent(
 
         Spacer(Modifier.height(24.dp))
 
-        AnimatedContent(targetState = state.isLoginMode, label = "form_switch") { isLogin ->
+        // Animación de entrada al cambiar entre Login y Registro
+        AnimatedContent(
+            targetState = state.isLoginMode,
+            label = "form_switch",
+            transitionSpec = { slideInHorizontally() + fadeIn() togetherWith slideOutHorizontally() + fadeOut() }
+        ) { isLogin ->
             Column(
-                modifier = Modifier.fillMaxWidth().verticalScroll(scrollState),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(scrollState), // El scroll aquí permite que el contenido respire
                 verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 if (isLogin) {
@@ -161,20 +174,100 @@ private fun AuthFormContent(
 }
 
 @Composable
-private fun LoginForm(state: AuthUiState, viewModel: AuthViewModel, onForgotClick: () -> Unit, onGoogleClick: () -> Unit) {
-    var passwordVisible by remember { mutableStateOf(false) }
+private fun LoginForm(
+    state: AuthUiState,
+    viewModel: AuthViewModel,
+    onForgotClick: () -> Unit,
+    onGoogleClick: () -> Unit
+) {
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
 
     CasinoOutlinedTextField(
         value = state.email,
         onValueChange = viewModel::updateEmail,
         label = stringResource(R.string.forgot_label_email),
+        enabled = !state.isLoading,
+        leadingIcon = { Icon(Icons.Default.Email, null, Modifier.size(20.dp)) },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+    )
+
+    CasinoOutlinedTextField(
+        value = state.password,
+        onValueChange = viewModel::updatePassword,
+        label = stringResource(R.string.auth_label_password),
+        enabled = !state.isLoading,
+        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+        trailingIcon = {
+            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                Icon(if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff, null)
+            }
+        }
+    )
+
+    Text(
+        text = stringResource(R.string.auth_forgot_password),
+        modifier = Modifier
+            .clickable(enabled = !state.isLoading) { onForgotClick() },
+        style = MaterialTheme.typography.bodySmall.copy(
+            color = Gold,
+            textDecoration = TextDecoration.Underline
+        )
+    )
+
+    GoldPrimaryButton(
+        text = if (state.isLoading) stringResource(R.string.auth_processing) else stringResource(R.string.auth_btn_login),
+        onClick = viewModel::submit,
+        enabled = !state.isLoading && state.email.isNotBlank() && state.password.isNotBlank()
+    )
+
+    // Separador visual para Google
+    Text(
+        text = "— O —",
+        modifier = Modifier.fillMaxWidth(),
+        textAlign = TextAlign.Center,
+        color = TextSecondary.copy(alpha = 0.5f),
+        style = MaterialTheme.typography.labelSmall
+    )
+
+    Button(
+        onClick = onGoogleClick,
+        modifier = Modifier.fillMaxWidth().height(52.dp),
+        enabled = !state.isLoading,
+        colors = ButtonDefaults.buttonColors(containerColor = NightBlue, contentColor = Gold),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Gold.copy(alpha = 0.3f))
+    ) {
+        Text("CONTINUAR CON GOOGLE", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+    }
+}
+
+@Composable
+private fun RegisterForm(state: AuthUiState, viewModel: AuthViewModel) {
+    var termsAccepted by rememberSaveable { mutableStateOf(false) }
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+
+    CasinoOutlinedTextField(
+        value = state.username,
+        onValueChange = viewModel::updateUsername,
+        label = stringResource(R.string.auth_label_user),
+        enabled = !state.isLoading,
+        leadingIcon = { Icon(Icons.Default.Person, null, Modifier.size(20.dp)) }
+    )
+
+    CasinoOutlinedTextField(
+        value = state.email,
+        onValueChange = viewModel::updateEmail,
+        label = stringResource(R.string.forgot_label_email),
+        enabled = !state.isLoading,
         leadingIcon = { Icon(Icons.Default.Email, null, Modifier.size(20.dp)) }
     )
 
     CasinoOutlinedTextField(
         value = state.password,
         onValueChange = viewModel::updatePassword,
-        label = stringResource(R.string.auth_label_password), // Asegúrate de tener este ID o cámbialo a uno genérico
+        label = stringResource(R.string.auth_label_password),
+        enabled = !state.isLoading,
         visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
         trailingIcon = {
             IconButton(onClick = { passwordVisible = !passwordVisible }) {
@@ -184,68 +277,13 @@ private fun LoginForm(state: AuthUiState, viewModel: AuthViewModel, onForgotClic
     )
 
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Start
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.clickable(enabled = !state.isLoading) { termsAccepted = !termsAccepted }
     ) {
-        Text(
-            text = stringResource(R.string.auth_forgot_password),
-            modifier = Modifier.clickable { onForgotClick() },
-            style = MaterialTheme.typography.bodySmall.copy(
-                color = Gold,
-                textDecoration = TextDecoration.Underline
-            )
-        )
-    }
-
-    GoldPrimaryButton(
-        text = if (state.isLoading) stringResource(R.string.auth_processing) else stringResource(R.string.auth_btn_login),
-        onClick = viewModel::submit,
-        enabled = !state.isLoading && state.email.isNotBlank() && state.password.isNotBlank()
-    )
-
-    Spacer(Modifier.height(16.dp))
-
-    // BOTÓN DE GOOGLE
-    Button(
-        onClick = onGoogleClick,
-        modifier = Modifier.fillMaxWidth().height(50.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = NightBlue, contentColor = Gold),
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(1.dp, Gold.copy(alpha = 0.5f))
-    ) {
-        Text("CONTINUAR CON GOOGLE", fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-private fun RegisterForm(state: AuthUiState, viewModel: AuthViewModel) {
-    var termsAccepted by remember { mutableStateOf(false) }
-
-    CasinoOutlinedTextField(
-        value = state.username,
-        onValueChange = viewModel::updateUsername,
-        label = stringResource(R.string.auth_label_user), // ID sugerido para el XML
-        leadingIcon = { Icon(Icons.Default.Person, null, Modifier.size(20.dp)) }
-    )
-
-    CasinoOutlinedTextField(
-        value = state.email,
-        onValueChange = viewModel::updateEmail,
-        label = stringResource(R.string.forgot_label_email),
-        leadingIcon = { Icon(Icons.Default.Email, null, Modifier.size(20.dp)) }
-    )
-
-    CasinoOutlinedTextField(
-        value = state.password,
-        onValueChange = viewModel::updatePassword,
-        label = stringResource(R.string.auth_label_password),
-        visualTransformation = PasswordVisualTransformation()
-    )
-
-    Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(
             checked = termsAccepted,
             onCheckedChange = { termsAccepted = it },
+            enabled = !state.isLoading,
             colors = CheckboxDefaults.colors(checkedColor = Gold, uncheckedColor = InputBorder)
         )
         Text(
@@ -258,49 +296,74 @@ private fun RegisterForm(state: AuthUiState, viewModel: AuthViewModel) {
     GoldPrimaryButton(
         text = if (state.isLoading) stringResource(R.string.auth_processing) else stringResource(R.string.auth_btn_register),
         onClick = viewModel::submit,
-        enabled = !state.isLoading && termsAccepted && state.email.isNotBlank()
+        enabled = !state.isLoading && termsAccepted && state.email.isNotBlank() && state.password.isNotBlank()
     )
 }
 
 @Composable
 private fun StatusMessage(message: String) {
-    val err1 = stringResource(R.string.error_keyword_1)
-    val err2 = stringResource(R.string.error_keyword_2)
-    val err3 = stringResource(R.string.error_keyword_3)
+    // Tus keywords están bien, pero asegúrate de que existan en strings.xml
+    val isError = listOf(
+        stringResource(R.string.error_keyword_1),
+        stringResource(R.string.error_keyword_2),
+        stringResource(R.string.error_keyword_3)
+    ).any { message.contains(it, ignoreCase = true) }
 
-    val isError = message.contains(err1, ignoreCase = true) ||
-            message.contains(err2, ignoreCase = true) ||
-            message.contains(err3, ignoreCase = true)
-
-    Text(
-        text = message,
-        color = if (isError) ChipRed else Gold,
-        style = MaterialTheme.typography.bodySmall,
-        textAlign = TextAlign.Center,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp)
-    )
+    AnimatedVisibility(
+        visible = message.isNotBlank(),
+        enter = fadeIn() + slideInVertically(),
+        exit = fadeOut()
+    ) {
+        Text(
+            text = message,
+            color = if (isError) ChipRed else Gold,
+            style = MaterialTheme.typography.bodySmall,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp)
+        )
+    }
 }
 
 @Composable
 private fun AuthenticatedScreen(token: String, onLogout: () -> Unit) {
-    Column(
+    // Usamos Box para poner un fondo que cubra toda la pantalla
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .background(NightBlue), // O el degradado que prefieras
+        contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = stringResource(R.string.auth_welcome_back),
-            style = MaterialTheme.typography.headlineMedium,
-            color = Gold
-        )
-        Spacer(Modifier.height(20.dp))
-        GoldPrimaryButton(
-            text = stringResource(R.string.auth_btn_logout),
-            onClick = onLogout
-        )
+        Column(
+            modifier = Modifier
+                .padding(32.dp)
+                .fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = stringResource(R.string.auth_welcome_back),
+                style = MaterialTheme.typography.headlineMedium,
+                color = Gold,
+                textAlign = TextAlign.Center
+            )
+
+            Spacer(Modifier.height(12.dp))
+
+            // Opcional: Mostrar un mensaje de éxito pequeño
+            Text(
+                text = "Has iniciado sesión correctamente",
+                style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary
+            )
+
+            Spacer(Modifier.height(32.dp))
+
+            GoldPrimaryButton(
+                text = stringResource(R.string.auth_btn_logout),
+                onClick = onLogout
+            )
+        }
     }
 }
