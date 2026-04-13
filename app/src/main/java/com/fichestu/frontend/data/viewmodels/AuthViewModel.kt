@@ -15,6 +15,7 @@ data class AuthUiState(
     val username: String = "",
     val email: String = "",
     val password: String = "",
+    val displayName: String = "",
     val isLoginMode: Boolean = true,
     val isLoading: Boolean = false,
     val isAuthenticated: Boolean = false,
@@ -39,6 +40,8 @@ class AuthViewModel(
                 isLoginMode = !it.isLoginMode,
                 message = "",
                 password = "",
+                token = "",
+                displayName = "",
                 isAuthenticated = false
             )
         }
@@ -50,7 +53,8 @@ class AuthViewModel(
                 isAuthenticated = false,
                 token = "",
                 password = "",
-                message = "Sesión cerrada"
+                displayName = "",
+                message = "Sesion cerrada"
             )
         }
     }
@@ -83,7 +87,6 @@ class AuthViewModel(
         }
     }
 
-    // --- LOGIN / REGISTRO TRADICIONAL ---
     fun submit() {
         val state = _uiState.value
 
@@ -115,6 +118,10 @@ class AuthViewModel(
                                 isAuthenticated = true,
                                 token = authResult.token.orEmpty(),
                                 password = "",
+                                displayName = deriveDisplayName(
+                                    username = state.username,
+                                    email = state.email
+                                ),
                                 message = authResult.message
                             )
                         } else {
@@ -155,5 +162,22 @@ class AuthViewModel(
         }
 
         return true
+    }
+
+    private fun deriveDisplayName(username: String, email: String): String {
+        val cleanUsername = username.trim()
+        if (cleanUsername.isNotBlank()) {
+            return cleanUsername
+        }
+
+        val cleanEmail = email.trim()
+        val localPart = cleanEmail.substringBefore('@').trim()
+        return if (localPart.isNotBlank()) {
+            localPart.replaceFirstChar { char ->
+                if (char.isLowerCase()) char.titlecase() else char.toString()
+            }
+        } else {
+            "Jugador"
+        }
     }
 }
