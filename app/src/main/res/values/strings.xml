@@ -1,3 +1,36 @@
 <resources>
     <string name="app_name">Fichestu Frontend</string>
+
+    <string name="auth_title">FICHESTU</string>
+    <string name="auth_subtitle">MINIGAMES • STRATEGY</string>
+    <string name="auth_tab_login">LOGIN</string>
+    <string name="auth_tab_register">REGISTRO</string>
+
+    <string name="auth_label_user">Usuario</string>
+    <string name="auth_label_email">Email</string>
+    <string name="auth_label_password">Contraseña</string>
+    <string name="auth_label_confirm_password">Confirmar contraseña</string>
+
+    <string name="auth_forgot_password">¿Olvidaste la contraseña?</string>
+    <string name="auth_btn_login">ENTRAR</string>
+    <string name="auth_btn_register">REGISTRARME</string>
+    <string name="auth_processing">PROCESANDO...</string>
+    <string name="auth_terms">Acepto los Términos y Condiciones</string>
+    <string name="auth_already_have_account">¿Ya tienes cuenta? Entrar</string>
+
+    <string name="forgot_title">RECUPERAR ACCESO</string>
+    <string name="forgot_back">Volver</string>
+    <string name="forgot_header">¿Olvidaste tu contraseña?</string>
+    <string name="forgot_description">Introduce tu email y te enviaremos un enlace para restablecerla.</string>
+    <string name="forgot_label_email">Email</string>
+    <string name="forgot_btn_send">ENVIAR ENLACE</string>
+    <string name="forgot_success_title">¡Enlace enviado!</string>
+    <string name="forgot_success_desc">Hemos enviado un correo a %1$s con los pasos a seguir.</string>
+    <string name="forgot_btn_back_login">VOLVER AL LOGIN</string>
+
+    <string name="auth_welcome_back">¡Bienvenido de nuevo!</string>
+    <string name="auth_btn_logout">CERRAR SESIÓN</string>
+    <string name="error_keyword_1">error</string>
+    <string name="error_keyword_2">fallo</string>
+    <string name="error_keyword_3">inválido</string>
 </resources>

@@ -1,6 +1,7 @@
 package com.fichestu.frontend.data.remote
 
 import com.fichestu.frontend.data.model.AuthResponse
+import com.fichestu.frontend.data.model.GoogleLoginRequest
 import com.fichestu.frontend.data.model.LoginRequest
 import com.fichestu.frontend.data.model.RegisterRequest
 import retrofit2.Response
@@ -16,5 +17,10 @@ interface AuthApi {
     @POST("api/auth/register")
     suspend fun register(
         @Body request: RegisterRequest
+    ): Response<AuthResponse>
+
+    @POST("api/auth/google")
+    suspend fun loginWithGoogle(
+        @Body request: GoogleLoginRequest
     ): Response<AuthResponse>
 }

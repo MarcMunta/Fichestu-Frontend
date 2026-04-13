@@ -29,3 +29,7 @@ data class AuthResult(
     val message: String,
     val token: String? = null
 )
+
+data class GoogleLoginRequest(
+    val idToken: String
+)

@@ -7,29 +7,24 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
-    fun authApi(baseUrl: String): AuthApi {
+    private const val BASE_URL = "http://10.0.2.2:8080/"
+    val authApi: AuthApi by lazy {
+
         val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
 
         val client = OkHttpClient.Builder()
             .addInterceptor(logging)
-            .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
-            .writeTimeout(20, TimeUnit.SECONDS)
-            .followRedirects(false)
-            .followSslRedirects(false)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
             .build()
 
-        return Retrofit.Builder()
-            .baseUrl(baseUrl.ensureTrailingSlash())
+        Retrofit.Builder()
+            .baseUrl(BASE_URL)
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(AuthApi::class.java)
-    }
-
-    private fun String.ensureTrailingSlash(): String {
-        return if (endsWith('/')) this else "$this/"
     }
 }
