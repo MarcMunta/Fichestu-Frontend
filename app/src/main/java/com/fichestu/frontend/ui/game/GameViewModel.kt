@@ -2,8 +2,8 @@ package com.fichestu.frontend.ui.game
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fichestu.frontend.game.GameRules
-import com.fichestu.frontend.game.engine.GameEngine
+import com.fichestu.frontend.data.repository.GameRepository
+import com.fichestu.frontend.data.repository.ProfileRepository
 import com.fichestu.frontend.game.model.BadgeUi
 import com.fichestu.frontend.game.model.BallRoomPhase
 import com.fichestu.frontend.game.model.BallRoomUiState
@@ -13,8 +13,6 @@ import com.fichestu.frontend.game.model.BattleUiState
 import com.fichestu.frontend.game.model.GameUiState
 import com.fichestu.frontend.game.model.MainTab
 import com.fichestu.frontend.game.model.ProfileStats
-import com.fichestu.frontend.game.model.ProfileUiState
-import com.fichestu.frontend.game.model.TokenId
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,17 +23,18 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 class GameViewModel(
-    private val engine: GameEngine = GameEngine()
+    private val repository: GameRepository = GameRepository(),
+    private val profileRepository: ProfileRepository = ProfileRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(initialState())
     val uiState: StateFlow<GameUiState> = _uiState.asStateFlow()
 
-    private var marketTickCounter = 0
     private var rewardedCooldownJob: Job? = null
 
     init {
-        startClockAndMarketLoop()
+        bootstrap()
+        startPassiveRefresh()
     }
 
     fun initializePlayer(name: String) {
@@ -45,92 +44,123 @@ class GameViewModel(
         }
     }
 
+    fun updateProfileUsername(value: String) {
+        _uiState.update { state ->
+            state.copy(profile = state.profile.copy(editUsername = value))
+        }
+    }
+
+    fun updateProfileEmail(value: String) {
+        _uiState.update { state ->
+            state.copy(profile = state.profile.copy(editEmail = value))
+        }
+    }
+
+    fun updateNewPassword(value: String) {
+        _uiState.update { state ->
+            state.copy(profile = state.profile.copy(newPassword = value))
+        }
+    }
+
+    fun updateConfirmPassword(value: String) {
+        _uiState.update { state ->
+            state.copy(profile = state.profile.copy(confirmPassword = value))
+        }
+    }
+
+    fun saveProfile() {
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(profile = state.profile.copy(isSavingProfile = true), transientMessage = null)
+            }
+
+            val snapshot = _uiState.value
+            val result = profileRepository.saveProfile(snapshot)
+            applyResult(result)
+            if (result.isFailure) {
+                _uiState.update { state ->
+                    state.copy(profile = state.profile.copy(isSavingProfile = false))
+                }
+            }
+        }
+    }
+
+    fun changePassword() {
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(profile = state.profile.copy(isSavingPassword = true), transientMessage = null)
+            }
+
+            val snapshot = _uiState.value
+            val result = profileRepository.changePassword(snapshot)
+            applyResult(result)
+            if (result.isFailure) {
+                _uiState.update { state ->
+                    state.copy(profile = state.profile.copy(isSavingPassword = false))
+                }
+            }
+        }
+    }
+
     fun selectTab(tab: MainTab) {
         _uiState.update { it.copy(activeTab = tab) }
     }
 
-    fun selectToken(tokenId: TokenId) {
+    fun selectToken(tokenId: com.fichestu.frontend.game.model.TokenId) {
         _uiState.update { state ->
-            state.copy(market = engine.selectToken(state.market, tokenId))
+            state.copy(market = state.market.copy(selectedToken = tokenId))
         }
     }
 
     fun buySelectedToken() {
-        _uiState.update { state ->
-            val (nextMarket, message) = engine.buyOneSelected(state.market)
-            state.copy(market = nextMarket, transientMessage = message)
+        viewModelScope.launch {
+            val snapshot = _uiState.value
+            val result = repository.buy(snapshot)
+            applyResult(result)
         }
     }
 
     fun sellSelectedToken() {
-        _uiState.update { state ->
-            val (nextMarket, message) = engine.sellOneSelected(state.market)
-            state.copy(market = nextMarket, transientMessage = message)
+        viewModelScope.launch {
+            val snapshot = _uiState.value
+            val result = repository.sell(snapshot)
+            applyResult(result)
         }
     }
 
     fun enterBallRoom() {
-        _uiState.update { state ->
-            if (state.market.cashBalance < GameRules.BALL_ENTRY_COST) {
-                return@update state.copy(
-                    transientMessage = "Saldo insuficiente: necesitas EUR ${GameRules.BALL_ENTRY_COST.toInt()} para entrar."
-                )
-            }
-
-            val nextRoom = engine.createBallRoom()
-            val updatedStats = state.profile.stats.copy(
-                ballRoomsPlayed = state.profile.stats.ballRoomsPlayed + 1
-            )
-            state.copy(
-                activeTab = MainTab.BALL_ROOM,
-                market = state.market.copy(cashBalance = state.market.cashBalance - GameRules.BALL_ENTRY_COST),
-                ballRoom = nextRoom,
-                battle = BattleUiState(
-                    phase = BattlePhase.LOCKED,
-                    log = listOf("Completa el sorteo de bolas para desbloquear el Battle Royale.")
-                ),
-                profile = state.profile.copy(stats = updatedStats),
-                transientMessage = "Has entrado en la sala de bolas."
-            )
+        viewModelScope.launch {
+            val snapshot = _uiState.value
+            val result = repository.enterBallRoom(snapshot)
+            applyResult(result)
         }
     }
 
     fun pickBall(ballId: Int) {
-        _uiState.update { state ->
-            val (nextRoom, message) = engine.pickUserBall(state.ballRoom, ballId)
-            state.copy(ballRoom = nextRoom, transientMessage = message)
+        viewModelScope.launch {
+            val snapshot = _uiState.value
+            val matchId = snapshot.currentMatchId
+            if (matchId == null) {
+                _uiState.update { it.copy(transientMessage = "No hay sala activa") }
+                return@launch
+            }
+
+            val result = repository.pickBall(snapshot, matchId, ballId)
+            applyResult(result)
         }
     }
 
     fun revealBallMultipliers() {
-        _uiState.update { state ->
-            val (nextRoom, message) = engine.revealMultipliers(state.ballRoom)
-            val battle = if (nextRoom.phase == BallRoomPhase.REVEALED) {
-                engine.createBattle(nextRoom)
-            } else {
-                state.battle
+        viewModelScope.launch {
+            val snapshot = _uiState.value
+            val matchId = snapshot.currentMatchId
+            if (matchId == null) {
+                _uiState.update { it.copy(transientMessage = "No hay sala activa") }
+                return@launch
             }
 
-            val userMultiplier = nextRoom.players.firstOrNull { it.isUser }?.multiplier
-            val nextStats = if (userMultiplier != null) {
-                val total = state.profile.stats.totalMultiplierAccumulated + userMultiplier
-                val rounds = state.profile.stats.ballRoomsPlayed.coerceAtLeast(1)
-                state.profile.stats.copy(
-                    bestMultiplier = maxOf(state.profile.stats.bestMultiplier, userMultiplier),
-                    totalMultiplierAccumulated = total,
-                    averageMultiplier = total / rounds
-                )
-            } else {
-                state.profile.stats
-            }
-
-            state.copy(
-                ballRoom = nextRoom,
-                battle = battle,
-                activeTab = if (nextRoom.phase == BallRoomPhase.REVEALED) MainTab.BATTLE else state.activeTab,
-                profile = state.profile.copy(stats = nextStats),
-                transientMessage = message
-            )
+            val result = repository.revealMultipliers(snapshot, matchId)
+            applyResult(result)
         }
     }
 
@@ -141,64 +171,42 @@ class GameViewModel(
     }
 
     fun playBattleRound() {
-        _uiState.update { state ->
-            val (nextBattle, finishedMessage) = engine.playBattleRound(
-                battle = state.battle,
-                userAction = state.battle.selectedAction
-            )
-
-            var nextMarket = state.market
-            var impactApplied = false
-            var impactMessage: String? = finishedMessage
-
-            if (nextBattle.phase == BattlePhase.FINISHED && nextBattle.winnerId != null && !nextBattle.impactApplied) {
-                val multiplier = nextBattle.winningMultiplier ?: 1.0
-                nextMarket = engine.applyWinnerImpact(
-                    market = state.market,
-                    tokenId = state.market.selectedToken,
-                    multiplier = multiplier
-                )
-                impactApplied = true
-                impactMessage =
-                    "${nextBattle.winnerName} aplica x${engine.formatMultiplier(multiplier)} sobre ${state.market.selectedToken.name}."
+        viewModelScope.launch {
+            val snapshot = _uiState.value
+            val matchId = snapshot.currentMatchId
+            if (matchId == null) {
+                _uiState.update { it.copy(transientMessage = "No hay battle activa") }
+                return@launch
             }
 
-            val nextStats = if (nextBattle.phase == BattlePhase.FINISHED) {
-                val isUserWinner = nextBattle.winnerId == GameRules.USER_PLAYER_ID
-                state.profile.stats.copy(
-                    battlesPlayed = state.profile.stats.battlesPlayed + 1,
-                    battlesWon = state.profile.stats.battlesWon + if (isUserWinner) 1 else 0
-                )
-            } else {
-                state.profile.stats
-            }
-
-            state.copy(
-                market = nextMarket,
-                battle = nextBattle.copy(impactApplied = impactApplied || nextBattle.impactApplied),
-                profile = state.profile.copy(
-                    stats = nextStats,
-                    badges = recomputeBadges(nextStats)
-                ),
-                transientMessage = impactMessage
-            )
+            val result = repository.playBattleRound(snapshot, matchId)
+            applyResult(result)
         }
     }
 
     fun resetBattleAndRoom() {
-        _uiState.update { state ->
-            state.copy(
-                ballRoom = BallRoomUiState(
-                    phase = BallRoomPhase.WAITING_ENTRY,
-                    statusMessage = "Paga EUR ${GameRules.BALL_ENTRY_COST.toInt()} para entrar en la sala."
-                ),
-                battle = BattleUiState(
-                    phase = BattlePhase.LOCKED,
-                    log = listOf("Nuevo ciclo listo. Vuelve al sorteo de bolas.")
-                ),
-                activeTab = MainTab.BALL_ROOM,
-                transientMessage = "Battle cerrado. Preparate para una nueva sala."
-            )
+        viewModelScope.launch {
+            val snapshot = _uiState.value
+            val matchId = snapshot.currentMatchId
+            if (matchId != null) {
+                repository.closeMatch(matchId)
+            }
+
+            _uiState.update { state ->
+                state.copy(
+                    currentMatchId = null,
+                    ballRoom = BallRoomUiState(
+                        phase = BallRoomPhase.WAITING_ENTRY,
+                        statusMessage = "Paga EUR 10 para entrar en la sala."
+                    ),
+                    battle = BattleUiState(
+                        phase = BattlePhase.LOCKED,
+                        log = listOf("Nuevo ciclo listo. Vuelve al sorteo de bolas.")
+                    ),
+                    activeTab = MainTab.BALL_ROOM,
+                    transientMessage = "Battle cerrada. Preparado para una nueva sala."
+                )
+            }
         }
     }
 
@@ -209,20 +217,59 @@ class GameViewModel(
             return
         }
 
-        val rewardAmount = 25.0
-        _uiState.update { state ->
-            val stats = state.profile.stats.copy(
-                rewardedAdsClaimed = state.profile.stats.rewardedAdsClaimed + 1
-            )
-            state.copy(
-                market = state.market.copy(cashBalance = state.market.cashBalance + rewardAmount),
-                rewardedAvailable = false,
-                rewardedCooldownSec = 30,
-                profile = state.profile.copy(stats = stats, badges = recomputeBadges(stats)),
-                transientMessage = "Rewarded completado: +EUR ${rewardAmount.toInt()}."
-            )
+        viewModelScope.launch {
+            val snapshot = _uiState.value
+            val result = repository.claimRewarded(snapshot)
+            applyResult(result)
+            if (result.isSuccess) {
+                startRewardedCooldown()
+            }
         }
+    }
 
+    fun consumeTransientMessage() {
+        _uiState.update { it.copy(transientMessage = null) }
+    }
+
+    private fun bootstrap() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(transientMessage = "Cargando estado...") }
+            val result = repository.bootstrap(_uiState.value)
+            applyResult(result)
+            if (result.isSuccess) {
+                loadProfile()
+            }
+        }
+    }
+
+    private fun loadProfile() {
+        viewModelScope.launch {
+            val result = profileRepository.loadProfile(_uiState.value)
+            result.onSuccess { _uiState.value = it }
+            result.onFailure { error ->
+                _uiState.update { state ->
+                    state.copy(transientMessage = error.message ?: "No se pudo cargar el perfil")
+                }
+            }
+        }
+    }
+
+    private fun startPassiveRefresh() {
+        viewModelScope.launch {
+            while (isActive) {
+                delay(5000)
+                val current = _uiState.value
+                if (current.currentMatchId != null || current.activeTab == MainTab.DASHBOARD) {
+                    val result = repository.refreshMatch(current)
+                    result.onSuccess { newState ->
+                        _uiState.value = newState
+                    }
+                }
+            }
+        }
+    }
+
+    private fun startRewardedCooldown() {
         rewardedCooldownJob?.cancel()
         rewardedCooldownJob = viewModelScope.launch {
             while (isActive) {
@@ -239,89 +286,46 @@ class GameViewModel(
         }
     }
 
-    fun consumeTransientMessage() {
-        _uiState.update { it.copy(transientMessage = null) }
+    private fun applyResult(result: Result<GameUiState>) {
+        _uiState.update { current ->
+            result.fold(
+                onSuccess = { success -> success },
+                onFailure = { error -> current.copy(transientMessage = error.message ?: "Error de conexión") }
+            )
+        }
     }
 
     private fun initialState(): GameUiState {
-        val market = engine.createInitialMarketState()
         val stats = ProfileStats()
         return GameUiState(
             activeTab = MainTab.DASHBOARD,
-            market = market,
             ballRoom = BallRoomUiState(
                 phase = BallRoomPhase.WAITING_ENTRY,
-                statusMessage = "Paga EUR ${GameRules.BALL_ENTRY_COST.toInt()} para entrar en la sala."
+                statusMessage = "Paga EUR 10 para entrar en la sala."
             ),
             battle = BattleUiState(
                 phase = BattlePhase.LOCKED,
                 log = listOf("Completa primero el sorteo de bolas.")
             ),
-            profile = ProfileUiState(
+            profile = com.fichestu.frontend.game.model.ProfileUiState(
                 playerName = "Jugador",
                 badges = recomputeBadges(stats),
                 stats = stats
             ),
             rewardedAvailable = true,
             rewardedCooldownSec = 0,
-            transientMessage = "Mercado inicializado."
+            transientMessage = null
         )
-    }
-
-    private fun startClockAndMarketLoop() {
-        viewModelScope.launch {
-            while (isActive) {
-                delay(1000)
-                val now = System.currentTimeMillis()
-                _uiState.update { state ->
-                    var market = engine.updateMarketCountdown(state.market, now)
-                    val currentDay = engine.dayIndex(now)
-                    var message: String? = state.transientMessage
-
-                    if (market.lastResetDayIndex != currentDay) {
-                        market = engine.applyDailyReset(market, now)
-                        message = "Reset diario ejecutado: cartera liquidada y precios regenerados."
-                    }
-
-                    marketTickCounter += 1
-                    if (marketTickCounter % 5 == 0) {
-                        market = engine.simulateMarketTick(market)
-                    }
-
-                    state.copy(market = market, transientMessage = message)
-                }
-            }
-        }
     }
 
     private fun recomputeBadges(stats: ProfileStats): List<BadgeUi> {
         val winRate = if (stats.battlesPlayed == 0) 0.0 else stats.battlesWon.toDouble() / stats.battlesPlayed
         return listOf(
-            BadgeUi(
-                title = "Primer Knockout",
-                description = "Gana tu primera batalla.",
-                unlocked = stats.battlesWon >= 1
-            ),
-            BadgeUi(
-                title = "Sangre Fria",
-                description = "Consigue multiplicador x10 o superior.",
-                unlocked = stats.bestMultiplier >= 10.0
-            ),
-            BadgeUi(
-                title = "Trader Diario",
-                description = "Juega 5 salas de bolas.",
-                unlocked = stats.ballRoomsPlayed >= 5
-            ),
-            BadgeUi(
-                title = "Maestro Royale",
-                description = "Mantiene winrate del 50% con 6 batallas.",
-                unlocked = stats.battlesPlayed >= 6 && winRate >= 0.5
-            ),
-            BadgeUi(
-                title = "Bonus Hunter",
-                description = "Reclama 3 rewarded ads.",
-                unlocked = stats.rewardedAdsClaimed >= 3
-            )
+            BadgeUi("Primer Knockout", "Gana tu primera batalla.", stats.battlesWon >= 1),
+            BadgeUi("Sangre Fria", "Consigue multiplicador x10 o superior.", stats.bestMultiplier >= 10.0),
+            BadgeUi("Trader Diario", "Juega 5 salas de bolas.", stats.ballRoomsPlayed >= 5),
+            BadgeUi("Maestro Royale", "Mantiene winrate del 50% con 6 batallas.", stats.battlesPlayed >= 6 && winRate >= 0.5),
+            BadgeUi("Bonus Hunter", "Reclama 3 rewarded ads.", stats.rewardedAdsClaimed >= 3)
         )
     }
 }
