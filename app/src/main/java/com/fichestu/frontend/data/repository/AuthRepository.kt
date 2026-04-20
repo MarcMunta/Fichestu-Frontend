@@ -23,7 +23,9 @@ class AuthRepository {
             val response = ApiClient.authApi.login(
                 LoginRequest(email = email, password = password)
             )
-            parseResponse(response, "Login correcto")
+            val result = parseResponse(response, "Login correcto")
+            SessionStore.setAuth(result.token, email.substringBefore('@'))
+            result
         }
     }
 
@@ -44,7 +46,9 @@ class AuthRepository {
             // Se lo pasamos a la API
             val response = ApiClient.authApi.loginWithGoogle(request)
 
-            parseResponse(response, "Login con Google correcto")
+            val result = parseResponse(response, "Login con Google correcto")
+            SessionStore.setAuth(result.token, SessionStore.displayName())
+            result
         }
     }
 

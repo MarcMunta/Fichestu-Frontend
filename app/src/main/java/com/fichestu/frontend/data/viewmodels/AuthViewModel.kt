@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fichestu.frontend.BuildConfig
 import com.fichestu.frontend.data.repository.AuthRepository
+import com.fichestu.frontend.data.repository.SessionStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,6 +49,7 @@ class AuthViewModel(
     }
 
     fun logout() {
+        SessionStore.clear()
         _uiState.update {
             it.copy(
                 isAuthenticated = false,
@@ -69,10 +71,16 @@ class AuthViewModel(
             _uiState.update { current ->
                 result.fold(
                     onSuccess = { authResult ->
+                        val displayName = deriveDisplayName(
+                            username = current.username,
+                            email = current.email
+                        )
+                        SessionStore.setAuth(authResult.token, displayName)
                         current.copy(
                             isLoading = false,
                             isAuthenticated = true,
                             token = authResult.token.orEmpty(),
+                            displayName = displayName,
                             message = authResult.message
                         )
                     },
@@ -95,7 +103,6 @@ class AuthViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = "") }
 
-            // Fíjate que ya NO pasamos la baseUrl, el repositorio ya sabe dónde ir
             val result = if (state.isLoginMode) {
                 repository.login(
                     email = state.email.trim(),
@@ -113,15 +120,17 @@ class AuthViewModel(
                 result.fold(
                     onSuccess = { authResult ->
                         if (state.isLoginMode) {
+                            val displayName = deriveDisplayName(
+                                username = state.username,
+                                email = state.email
+                            )
+                            SessionStore.setAuth(authResult.token, displayName)
                             current.copy(
                                 isLoading = false,
                                 isAuthenticated = true,
                                 token = authResult.token.orEmpty(),
                                 password = "",
-                                displayName = deriveDisplayName(
-                                    username = state.username,
-                                    email = state.email
-                                ),
+                                displayName = displayName,
                                 message = authResult.message
                             )
                         } else {
