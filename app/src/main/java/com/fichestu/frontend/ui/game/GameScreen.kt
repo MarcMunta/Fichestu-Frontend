@@ -115,6 +115,12 @@ fun FichestuGameScreen(
         viewModel.initializePlayer(playerName)
     }
 
+    LaunchedEffect(uiState.isSessionExpired) {
+        if (uiState.isSessionExpired) {
+            onLogout()
+        }
+    }
+
     LaunchedEffect(uiState.transientMessage) {
         if (!uiState.transientMessage.isNullOrBlank()) {
             delay(2600)

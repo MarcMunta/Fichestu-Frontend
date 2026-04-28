@@ -160,5 +160,6 @@ data class GameUiState(
     val profile: ProfileUiState = ProfileUiState(),
     val rewardedAvailable: Boolean = true,
     val rewardedCooldownSec: Int = 0,
+    val isSessionExpired: Boolean = false,
     val transientMessage: String? = null
 )

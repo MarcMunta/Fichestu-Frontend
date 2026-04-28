@@ -39,14 +39,14 @@ class GameRepository {
     suspend fun bootstrap(currentState: GameUiState?): Result<GameUiState> = runSafely {
         val auth = requireAuth()
         val response = ApiClient.gameApi.bootstrap(auth)
-        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string())
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         mapBootstrap(dto, currentState)
     }
 
     suspend fun refreshMatch(currentState: GameUiState): Result<GameUiState> = runSafely {
         val auth = requireAuth()
         val response = ApiClient.gameApi.currentMatchState(auth)
-        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string())
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         currentState.copy(
             currentMatchId = dto.matchId,
             ballRoom = mapBallRoom(dto.ballRoom),
@@ -61,7 +61,7 @@ class GameRepository {
             authorization = requireAuth(),
             request = GameTradeRequest(token = selected.name, quantity = 1)
         )
-        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string())
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         currentState.copy(market = mapMarket(dto, selected), transientMessage = dto.message)
     }
 
@@ -71,13 +71,13 @@ class GameRepository {
             authorization = requireAuth(),
             request = GameTradeRequest(token = selected.name, quantity = 1)
         )
-        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string())
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         currentState.copy(market = mapMarket(dto, selected), transientMessage = dto.message)
     }
 
     suspend fun enterBallRoom(currentState: GameUiState): Result<GameUiState> = runSafely {
         val response = ApiClient.gameApi.enterBallRoom(requireAuth())
-        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string())
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         currentState.copy(
             currentMatchId = dto.matchId,
             activeTab = MainTab.BALL_ROOM,
@@ -91,7 +91,7 @@ class GameRepository {
 
     suspend fun pickBall(currentState: GameUiState, matchId: Int, ballId: Int): Result<GameUiState> = runSafely {
         val response = ApiClient.gameApi.pickBall(requireAuth(), matchId, PickBallRequestDto(ballId))
-        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string())
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         currentState.copy(
             currentMatchId = dto.matchId,
             ballRoom = mapBallRoom(dto.ballRoom),
@@ -102,7 +102,7 @@ class GameRepository {
 
     suspend fun revealMultipliers(currentState: GameUiState, matchId: Int): Result<GameUiState> = runSafely {
         val response = ApiClient.gameApi.revealMultipliers(requireAuth(), matchId)
-        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string())
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
 
         val me = dto.ballRoom.players.firstOrNull { it.isUser }
         val stats = if (me?.multiplier != null) {
@@ -137,7 +137,7 @@ class GameRepository {
                 selectedToken = currentState.market.selectedToken.name
             )
         )
-        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string())
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
 
         val nextBattle = mapBattle(dto.battle).copy(selectedAction = selectedAction)
         val nextStats = if (nextBattle.phase == BattlePhase.FINISHED) {
@@ -161,7 +161,7 @@ class GameRepository {
 
     suspend fun claimRewarded(currentState: GameUiState): Result<GameUiState> = runSafely {
         val response = ApiClient.gameApi.claimRewarded(requireAuth())
-        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string())
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         val stats = currentState.profile.stats.copy(rewardedAdsClaimed = dto.rewardedAdsClaimed)
 
         currentState.copy(
@@ -175,6 +175,10 @@ class GameRepository {
 
     suspend fun closeMatch(matchId: Int): Result<Unit> = runSafely {
         val response = ApiClient.gameApi.closeMatch(requireAuth(), matchId)
+        if (response.code() == 401 || response.code() == 403) {
+            SessionStore.clear()
+            throw SessionExpiredException()
+        }
         if (!response.isSuccessful) {
             throw Exception(extractMessage(response.errorBody()?.string()) ?: "No se pudo cerrar el match")
         }
@@ -331,10 +335,14 @@ class GameRepository {
     }
 
     private fun requireAuth(): String {
-        return SessionStore.authHeaderOrNull() ?: throw Exception("Sesion no iniciada")
+        return SessionStore.authHeaderOrNull() ?: throw SessionExpiredException()
     }
 
-    private fun <T> parseResponse(success: Boolean, body: T?, errorRaw: String?): T {
+    private fun <T> parseResponse(success: Boolean, body: T?, errorRaw: String?, code: Int): T {
+        if (code == 401 || code == 403) {
+            SessionStore.clear()
+            throw SessionExpiredException()
+        }
         if (success && body != null) return body
         throw Exception(extractMessage(errorRaw) ?: "Error de servidor")
     }
