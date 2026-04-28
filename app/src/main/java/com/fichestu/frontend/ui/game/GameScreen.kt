@@ -195,6 +195,7 @@ fun FichestuGameScreen(
                             onUsernameChange = viewModel::updateProfileUsername,
                             onEmailChange = viewModel::updateProfileEmail,
                             onSaveProfile = viewModel::saveProfile,
+                            onCurrentPasswordChange = viewModel::updateCurrentPassword,
                             onNewPasswordChange = viewModel::updateNewPassword,
                             onConfirmPasswordChange = viewModel::updateConfirmPassword,
                             onChangePassword = viewModel::changePassword,
@@ -1084,6 +1085,7 @@ private fun ProfileTab(
     onUsernameChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
     onSaveProfile: () -> Unit,
+    onCurrentPasswordChange: (String) -> Unit,
     onNewPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
     onChangePassword: () -> Unit,
@@ -1204,6 +1206,15 @@ private fun ProfileTab(
                         color = Gold,
                         fontWeight = FontWeight.Bold
                     )
+                )
+                Spacer(Modifier.height(8.dp))
+                ArcadeTextField(
+                    value = profile.currentPassword,
+                    label = "Contrasena actual (si tienes una)",
+                    leading = Icons.Default.Lock,
+                    keyboardType = KeyboardType.Password,
+                    isPassword = true,
+                    onValueChange = onCurrentPasswordChange
                 )
                 Spacer(Modifier.height(8.dp))
                 ArcadeTextField(
