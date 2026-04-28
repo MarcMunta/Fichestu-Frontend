@@ -6,6 +6,7 @@ enum class MainTab {
     DASHBOARD,
     BALL_ROOM,
     BATTLE,
+    MINIGAMES,
     PROFILE
 }
 

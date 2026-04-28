@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Adaptive safe zone is center 66x66 of the 108 viewport. -->
+    <!-- Drop-shadow F (dark navy, offset 2 down) -->
+    <group android:translateX="0" android:translateY="2">
+        <path
+            android:fillColor="#FF1D3557"
+            android:pathData="M38,30 L74,30 A2,2 0 0 1 76,32 L76,40 A2,2 0 0 1 74,42 L48,42 L48,52 L68,52 A2,2 0 0 1 70,54 L70,62 A2,2 0 0 1 68,64 L48,64 L48,76 A2,2 0 0 1 46,78 L40,78 A2,2 0 0 1 38,76 Z" />
+    </group>
+
+    <!-- Main F (gold) -->
+    <path
+        android:fillColor="#FFFFD700"
+        android:pathData="M38,30 L74,30 A2,2 0 0 1 76,32 L76,40 A2,2 0 0 1 74,42 L48,42 L48,52 L68,52 A2,2 0 0 1 70,54 L70,62 A2,2 0 0 1 68,64 L48,64 L48,76 A2,2 0 0 1 46,78 L40,78 A2,2 0 0 1 38,76 Z" />
+
+    <!-- Highlight gleam (light gold) -->
+    <path
+        android:fillColor="#80FFE54C"
+        android:pathData="M40,30 L48,30 L48,42 L40,42 Z" />
+
+    <!-- Top decorative chip (red) -->
+    <path
+        android:fillColor="#FFE63946"
+        android:pathData="M70,24 m-4,0 a4,4 0 1 0 8,0 a4,4 0 1 0 -8,0" />
+
+    <!-- Bottom decorative chip (gold ring) -->
+    <path
+        android:fillColor="#FFFFD700"
+        android:pathData="M40,82 m-3,0 a3,3 0 1 0 6,0 a3,3 0 1 0 -6,0" />
+</vector>

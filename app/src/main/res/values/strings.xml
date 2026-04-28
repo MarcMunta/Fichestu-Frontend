@@ -2,35 +2,111 @@
     <string name="app_name">Fichestu Frontend</string>
 
     <string name="auth_title">FICHESTU</string>
-    <string name="auth_subtitle">MINIGAMES • STRATEGY</string>
+    <string name="auth_subtitle">MINIGAMES - STRATEGY</string>
     <string name="auth_tab_login">LOGIN</string>
     <string name="auth_tab_register">REGISTRO</string>
-
     <string name="auth_label_user">Usuario</string>
     <string name="auth_label_email">Email</string>
-    <string name="auth_label_password">Contraseña</string>
-    <string name="auth_label_confirm_password">Confirmar contraseña</string>
-
-    <string name="auth_forgot_password">¿Olvidaste la contraseña?</string>
+    <string name="auth_label_password">Contrasena</string>
+    <string name="auth_label_confirm_password">Confirmar contrasena</string>
+    <string name="auth_forgot_password">Olvidaste la contrasena?</string>
     <string name="auth_btn_login">ENTRAR</string>
     <string name="auth_btn_register">REGISTRARME</string>
     <string name="auth_processing">PROCESANDO...</string>
-    <string name="auth_terms">Acepto los Términos y Condiciones</string>
-    <string name="auth_already_have_account">¿Ya tienes cuenta? Entrar</string>
+    <string name="auth_terms">Acepto los Terminos y Condiciones</string>
+    <string name="auth_already_have_account">Ya tienes cuenta? Entrar</string>
+    <string name="auth_welcome_back">Bienvenido de nuevo!</string>
+    <string name="auth_btn_logout">CERRAR SESION</string>
 
     <string name="forgot_title">RECUPERAR ACCESO</string>
     <string name="forgot_back">Volver</string>
-    <string name="forgot_header">¿Olvidaste tu contraseña?</string>
+    <string name="forgot_header">Olvidaste tu contrasena?</string>
     <string name="forgot_description">Introduce tu email y te enviaremos un enlace para restablecerla.</string>
     <string name="forgot_label_email">Email</string>
     <string name="forgot_btn_send">ENVIAR ENLACE</string>
-    <string name="forgot_success_title">¡Enlace enviado!</string>
+    <string name="forgot_success_title">Enlace enviado!</string>
     <string name="forgot_success_desc">Hemos enviado un correo a %1$s con los pasos a seguir.</string>
     <string name="forgot_btn_back_login">VOLVER AL LOGIN</string>
 
-    <string name="auth_welcome_back">¡Bienvenido de nuevo!</string>
-    <string name="auth_btn_logout">CERRAR SESIÓN</string>
     <string name="error_keyword_1">error</string>
     <string name="error_keyword_2">fallo</string>
-    <string name="error_keyword_3">inválido</string>
+    <string name="error_keyword_3">invalido</string>
+
+    <string name="nav_market">Mercado</string>
+    <string name="nav_balls">Bolas</string>
+    <string name="nav_battle">Battle</string>
+    <string name="nav_minigames">Mini</string>
+    <string name="nav_profile">Perfil</string>
+
+    <string name="mini_title_upper">MINIJUEGOS</string>
+    <string name="mini_tag_arcade">ARCADE</string>
+    <string name="mini_tag_arcade_room">ARCADE ROOM</string>
+    <string name="mini_balance_label">S</string>
+    <string name="mini_back">&lt; VOLVER</string>
+
+    <string name="mini_slots_title">Crypto Slots</string>
+    <string name="mini_slots_tag">JACKPOT</string>
+    <string name="mini_slots_top_tag">JACKPOT ROOM</string>
+    <string name="mini_slots_description">3 rodillos, jackpot, apuesta rapida</string>
+    <string name="mini_slots_jackpot">JACKPOT</string>
+    <string name="mini_slots_jackpot_value">EUR 12,450</string>
+    <string name="mini_slots_spinning">GIRANDO...</string>
+    <string name="mini_slots_spin">SPIN - %1$d</string>
+    <string name="mini_slots_win">+%1$d F</string>
+    <string name="mini_slots_loss">%1$d F</string>
+    <string name="mini_slots_msg_win">Slots: premio +%1$d.</string>
+    <string name="mini_slots_msg_loss">Slots: perdida %1$d.</string>
+    <string name="mini_msg_insufficient_bet">Saldo insuficiente para apostar EUR %1$d.</string>
+
+    <string name="mini_crash_title">Crash</string>
+    <string name="mini_crash_tag">HIGH STAKES</string>
+    <string name="mini_crash_description">curva en subida, cash out a tiempo</string>
+    <string name="mini_crash_bust">BUST</string>
+    <string name="mini_crash_new_round">NUEVA RONDA</string>
+    <string name="mini_crash_cash_out">CASH OUT - EUR %1$d</string>
+    <string name="mini_crash_start">INICIAR - EUR %1$d</string>
+    <string name="mini_crash_msg_bust">Crash: bust, -EUR %1$d.</string>
+    <string name="mini_crash_msg_cash_out">Crash: cash out +EUR %1$d.</string>
+    <string name="mini_crash_msg_insufficient">Saldo insuficiente para Crash.</string>
+
+    <string name="mini_coin_title">Coin Flip</string>
+    <string name="mini_coin_tag">1 V 1</string>
+    <string name="mini_coin_top_tag">1 V 1 DUEL</string>
+    <string name="mini_coin_description">cara o cruz, duelo x2</string>
+    <string name="mini_coin_you">TU</string>
+    <string name="mini_coin_you_initials">TU</string>
+    <string name="mini_coin_opponent">LIA</string>
+    <string name="mini_coin_opponent_initials">LI</string>
+    <string name="mini_coin_vs">VS</string>
+    <string name="mini_coin_heads_button">CARA - 100</string>
+    <string name="mini_coin_tails_button">CRUZ - 100</string>
+    <string name="mini_coin_winner">WINNER</string>
+    <string name="mini_coin_win">GANASTE +200 F</string>
+    <string name="mini_coin_loss">PERDIDA -100 F</string>
+    <string name="mini_coin_msg_win">Coin Flip: +EUR 200.</string>
+    <string name="mini_coin_msg_loss">Coin Flip: -EUR %1$d.</string>
+    <string name="mini_coin_msg_insufficient">Saldo insuficiente para Coin Flip.</string>
+
+    <string name="mini_dice_title">Dice Royale</string>
+    <string name="mini_dice_tag">OVER / UNDER</string>
+    <string name="mini_dice_top_tag">OVER / UNDER 7</string>
+    <string name="mini_dice_description">2 dados, under 7, lucky 7, over 7</string>
+    <string name="mini_dice_sum">SUMA</string>
+    <string name="mini_dice_tie">EMPATE - RE-ROLL</string>
+    <string name="mini_dice_win">GANASTE +%1$d F</string>
+    <string name="mini_dice_loss">PERDIDA -100 F</string>
+    <string name="mini_dice_under">UNDER 7</string>
+    <string name="mini_dice_under_desc">2-6</string>
+    <string name="mini_dice_lucky">LUCKY 7</string>
+    <string name="mini_dice_lucky_desc">exacto</string>
+    <string name="mini_dice_over">OVER 7</string>
+    <string name="mini_dice_over_desc">8-12</string>
+    <string name="mini_dice_multiplier_18">x1.8</string>
+    <string name="mini_dice_multiplier_60">x6.0</string>
+    <string name="mini_dice_rolling">TIRANDO...</string>
+    <string name="mini_dice_roll">TIRAR - 100</string>
+    <string name="mini_dice_msg_win">Dice Royale: +EUR %1$d.</string>
+    <string name="mini_dice_msg_loss">Dice Royale: -EUR %1$d.</string>
+    <string name="mini_dice_msg_tie">Dice Royale: empate, sin cambio.</string>
+    <string name="mini_dice_msg_insufficient">Saldo insuficiente para Dice Royale.</string>
 </resources>

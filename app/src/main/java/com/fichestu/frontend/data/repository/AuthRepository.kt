@@ -7,13 +7,8 @@ import com.fichestu.frontend.data.model.GoogleLoginRequest
 import com.fichestu.frontend.data.model.LoginRequest
 import com.fichestu.frontend.data.model.RegisterRequest
 import com.fichestu.frontend.data.remote.ApiClient
-import com.fichestu.frontend.data.remote.AuthApi
 import com.google.gson.Gson
 import java.io.IOException
-import java.net.ConnectException
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import retrofit2.Response
 
 class AuthRepository {
@@ -38,14 +33,11 @@ class AuthRepository {
         }
     }
 
-    // Funcion Google
     suspend fun loginWithGoogle(idToken: String): Result<AuthResult> {
         return runSafely {
-            val request = GoogleLoginRequest(idToken = idToken)
-
-            // Se lo pasamos a la API
-            val response = ApiClient.authApi.loginWithGoogle(request)
-
+            val response = ApiClient.authApi.loginWithGoogle(
+                GoogleLoginRequest(idToken = idToken)
+            )
             val result = parseResponse(response, "Login con Google correcto")
             SessionStore.setAuth(result.token, SessionStore.displayName())
             result
@@ -62,33 +54,29 @@ class AuthRepository {
                 message = body?.message ?: defaultMessage,
                 token = body?.token
             )
-        } else {
-            val rawError = response.errorBody()?.string()
-
-            val messageFromServer = runCatching {
-                com.google.gson.JsonParser.parseString(rawError)
-                    .asJsonObject
-                    .get("message")?.asString
-            }.getOrNull()
-
-            val finalError = when {
-                !messageFromServer.isNullOrBlank() -> messageFromServer
-                response.code() == 409 -> "El usuario o email ya está registrado"
-                response.code() == 401 -> "Credenciales incorrectas"
-                else -> "Error en el servidor (${response.code()})"
-            }
-
-            throw Exception(finalError)
         }
+
+        val rawError = response.errorBody()?.string()
+        val apiError = runCatching {
+            Gson().fromJson(rawError, ApiErrorResponse::class.java)
+        }.getOrNull()
+        val finalError = when {
+            !apiError?.message.isNullOrBlank() -> apiError?.message
+            response.code() == 409 -> "El usuario o email ya esta registrado"
+            response.code() == 401 -> "Credenciales incorrectas"
+            else -> "Error en el servidor (${response.code()})"
+        }
+
+        throw Exception(finalError)
     }
 
     private suspend fun runSafely(block: suspend () -> AuthResult): Result<AuthResult> {
         return try {
             Result.success(block())
-        } catch (e: IOException) {
-            Result.failure(Exception("Error de red: Verifica tu conexión o si el servidor está activo."))
-        } catch (e: Exception) {
-            Result.failure(e)
+        } catch (error: IOException) {
+            Result.failure(Exception("Error de red: verifica conexion o servidor."))
+        } catch (error: Exception) {
+            Result.failure(error)
         }
     }
 }

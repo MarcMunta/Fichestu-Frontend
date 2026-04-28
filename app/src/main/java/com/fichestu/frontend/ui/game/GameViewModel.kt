@@ -128,6 +128,17 @@ class GameViewModel(
         }
     }
 
+    fun applyMinigameResult(deltaCash: Double, message: String) {
+        _uiState.update { state ->
+            state.copy(
+                market = state.market.copy(
+                    cashBalance = (state.market.cashBalance + deltaCash).coerceAtLeast(0.0)
+                ),
+                transientMessage = message
+            )
+        }
+    }
+
     fun enterBallRoom() {
         viewModelScope.launch {
             val snapshot = _uiState.value

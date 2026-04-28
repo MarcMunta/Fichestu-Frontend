@@ -8,7 +8,9 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
-    private const val BASE_URL = "http://10.0.2.2:8080/"
+    // Backend Fichestu en Docker, host alcanzable via Radmin VPN.
+    // Cambia AQUI si el host/puerto cambian. Emulador local: "http://10.0.2.2:8080/".
+    private const val BASE_URL = "http://26.226.245.83:8080/"
     private val retrofit: Retrofit by lazy {
 
         val logging = HttpLoggingInterceptor().apply {

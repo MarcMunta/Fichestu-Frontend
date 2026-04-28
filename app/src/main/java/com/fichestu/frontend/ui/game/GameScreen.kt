@@ -64,6 +64,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -73,6 +74,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.fichestu.frontend.R
 import com.fichestu.frontend.game.GameRules
 import com.fichestu.frontend.game.engine.GameEngine
 import com.fichestu.frontend.game.model.BallOption
@@ -166,7 +168,7 @@ fun FichestuGameScreen(
                             onClaimRewarded = viewModel::claimRewardedAd
                         )
 
-                        MainTab.BALL_ROOM -> BallRoomTab(
+                        MainTab.BALL_ROOM -> BallRoomFlow(
                             ballRoom = uiState.ballRoom,
                             cashBalance = uiState.market.cashBalance,
                             onEnterRoom = viewModel::enterBallRoom,
@@ -175,12 +177,17 @@ fun FichestuGameScreen(
                             onOpenBattle = { viewModel.selectTab(MainTab.BATTLE) }
                         )
 
-                        MainTab.BATTLE -> BattleTab(
+                        MainTab.BATTLE -> BattleFlow(
                             battle = uiState.battle,
-                            selectedTokenId = uiState.market.selectedToken,
+                            market = uiState.market,
                             onSelectAction = viewModel::chooseBattleAction,
                             onPlayRound = viewModel::playBattleRound,
                             onResetCycle = viewModel::resetBattleAndRoom
+                        )
+
+                        MainTab.MINIGAMES -> MinigamesTab(
+                            cashBalance = uiState.market.cashBalance,
+                            onResult = viewModel::applyMinigameResult
                         )
 
                         MainTab.PROFILE -> ProfileTab(
@@ -1282,10 +1289,11 @@ private fun BottomGameNav(
     onSelect: (MainTab) -> Unit
 ) {
     val items = listOf(
-        BottomItem(MainTab.DASHBOARD, "Mercado", Icons.Default.Home),
-        BottomItem(MainTab.BALL_ROOM, "Bolas", Icons.Default.Casino),
-        BottomItem(MainTab.BATTLE, "Battle", Icons.Default.SportsEsports),
-        BottomItem(MainTab.PROFILE, "Perfil", Icons.Default.Person)
+        BottomItem(MainTab.DASHBOARD, stringResource(R.string.nav_market), Icons.Default.Home),
+        BottomItem(MainTab.BALL_ROOM, stringResource(R.string.nav_balls), Icons.Default.Casino),
+        BottomItem(MainTab.BATTLE, stringResource(R.string.nav_battle), Icons.Default.SportsEsports),
+        BottomItem(MainTab.MINIGAMES, stringResource(R.string.nav_minigames), Icons.Default.PlayArrow),
+        BottomItem(MainTab.PROFILE, stringResource(R.string.nav_profile), Icons.Default.Person)
     )
 
     ArcadePanel(contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)) {
