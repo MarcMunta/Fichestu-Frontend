@@ -12,7 +12,7 @@ class ProfileRepository {
 
     suspend fun loadProfile(currentState: GameUiState): Result<GameUiState> = runSafely {
         val response = ApiClient.profileApi.getProfile(requireAuth())
-        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string())
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         currentState.copy(
             profile = currentState.profile.copy(
                 playerName = dto.username,
@@ -36,7 +36,7 @@ class ProfileRepository {
                 email = profile.editEmail.trim()
             )
         )
-        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string())
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         currentState.copy(
             profile = mapProfile(currentState.profile, dto).copy(isSavingProfile = false),
             transientMessage = dto.message
@@ -56,6 +56,11 @@ class ProfileRepository {
                 confirmPassword = profile.confirmPassword
             )
         )
+
+        if (response.code() == 401 || response.code() == 403) {
+            SessionStore.clear()
+            throw SessionExpiredException()
+        }
 
         if (!response.isSuccessful) {
             throw Exception(extractMessage(response.errorBody()?.string()) ?: "No se pudo cambiar la contraseña")
@@ -84,10 +89,14 @@ class ProfileRepository {
     }
 
     private fun requireAuth(): String {
-        return SessionStore.authHeaderOrNull() ?: throw Exception("Sesion no iniciada")
+        return SessionStore.authHeaderOrNull() ?: throw SessionExpiredException()
     }
 
-    private fun <T> parseResponse(success: Boolean, body: T?, errorRaw: String?): T {
+    private fun <T> parseResponse(success: Boolean, body: T?, errorRaw: String?, code: Int): T {
+        if (code == 401 || code == 403) {
+            SessionStore.clear()
+            throw SessionExpiredException()
+        }
         if (success && body != null) return body
         throw Exception(extractMessage(errorRaw) ?: "Error de servidor")
     }

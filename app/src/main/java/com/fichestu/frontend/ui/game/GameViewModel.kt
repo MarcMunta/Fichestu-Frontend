@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fichestu.frontend.data.repository.GameRepository
 import com.fichestu.frontend.data.repository.ProfileRepository
+import com.fichestu.frontend.data.repository.SessionExpiredException
 import com.fichestu.frontend.game.model.BadgeUi
 import com.fichestu.frontend.game.model.BallRoomPhase
 import com.fichestu.frontend.game.model.BallRoomUiState
@@ -264,6 +265,10 @@ class GameViewModel(
             val result = profileRepository.loadProfile(_uiState.value)
             result.onSuccess { _uiState.value = it }
             result.onFailure { error ->
+                if (error is SessionExpiredException) {
+                    expireSession(error)
+                    return@onFailure
+                }
                 _uiState.update { state ->
                     state.copy(transientMessage = error.message ?: "No se pudo cargar el perfil")
                 }
@@ -375,7 +380,25 @@ class GameViewModel(
         _uiState.update { current ->
             result.fold(
                 onSuccess = { success -> success },
-                onFailure = { error -> current.copy(transientMessage = error.message ?: "Error de conexión") }
+                onFailure = { error ->
+                    if (error is SessionExpiredException) {
+                        current.copy(
+                            isSessionExpired = true,
+                            transientMessage = error.message
+                        )
+                    } else {
+                        current.copy(transientMessage = error.message ?: "Error de conexión")
+                    }
+                }
+            )
+        }
+    }
+
+    private fun expireSession(error: SessionExpiredException) {
+        _uiState.update { state ->
+            state.copy(
+                isSessionExpired = true,
+                transientMessage = error.message
             )
         }
     }
