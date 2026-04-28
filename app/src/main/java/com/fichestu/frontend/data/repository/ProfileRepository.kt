@@ -52,6 +52,7 @@ class ProfileRepository {
         val response = ApiClient.profileApi.changePassword(
             authorization = requireAuth(),
             request = ChangePasswordRequestDto(
+                currentPassword = profile.currentPassword.trim().takeIf { it.isNotBlank() },
                 newPassword = profile.newPassword,
                 confirmPassword = profile.confirmPassword
             )
@@ -63,6 +64,7 @@ class ProfileRepository {
 
         currentState.copy(
             profile = currentState.profile.copy(
+                currentPassword = "",
                 newPassword = "",
                 confirmPassword = "",
                 isSavingPassword = false

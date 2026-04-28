@@ -62,6 +62,12 @@ class GameViewModel(
         }
     }
 
+    fun updateCurrentPassword(value: String) {
+        _uiState.update { state ->
+            state.copy(profile = state.profile.copy(currentPassword = value))
+        }
+    }
+
     fun updateNewPassword(value: String) {
         _uiState.update { state ->
             state.copy(profile = state.profile.copy(newPassword = value))

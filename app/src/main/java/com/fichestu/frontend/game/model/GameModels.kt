@@ -142,6 +142,7 @@ data class ProfileUiState(
     val profilePicUrl: String? = null,
     val editUsername: String = "",
     val editEmail: String = "",
+    val currentPassword: String = "",
     val newPassword: String = "",
     val confirmPassword: String = "",
     val isSavingProfile: Boolean = false,

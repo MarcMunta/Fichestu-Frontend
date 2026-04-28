@@ -15,6 +15,7 @@ data class UpdateProfileRequestDto(
 )
 
 data class ChangePasswordRequestDto(
+    val currentPassword: String? = null,
     val newPassword: String,
     val confirmPassword: String
 )
