@@ -208,10 +208,18 @@ fun LobbyView(
     modifier: Modifier = Modifier
 ) {
     var countdown by remember { mutableIntStateOf(12) }
+    var autoTriggered by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         while (true) {
             delay(1000)
-            countdown = if (countdown > 0) countdown - 1 else 12
+            countdown -= 1
+            if (countdown <= 0) {
+                if (!autoTriggered && cashBalance >= GameRules.BALL_ENTRY_COST) {
+                    autoTriggered = true
+                    onEnterRoom()
+                }
+                countdown = 12
+            }
         }
     }
 

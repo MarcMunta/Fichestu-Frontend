@@ -18,6 +18,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -31,10 +33,14 @@ class GameViewModel(
     val uiState: StateFlow<GameUiState> = _uiState.asStateFlow()
 
     private var rewardedCooldownJob: Job? = null
+    private var autoPickJob: Job? = null
+    private var autoRevealJob: Job? = null
+    private var autoBattleJob: Job? = null
 
     init {
         bootstrap()
         startPassiveRefresh()
+        startAutoFlow()
     }
 
     fun initializePlayer(name: String) {
@@ -262,6 +268,74 @@ class GameViewModel(
                     state.copy(transientMessage = error.message ?: "No se pudo cargar el perfil")
                 }
             }
+        }
+    }
+
+    /**
+     * Auto-flow: hace que las pantallas avancen solas cuando termina la fase.
+     * - PICKING: si el usuario no elige bola en 20s, se auto-elige una al azar.
+     * - canRevealBattle (todos eligieron): tras 2s, auto-revela multiplicadores.
+     * - REVEALED: tras 5s, salta automáticamente al tab BATTLE.
+     */
+    private fun startAutoFlow() {
+        // Watch BallRoom.phase transitions
+        viewModelScope.launch {
+            uiState
+                .map { it.ballRoom.phase }
+                .distinctUntilChanged()
+                .collect { phase ->
+                    autoPickJob?.cancel()
+                    autoBattleJob?.cancel()
+
+                    when (phase) {
+                        BallRoomPhase.PICKING -> {
+                            autoPickJob = viewModelScope.launch {
+                                delay(20_000)
+                                val now = uiState.value
+                                val userPicked = now.ballRoom.players
+                                    .firstOrNull { it.isUser }?.selectedBallId != null
+                                if (now.ballRoom.phase == BallRoomPhase.PICKING && !userPicked) {
+                                    val available = now.ballRoom.balls.filter { !it.isPicked }
+                                    if (available.isNotEmpty()) {
+                                        pickBall(available.random().id)
+                                    }
+                                }
+                            }
+                        }
+                        BallRoomPhase.REVEALED -> {
+                            autoBattleJob = viewModelScope.launch {
+                                delay(5_000)
+                                if (uiState.value.ballRoom.phase == BallRoomPhase.REVEALED) {
+                                    selectTab(MainTab.BATTLE)
+                                }
+                            }
+                        }
+                        else -> Unit
+                    }
+                }
+        }
+
+        // Watch canRevealBattle to auto-reveal once everyone has picked
+        viewModelScope.launch {
+            uiState
+                .map {
+                    it.ballRoom.canRevealBattle && it.ballRoom.phase == BallRoomPhase.PICKING
+                }
+                .distinctUntilChanged()
+                .collect { ready ->
+                    autoRevealJob?.cancel()
+                    if (ready) {
+                        autoRevealJob = viewModelScope.launch {
+                            delay(2_000)
+                            val now = uiState.value
+                            if (now.ballRoom.canRevealBattle &&
+                                now.ballRoom.phase == BallRoomPhase.PICKING
+                            ) {
+                                revealBallMultipliers()
+                            }
+                        }
+                    }
+                }
         }
     }
 
