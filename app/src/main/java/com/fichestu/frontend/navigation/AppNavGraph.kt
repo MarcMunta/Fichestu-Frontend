@@ -12,7 +12,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.compose.runtime.remember
-import androidx.navigation.NavGraph.Companion.findStartDestination
+import com.fichestu.frontend.data.repository.SessionStore
 import com.fichestu.frontend.data.viewmodels.AuthViewModel
 import com.fichestu.frontend.views.AuthScreen
 import com.fichestu.frontend.views.ForgotPasswordScreen
@@ -72,8 +72,9 @@ fun AppNavGraph() {
             FichestuGameScreen(
                 playerName = playerName,
                 onLogout = {
+                    SessionStore.clear()
                     navController.navigate(AppRoute.AUTH) {
-                        popUpTo(navController.graph.findStartDestination().id) {
+                        popUpTo(AppRoute.GAME) {
                             inclusive = true
                         }
                         launchSingleTop = true
