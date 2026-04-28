@@ -30,6 +30,15 @@ data class AuthResult(
     val token: String? = null
 )
 
+data class SessionResponse(
+    val message: String? = null,
+    val success: Boolean? = null,
+    val userId: Int? = null,
+    val username: String? = null,
+    val email: String? = null,
+    val role: String? = null
+)
+
 data class GoogleLoginRequest(
     val idToken: String
 )

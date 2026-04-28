@@ -6,6 +6,7 @@ import com.fichestu.frontend.data.model.AuthResult
 import com.fichestu.frontend.data.model.GoogleLoginRequest
 import com.fichestu.frontend.data.model.LoginRequest
 import com.fichestu.frontend.data.model.RegisterRequest
+import com.fichestu.frontend.data.model.SessionResponse
 import com.fichestu.frontend.data.remote.ApiClient
 import com.google.gson.Gson
 import java.io.IOException
@@ -41,6 +42,23 @@ class AuthRepository {
             val result = parseResponse(response, "Login con Google correcto")
             SessionStore.setAuth(result.token, SessionStore.displayName())
             result
+        }
+    }
+
+    suspend fun validateSession(): Result<SessionResponse> {
+        return try {
+            val auth = SessionStore.authHeaderOrNull()
+                ?: return Result.failure(Exception("Sesion no iniciada"))
+            val response = ApiClient.authApi.me(auth)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("No se pudo validar la sesion (${response.code()})"))
+            }
+        } catch (error: IOException) {
+            Result.failure(Exception("Error de red: verifica conexion o servidor."))
+        } catch (error: Exception) {
+            Result.failure(error)
         }
     }
 
