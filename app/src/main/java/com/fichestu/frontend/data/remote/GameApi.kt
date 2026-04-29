@@ -22,22 +22,16 @@ interface GameApi {
         @Header("Authorization") authorization: String
     ): Response<GameBootstrapResponse>
 
+    @GET("api/games/ball-room/{matchId}")
+    suspend fun matchState(
+        @Header("Authorization") authorization: String,
+        @Path("matchId") matchId: Int
+    ): Response<MatchStateResponseDto>
+
     @GET("api/game/match/state")
     suspend fun currentMatchState(
         @Header("Authorization") authorization: String
     ): Response<MatchStateResponseDto>
-
-    @POST("api/game/market/buy")
-    suspend fun buy(
-        @Header("Authorization") authorization: String,
-        @Body request: GameTradeRequest
-    ): Response<WalletResponseDto>
-
-    @POST("api/game/market/sell")
-    suspend fun sell(
-        @Header("Authorization") authorization: String,
-        @Body request: GameTradeRequest
-    ): Response<WalletResponseDto>
 
     @POST("api/game/ball-room/enter")
     suspend fun enterBallRoom(
@@ -58,10 +52,16 @@ interface GameApi {
     ): Response<MatchStateResponseDto>
 
     @POST("api/game/matches/{matchId}/battle/round")
-    suspend fun playBattleRound(
+    suspend fun submitBattleAction(
         @Header("Authorization") authorization: String,
         @Path("matchId") matchId: Int,
         @Body request: BattleRoundRequestDto
+    ): Response<MatchStateResponseDto>
+
+    @POST("api/games/battle/{matchId}/resolve-round")
+    suspend fun resolveBattleRound(
+        @Header("Authorization") authorization: String,
+        @Path("matchId") matchId: Int
     ): Response<MatchStateResponseDto>
 
     @POST("api/game/matches/{matchId}/close")
@@ -70,8 +70,4 @@ interface GameApi {
         @Path("matchId") matchId: Int
     ): Response<GenericMessageResponseDto>
 
-    @POST("api/game/rewarded/claim")
-    suspend fun claimRewarded(
-        @Header("Authorization") authorization: String
-    ): Response<CooldownResponseDto>
 }

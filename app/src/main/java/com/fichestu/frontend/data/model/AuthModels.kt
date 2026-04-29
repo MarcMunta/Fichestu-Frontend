@@ -36,7 +36,9 @@ data class SessionResponse(
     val userId: Int? = null,
     val username: String? = null,
     val email: String? = null,
-    val role: String? = null
+    val role: String? = null,
+    val fiatBalance: Double? = null,
+    val createdAt: String? = null
 )
 
 data class GoogleLoginRequest(
