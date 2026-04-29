@@ -34,8 +34,6 @@ class GameViewModel(
     val uiState: StateFlow<GameUiState> = _uiState.asStateFlow()
 
     private var rewardedCooldownJob: Job? = null
-    private var autoPickJob: Job? = null
-    private var autoRevealJob: Job? = null
     private var autoBattleJob: Job? = null
 
     init {
@@ -161,11 +159,33 @@ class GameViewModel(
     }
 
     fun pickBall(ballId: Int) {
+        val snapshot = _uiState.value
+        val userPicked = snapshot.ballRoom.players.firstOrNull { it.isUser }?.selectedBallId != null
+        val option = snapshot.ballRoom.balls.firstOrNull { it.id == ballId }
+        if (userPicked) {
+            _uiState.update { it.copy(transientMessage = "Ya seleccionaste una bola") }
+            return
+        }
+        if (option == null || option.isPicked) {
+            _uiState.update { it.copy(transientMessage = "Esa bola ya fue tomada") }
+            return
+        }
+        _uiState.update { state ->
+            state.copy(ballRoom = state.ballRoom.copy(pendingSelectedBallId = ballId))
+        }
+    }
+
+    fun confirmBallSelection() {
         viewModelScope.launch {
             val snapshot = _uiState.value
             val matchId = snapshot.currentMatchId
             if (matchId == null) {
                 _uiState.update { it.copy(transientMessage = "No hay sala activa") }
+                return@launch
+            }
+            val ballId = snapshot.ballRoom.pendingSelectedBallId
+            if (ballId == null) {
+                _uiState.update { it.copy(transientMessage = "Elige una bola primero") }
                 return@launch
             }
 
@@ -295,27 +315,12 @@ class GameViewModel(
                 .map { it.ballRoom.phase }
                 .distinctUntilChanged()
                 .collect { phase ->
-                    autoPickJob?.cancel()
                     autoBattleJob?.cancel()
 
                     when (phase) {
-                        BallRoomPhase.PICKING -> {
-                            autoPickJob = viewModelScope.launch {
-                                delay(20_000)
-                                val now = uiState.value
-                                val userPicked = now.ballRoom.players
-                                    .firstOrNull { it.isUser }?.selectedBallId != null
-                                if (now.ballRoom.phase == BallRoomPhase.PICKING && !userPicked) {
-                                    val available = now.ballRoom.balls.filter { !it.isPicked }
-                                    if (available.isNotEmpty()) {
-                                        pickBall(available.random().id)
-                                    }
-                                }
-                            }
-                        }
                         BallRoomPhase.REVEALED -> {
                             autoBattleJob = viewModelScope.launch {
-                                delay(5_000)
+                                delay(600)
                                 if (uiState.value.ballRoom.phase == BallRoomPhase.REVEALED) {
                                     selectTab(MainTab.BATTLE)
                                 }
@@ -326,34 +331,12 @@ class GameViewModel(
                 }
         }
 
-        // Watch canRevealBattle to auto-reveal once everyone has picked
-        viewModelScope.launch {
-            uiState
-                .map {
-                    it.ballRoom.canRevealBattle && it.ballRoom.phase == BallRoomPhase.PICKING
-                }
-                .distinctUntilChanged()
-                .collect { ready ->
-                    autoRevealJob?.cancel()
-                    if (ready) {
-                        autoRevealJob = viewModelScope.launch {
-                            delay(2_000)
-                            val now = uiState.value
-                            if (now.ballRoom.canRevealBattle &&
-                                now.ballRoom.phase == BallRoomPhase.PICKING
-                            ) {
-                                revealBallMultipliers()
-                            }
-                        }
-                    }
-                }
-        }
     }
 
     private fun startPassiveRefresh() {
         viewModelScope.launch {
             while (isActive) {
-                delay(5000)
+                delay(1000)
                 val current = _uiState.value
                 if (current.currentMatchId != null || current.activeTab == MainTab.DASHBOARD) {
                     val result = repository.refreshMatch(current)

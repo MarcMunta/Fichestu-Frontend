@@ -179,7 +179,7 @@ fun FichestuGameScreen(
                             cashBalance = uiState.market.cashBalance,
                             onEnterRoom = viewModel::enterBallRoom,
                             onPickBall = viewModel::pickBall,
-                            onRevealMultipliers = viewModel::revealBallMultipliers,
+                            onRevealMultipliers = viewModel::confirmBallSelection,
                             onOpenBattle = { viewModel.selectTab(MainTab.BATTLE) }
                         )
 

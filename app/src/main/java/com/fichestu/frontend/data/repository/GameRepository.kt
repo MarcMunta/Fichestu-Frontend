@@ -47,10 +47,20 @@ class GameRepository {
         val auth = requireAuth()
         val response = ApiClient.gameApi.currentMatchState(auth)
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
+        val nextBattle = mapBattle(dto.battle)
+        val nextBallRoom = mapBallRoom(dto.ballRoom, currentState.ballRoom.pendingSelectedBallId)
         currentState.copy(
             currentMatchId = dto.matchId,
-            ballRoom = mapBallRoom(dto.ballRoom),
-            battle = mapBattle(dto.battle),
+            activeTab = if (
+                currentState.activeTab == MainTab.BALL_ROOM &&
+                (nextBattle.phase == BattlePhase.READY || nextBattle.phase == BattlePhase.IN_PROGRESS)
+            ) {
+                MainTab.BATTLE
+            } else {
+                currentState.activeTab
+            },
+            ballRoom = nextBallRoom,
+            battle = nextBattle,
             transientMessage = currentState.transientMessage
         )
     }
@@ -221,15 +231,21 @@ class GameRepository {
         )
     }
 
-    private fun mapBallRoom(dto: BallRoomDto): BallRoomUiState {
+    private fun mapBallRoom(dto: BallRoomDto, pendingSelectedBallId: Int? = null): BallRoomUiState {
         val players = dto.players.map { it.toBallPlayer() }
         val userIds = players.filter { it.isUser }.map { it.id }.toSet()
+        val userPicked = players.any { it.isUser && it.selectedBallId != null }
+        val pendingAvailable = pendingSelectedBallId?.let { pending ->
+            dto.balls.any { it.id == pending && it.pickedBy == null }
+        } == true
         return BallRoomUiState(
             phase = dto.phase.toBallRoomPhase(),
             players = players,
             balls = dto.balls.map { it.toBallOption(userIds) },
             statusMessage = dto.statusMessage,
-            canRevealBattle = dto.canRevealBattle
+            canRevealBattle = dto.canRevealBattle,
+            selectionDeadlineEpochMs = dto.selectionDeadlineEpochMs,
+            pendingSelectedBallId = if (!userPicked && pendingAvailable) pendingSelectedBallId else null
         )
     }
 

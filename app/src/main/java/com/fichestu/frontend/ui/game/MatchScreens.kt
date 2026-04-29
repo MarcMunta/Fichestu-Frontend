@@ -83,7 +83,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /* ============================================================
-   FICHESTU — Match flow screens (Lobby → Bolas → Reveal → Cards → Victoria)
+   FICHESTU â€” Match flow screens (Lobby â†’ Bolas â†’ Reveal â†’ Cards â†’ Victoria)
    Wired to GameViewModel state. Backend-ready: solo lee de UiState.
    ============================================================ */
 
@@ -159,7 +159,7 @@ private fun LockedView(modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            DisplayWhite(text = "🔒", fontSize = 80, textAlign = TextAlign.Center)
+            DisplayWhite(text = "ðŸ”’", fontSize = 80, textAlign = TextAlign.Center)
             Spacer(Modifier.height(8.dp))
             DisplayGold(
                 text = "BATTLE BLOQUEADO",
@@ -207,22 +207,6 @@ fun LobbyView(
     onEnterRoom: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var countdown by remember { mutableIntStateOf(12) }
-    var autoTriggered by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(1000)
-            countdown -= 1
-            if (countdown <= 0) {
-                if (!autoTriggered && cashBalance >= GameRules.BALL_ENTRY_COST) {
-                    autoTriggered = true
-                    onEnterRoom()
-                }
-                countdown = 12
-            }
-        }
-    }
-
     Box(modifier = modifier.fillMaxSize()) {
         AmbientBackground(particleCount = 14)
 
@@ -239,20 +223,20 @@ fun LobbyView(
                 textAlign = TextAlign.Center
             )
             Text(
-                text = "Esperando jugadores…",
+                text = "Entrada: EUR ${GameRules.BALL_ENTRY_COST.toInt()}",
                 style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
             )
 
-            CountdownRing(value = countdown, max = 12, label = "EMPIEZA EN")
+            Spacer(Modifier.height(16.dp))
 
             // 10 player slots in 5x2 grid
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                repeat(2) { row ->
+                repeat(0) { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         repeat(5) { col ->
                             val idx = row * 5 + col
                             PlayerSlot(
-                                initials = if (idx == 0) "TÚ" else "P${idx + 1}",
+                                initials = if (idx == 0) "TÃš" else "P${idx + 1}",
                                 color = PLAYER_PALETTE[idx],
                                 ready = idx < 7 || idx == 0,
                                 isYou = idx == 0,
@@ -283,7 +267,7 @@ fun LobbyView(
                         }
                         Spacer(Modifier.width(10.dp))
                         Text(
-                            text = "CÓMO SE JUEGA",
+                            text = "CÃ“MO SE JUEGA",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 color = PureWhite,
                                 fontWeight = FontWeight.ExtraBold
@@ -292,7 +276,7 @@ fun LobbyView(
                     }
                     Spacer(Modifier.height(8.dp))
                     RuleNumLine(1, "Elige 1 bola entre ${GameRules.BALL_COUNT}. Cada bola esconde un multiplicador.")
-                    RuleNumLine(2, "Battle Royale de cartas. Último en pie gana.")
+                    RuleNumLine(2, "Battle Royale de cartas. Ãšltimo en pie gana.")
                     RuleNumLine(3, "El ganador aplica su multiplicador a un token del mercado.")
                 }
             }
@@ -308,7 +292,7 @@ fun LobbyView(
                 modifier = Modifier.fillMaxWidth()
             )
             Text(
-                text = "Saldo: € ${"%.2f".format(cashBalance)}",
+                text = "Saldo: â‚¬ ${"%.2f".format(cashBalance)}",
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = Gold,
                     fontWeight = FontWeight.ExtraBold
@@ -316,8 +300,9 @@ fun LobbyView(
             )
 
             BigPushButtonInternal(
-                text = "PAGAR ENTRADA · € ${GameRules.BALL_ENTRY_COST.toInt()}",
+                text = "PAGAR ${GameRules.BALL_ENTRY_COST.toInt()} EUR Y JUGAR",
                 color = Gold,
+                enabled = cashBalance >= GameRules.BALL_ENTRY_COST,
                 onClick = onEnterRoom,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -455,15 +440,10 @@ fun BallsPoolView(
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var timer by remember { mutableIntStateOf(20) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(1000)
-            timer = if (timer > 0) timer - 1 else 20
-        }
-    }
-
-    val userPick = ballRoom.balls.firstOrNull { it.pickedBy == GameRules.USER_PLAYER_ID }
+    val timer = rememberDeadlineSeconds(ballRoom.selectionDeadlineEpochMs)
+    val committedPickId = ballRoom.players.firstOrNull { it.isUser }?.selectedBallId
+    val userPick = ballRoom.balls.firstOrNull { it.id == (committedPickId ?: ballRoom.pendingSelectedBallId) }
+    val hasCommittedPick = committedPickId != null
     val ballsLeft = ballRoom.balls.count { !it.isPicked }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -481,7 +461,7 @@ fun BallsPoolView(
                 Column(modifier = Modifier.weight(1f)) {
                     DisplayGold(text = "ELIGE TU BOLA", fontSize = 32)
                     Text(
-                        text = "Una bola, un multiplicador.",
+                        text = ballRoom.statusMessage,
                         style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                     )
                 }
@@ -524,7 +504,8 @@ fun BallsPoolView(
                         ownerInitials = ballRoom.players
                             .firstOrNull { it.id == ball.pickedBy }
                             ?.let { initialsFor(it.nickname) },
-                        isUserPicked = ball.pickedBy == GameRules.USER_PLAYER_ID,
+                        isUserPicked = ball.id == committedPickId || ball.id == ballRoom.pendingSelectedBallId,
+                        enabled = !hasCommittedPick && !ball.isPicked,
                         onClick = { onPickBall(ball.id) },
                         modifier = Modifier
                             .offset { IntOffset(xDp.roundToPx(), yDp.roundToPx()) }
@@ -543,14 +524,40 @@ fun BallsPoolView(
             ) {
                 BallPreview(ball = userPick, modifier = Modifier.weight(1f))
                 BigPushButtonInternal(
-                    text = if (userPick != null) "✓ #${userPick.id}" else "ELIGE",
+                    text = confirmBallButtonText(userPick, hasCommittedPick),
                     color = Gold,
-                    enabled = userPick != null,
+                    enabled = userPick != null && !hasCommittedPick,
                     onClick = onConfirm
                 )
             }
         }
     }
+}
+
+@Composable
+private fun rememberDeadlineSeconds(deadlineEpochMs: Long?): Int {
+    var remaining by remember(deadlineEpochMs) {
+        mutableIntStateOf(secondsUntil(deadlineEpochMs))
+    }
+    LaunchedEffect(deadlineEpochMs) {
+        while (true) {
+            remaining = secondsUntil(deadlineEpochMs)
+            delay(250)
+        }
+    }
+    return remaining
+}
+
+private fun secondsUntil(deadlineEpochMs: Long?): Int {
+    if (deadlineEpochMs == null) return 0
+    val millisLeft = (deadlineEpochMs - System.currentTimeMillis()).coerceAtLeast(0)
+    return ((millisLeft + 999) / 1000).toInt()
+}
+
+private fun confirmBallButtonText(ball: BallOption?, hasCommittedPick: Boolean): String = when {
+    hasCommittedPick && ball != null -> "BOLA #${ball.id} SELECCIONADA"
+    ball != null -> "SELECCIONAR BOLA #${ball.id}"
+    else -> "SELECCIONAR BOLA"
 }
 
 @Composable
@@ -564,7 +571,7 @@ private fun BallsHud(timer: Int, ballsLeft: Int) {
                 .padding(horizontal = 14.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Eyebrow(text = "TIMER")
+            Eyebrow(text = "TIEMPO")
             Text(
                 text = "${timer}s",
                 style = MaterialTheme.typography.headlineSmall.copy(
@@ -625,6 +632,7 @@ private fun BallNode(
     ownerColor: Color,
     ownerInitials: String?,
     isUserPicked: Boolean,
+    enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -646,7 +654,7 @@ private fun BallNode(
                 if (isUserPicked) Gold else palette.first.copy(alpha = 0.4f),
                 CircleShape
             )
-            .clickable(enabled = !ball.isPicked, onClick = onClick),
+            .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -692,7 +700,7 @@ private fun BallPreview(ball: BallOption?, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.CenterStart
         ) {
             Text(
-                text = "Tu elección: —",
+                text = "Tu elecciÃ³n: â€”",
                 style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
             )
         }
@@ -729,7 +737,7 @@ private fun BallPreview(ball: BallOption?, modifier: Modifier = Modifier) {
             )
         }
         Column {
-            Eyebrow(text = "TU ELECCIÓN")
+            Eyebrow(text = "TU ELECCIÃ“N")
             Text(
                 text = "#${ball.id}",
                 style = MaterialTheme.typography.headlineSmall.copy(
@@ -812,7 +820,7 @@ fun RevealView(
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = if (mult >= 5.0) "¡Suerte de campeón!" else "A pelearlo en el Battle Royale",
+                    text = if (mult >= 5.0) "Â¡Suerte de campeÃ³n!" else "A pelearlo en el Battle Royale",
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = Gold,
                         fontWeight = FontWeight.Bold
@@ -821,7 +829,7 @@ fun RevealView(
             }
 
             BigPushButtonInternal(
-                text = "IR A BATTLE ROYALE ▸",
+                text = "IR A BATTLE ROYALE â–¸",
                 color = ChipRed,
                 onClick = onContinueToBattle,
                 modifier = Modifier.fillMaxWidth()
@@ -858,7 +866,7 @@ fun ArenaView(
                 Column(modifier = Modifier.weight(1f)) {
                     DisplayRed(text = "BATTLE ROYALE", fontSize = 28)
                     Text(
-                        text = "Última ficha en pie se queda con la corona.",
+                        text = "Ãšltima ficha en pie se queda con la corona.",
                         style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                     )
                 }
@@ -1078,7 +1086,7 @@ private fun OpponentNode(player: BattlePlayer, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = if (player.isAlive) initialsFor(player.nickname) else "✕",
+                text = if (player.isAlive) initialsFor(player.nickname) else "âœ•",
                 style = MaterialTheme.typography.labelMedium.copy(
                     color = PureWhite,
                     fontWeight = FontWeight.ExtraBold,
@@ -1143,7 +1151,7 @@ private fun YouNode(player: BattlePlayer, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "TÚ",
+                text = "TÃš",
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = PureWhite,
                     fontWeight = FontWeight.ExtraBold
@@ -1184,9 +1192,9 @@ private fun HandCard(
 ) {
     data class CardSkin(val top: Color, val bot: Color, val label: String, val icon: String)
     val skin = when (type) {
-        BattleCardType.ATTACK -> CardSkin(ChipRed, ChipRedDark, "ATAQUE", "⚔")
-        BattleCardType.SHIELD -> CardSkin(ShieldBlue, Color(0xFF2A78A8), "ESCUDO", "🛡")
-        BattleCardType.REBOUND -> CardSkin(ReflectPurple, Color(0xFF5C3DAB), "REBOTE", "↺")
+        BattleCardType.ATTACK -> CardSkin(ChipRed, ChipRedDark, "ATAQUE", "âš”")
+        BattleCardType.SHIELD -> CardSkin(ShieldBlue, Color(0xFF2A78A8), "ESCUDO", "ðŸ›¡")
+        BattleCardType.REBOUND -> CardSkin(ReflectPurple, Color(0xFF5C3DAB), "REBOTE", "â†º")
     }
 
     Box(
@@ -1248,11 +1256,11 @@ fun VictoryView(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Eyebrow(
-                text = "🏆 LAST CHIP STANDING 🏆",
+                text = "ðŸ† LAST CHIP STANDING ðŸ†",
                 color = Gold
             )
             DisplayGold(
-                text = if (isUserWinner) "¡VICTORIA!" else "DERROTA",
+                text = if (isUserWinner) "Â¡VICTORIA!" else "DERROTA",
                 fontSize = 56,
                 textAlign = TextAlign.Center
             )
@@ -1282,7 +1290,7 @@ fun VictoryView(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "👑",
+                            text = "ðŸ‘‘",
                             style = MaterialTheme.typography.headlineMedium.copy(fontSize = 32.sp)
                         )
                     }
@@ -1296,7 +1304,7 @@ fun VictoryView(
                 }
             }
 
-            // Token list (read-only — engine ya aplicó el impacto al ganador)
+            // Token list (read-only â€” engine ya aplicÃ³ el impacto al ganador)
             Eyebrow(text = "TOKENS DEL MERCADO", color = Gold)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(count = market.tokens.size) { idx ->
@@ -1333,14 +1341,14 @@ fun VictoryView(
                             textAlign = TextAlign.Center
                         )
                         Text(
-                            text = "€ ${"%.2f".format(token.currentPrice)}",
+                            text = "â‚¬ ${"%.2f".format(token.currentPrice)}",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = Gold,
                                 fontWeight = FontWeight.Bold
                             )
                         )
                         Text(
-                            text = "${if (token.changePercent >= 0) "▲" else "▼"} ${"%.1f".format(kotlin.math.abs(token.changePercent))}%",
+                            text = "${if (token.changePercent >= 0) "â–²" else "â–¼"} ${"%.1f".format(kotlin.math.abs(token.changePercent))}%",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = if (token.changePercent >= 0) AliveGreen else ChipRed,
                                 fontWeight = FontWeight.Bold,
@@ -1354,7 +1362,7 @@ fun VictoryView(
             Spacer(Modifier.weight(1f))
 
             BigPushButtonInternal(
-                text = "NUEVO CICLO ▸",
+                text = "NUEVO CICLO â–¸",
                 color = Gold,
                 onClick = onResetCycle,
                 modifier = Modifier.fillMaxWidth()
@@ -1364,7 +1372,7 @@ fun VictoryView(
 }
 
 /* ============================================================
-   SHARED — internal big button + scattered positions
+   SHARED â€” internal big button + scattered positions
    ============================================================ */
 
 @Composable
