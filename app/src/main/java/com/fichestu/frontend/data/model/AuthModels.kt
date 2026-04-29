@@ -42,3 +42,19 @@ data class SessionResponse(
 data class GoogleLoginRequest(
     val idToken: String
 )
+
+data class PasswordResetRequest(
+    val email: String
+)
+
+data class PasswordResetConfirmRequest(
+    val email: String,
+    val token: String,
+    val newPassword: String,
+    val confirmPassword: String
+)
+
+data class GenericResponse(
+    val message: String? = null,
+    val success: Boolean? = null
+)

@@ -1,8 +1,11 @@
 package com.fichestu.frontend.data.remote
 
 import com.fichestu.frontend.data.model.AuthResponse
+import com.fichestu.frontend.data.model.GenericResponse
 import com.fichestu.frontend.data.model.GoogleLoginRequest
 import com.fichestu.frontend.data.model.LoginRequest
+import com.fichestu.frontend.data.model.PasswordResetConfirmRequest
+import com.fichestu.frontend.data.model.PasswordResetRequest
 import com.fichestu.frontend.data.model.RegisterRequest
 import com.fichestu.frontend.data.model.SessionResponse
 import retrofit2.Response
@@ -26,6 +29,16 @@ interface AuthApi {
     suspend fun loginWithGoogle(
         @Body request: GoogleLoginRequest
     ): Response<AuthResponse>
+
+    @POST("api/auth/password-reset/request")
+    suspend fun requestPasswordReset(
+        @Body request: PasswordResetRequest
+    ): Response<GenericResponse>
+
+    @POST("api/auth/password-reset/confirm")
+    suspend fun confirmPasswordReset(
+        @Body request: PasswordResetConfirmRequest
+    ): Response<GenericResponse>
 
     @GET("api/auth/me")
     suspend fun me(

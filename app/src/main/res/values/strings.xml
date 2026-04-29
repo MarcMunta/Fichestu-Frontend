@@ -21,11 +21,17 @@
     <string name="forgot_title">RECUPERAR ACCESO</string>
     <string name="forgot_back">Volver</string>
     <string name="forgot_header">Olvidaste tu contrasena?</string>
-    <string name="forgot_description">Introduce tu email y te enviaremos un enlace para restablecerla.</string>
+    <string name="forgot_description">Introduce tu email y te enviaremos un codigo para restablecerla.</string>
     <string name="forgot_label_email">Email</string>
-    <string name="forgot_btn_send">ENVIAR ENLACE</string>
-    <string name="forgot_success_title">Enlace enviado!</string>
-    <string name="forgot_success_desc">Hemos enviado un correo a %1$s con los pasos a seguir.</string>
+    <string name="forgot_label_token">Codigo de verificacion</string>
+    <string name="forgot_label_new_password">Nueva contrasena</string>
+    <string name="forgot_label_confirm_password">Confirmar nueva contrasena</string>
+    <string name="forgot_btn_send">ENVIAR CODIGO</string>
+    <string name="forgot_btn_confirm">ACTUALIZAR CONTRASENA</string>
+    <string name="forgot_verify_title">Comprueba tu correo</string>
+    <string name="forgot_verify_desc">Introduce el codigo enviado a %1$s y define tu nueva contrasena.</string>
+    <string name="forgot_success_title">Contrasena actualizada!</string>
+    <string name="forgot_success_desc">Ya puedes entrar de nuevo con tu nueva contrasena.</string>
     <string name="forgot_btn_back_login">VOLVER AL LOGIN</string>
 
     <string name="error_keyword_1">error</string>
