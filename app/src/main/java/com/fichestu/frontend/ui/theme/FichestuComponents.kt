@@ -29,7 +29,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -66,12 +65,12 @@ import androidx.compose.ui.unit.sp
 enum class AuthTab { LOGIN, REGISTER }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CasinoAuthScaffold
+// FichestuAuthScaffold
 // Fondo radial degradado DeepBlue → NightBlue + overlay dorado tenue,
 // centrado vertical con la AuthCard interior rodeando el contenido.
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-fun CasinoAuthScaffold(
+fun AuthScaffold(
     title: String,
     subtitle: String,
     modifier: Modifier = Modifier,
@@ -158,7 +157,7 @@ fun CasinoAuthScaffold(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 48.dp),
+                .padding(horizontal = 324.dp, vertical = 48.dp),
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {

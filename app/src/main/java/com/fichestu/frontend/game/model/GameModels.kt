@@ -6,6 +6,7 @@ enum class MainTab {
     DASHBOARD,
     BALL_ROOM,
     BATTLE,
+    MINIGAMES,
     PROFILE
 }
 
@@ -135,11 +136,23 @@ data class ProfileStats(
 
 data class ProfileUiState(
     val playerName: String = "Jugador",
+    val username: String = "",
+    val email: String = "",
+    val role: String = "USER",
+    val profilePicUrl: String? = null,
+    val editUsername: String = "",
+    val editEmail: String = "",
+    val currentPassword: String = "",
+    val newPassword: String = "",
+    val confirmPassword: String = "",
+    val isSavingProfile: Boolean = false,
+    val isSavingPassword: Boolean = false,
     val badges: List<BadgeUi> = emptyList(),
     val stats: ProfileStats = ProfileStats()
 )
 
 data class GameUiState(
+    val currentMatchId: Int? = null,
     val activeTab: MainTab = MainTab.DASHBOARD,
     val market: MarketUiState = MarketUiState(),
     val ballRoom: BallRoomUiState = BallRoomUiState(),
@@ -147,5 +160,6 @@ data class GameUiState(
     val profile: ProfileUiState = ProfileUiState(),
     val rewardedAvailable: Boolean = true,
     val rewardedCooldownSec: Int = 0,
+    val isSessionExpired: Boolean = false,
     val transientMessage: String? = null
 )

@@ -36,16 +36,21 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Casino
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -59,12 +64,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.fichestu.frontend.R
 import com.fichestu.frontend.game.GameRules
 import com.fichestu.frontend.game.engine.GameEngine
 import com.fichestu.frontend.game.model.BallOption
@@ -89,6 +99,7 @@ import com.fichestu.frontend.ui.theme.NightBlue
 import com.fichestu.frontend.ui.theme.PanelBlue
 import com.fichestu.frontend.ui.theme.PureWhite
 import com.fichestu.frontend.ui.theme.TextSecondary
+import coil.compose.AsyncImage
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -102,6 +113,12 @@ fun FichestuGameScreen(
 
     LaunchedEffect(playerName) {
         viewModel.initializePlayer(playerName)
+    }
+
+    LaunchedEffect(uiState.isSessionExpired) {
+        if (uiState.isSessionExpired) {
+            onLogout()
+        }
     }
 
     LaunchedEffect(uiState.transientMessage) {
@@ -157,7 +174,7 @@ fun FichestuGameScreen(
                             onClaimRewarded = viewModel::claimRewardedAd
                         )
 
-                        MainTab.BALL_ROOM -> BallRoomTab(
+                        MainTab.BALL_ROOM -> BallRoomFlow(
                             ballRoom = uiState.ballRoom,
                             cashBalance = uiState.market.cashBalance,
                             onEnterRoom = viewModel::enterBallRoom,
@@ -166,16 +183,28 @@ fun FichestuGameScreen(
                             onOpenBattle = { viewModel.selectTab(MainTab.BATTLE) }
                         )
 
-                        MainTab.BATTLE -> BattleTab(
+                        MainTab.BATTLE -> BattleFlow(
                             battle = uiState.battle,
-                            selectedTokenId = uiState.market.selectedToken,
+                            market = uiState.market,
                             onSelectAction = viewModel::chooseBattleAction,
                             onPlayRound = viewModel::playBattleRound,
                             onResetCycle = viewModel::resetBattleAndRoom
                         )
 
+                        MainTab.MINIGAMES -> MinigamesTab(
+                            cashBalance = uiState.market.cashBalance,
+                            onResult = viewModel::applyMinigameResult
+                        )
+
                         MainTab.PROFILE -> ProfileTab(
                             profile = uiState.profile,
+                            onUsernameChange = viewModel::updateProfileUsername,
+                            onEmailChange = viewModel::updateProfileEmail,
+                            onSaveProfile = viewModel::saveProfile,
+                            onCurrentPasswordChange = viewModel::updateCurrentPassword,
+                            onNewPasswordChange = viewModel::updateNewPassword,
+                            onConfirmPasswordChange = viewModel::updateConfirmPassword,
+                            onChangePassword = viewModel::changePassword,
                             onLogout = onLogout
                         )
                     }
@@ -1059,11 +1088,15 @@ private fun BattlePlayerItem(player: BattlePlayer) {
 @Composable
 private fun ProfileTab(
     profile: ProfileUiState,
+    onUsernameChange: (String) -> Unit,
+    onEmailChange: (String) -> Unit,
+    onSaveProfile: () -> Unit,
+    onCurrentPasswordChange: (String) -> Unit,
+    onNewPasswordChange: (String) -> Unit,
+    onConfirmPasswordChange: (String) -> Unit,
+    onChangePassword: () -> Unit,
     onLogout: () -> Unit
 ) {
-    val stats = profile.stats
-    val winRate = if (stats.battlesPlayed == 0) 0.0 else (stats.battlesWon * 100.0) / stats.battlesPlayed
-
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -1085,30 +1118,48 @@ private fun ProfileTab(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(76.dp)
-                            .clip(CircleShape)
-                            .background(Gold)
-                            .border(3.dp, GoldDark, CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = NightBlue,
-                            modifier = Modifier.size(42.dp)
+                    if (!profile.profilePicUrl.isNullOrBlank()) {
+                        AsyncImage(
+                            model = profile.profilePicUrl,
+                            contentDescription = "Foto de perfil",
+                            modifier = Modifier
+                                .size(76.dp)
+                                .clip(CircleShape)
+                                .border(3.dp, GoldDark, CircleShape)
                         )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(76.dp)
+                                .clip(CircleShape)
+                                .background(Gold)
+                                .border(3.dp, GoldDark, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = profile.username.take(1).uppercase(Locale.US),
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    color = NightBlue,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
+                            )
+                        }
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         BubbleText(
-                            text = profile.playerName,
+                            text = profile.username.ifBlank { profile.playerName },
                             style = MaterialTheme.typography.headlineMedium,
                             fillColor = PureWhite,
                             outlineColor = DeepBlue
                         )
                         Text(
-                            text = "Insignias desbloqueadas: ${profile.badges.count { it.unlocked }}",
+                            text = profile.email,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = TextSecondary
+                            )
+                        )
+                        Text(
+                            text = "Rol: ${profile.role}",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = Gold,
                                 fontWeight = FontWeight.Bold
@@ -1122,42 +1173,79 @@ private fun ProfileTab(
         item {
             ArcadePanel {
                 Text(
-                    text = "Estadisticas",
+                    text = "Editar perfil",
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = Gold,
                         fontWeight = FontWeight.Bold
                     )
                 )
                 Spacer(Modifier.height(8.dp))
-                StatsLine("Salas jugadas", stats.ballRoomsPlayed.toString())
-                StatsLine("Battles jugadas", stats.battlesPlayed.toString())
-                StatsLine("Battles ganadas", stats.battlesWon.toString())
-                StatsLine("Winrate", String.format(Locale.US, "%.1f%%", winRate))
-                StatsLine("Mejor multiplicador", String.format(Locale.US, "x%.2f", stats.bestMultiplier))
-                StatsLine("Media multiplicador", String.format(Locale.US, "x%.2f", stats.averageMultiplier))
-                StatsLine("Rewarded reclamados", stats.rewardedAdsClaimed.toString())
+                ArcadeTextField(
+                    value = profile.editUsername,
+                    label = "Username",
+                    leading = Icons.Default.Person,
+                    keyboardType = KeyboardType.Text,
+                    onValueChange = onUsernameChange
+                )
+                Spacer(Modifier.height(8.dp))
+                ArcadeTextField(
+                    value = profile.editEmail,
+                    label = "Email",
+                    leading = Icons.Default.Email,
+                    keyboardType = KeyboardType.Email,
+                    onValueChange = onEmailChange
+                )
+                Spacer(Modifier.height(10.dp))
+                ArcadePrimaryButton(
+                    text = if (profile.isSavingProfile) "GUARDANDO..." else "GUARDAR CAMBIOS",
+                    enabled = !profile.isSavingProfile,
+                    onClick = onSaveProfile
+                )
             }
         }
 
         item {
             ArcadePanel {
                 Text(
-                    text = "Insignias",
+                    text = "Cambiar contraseña",
                     style = MaterialTheme.typography.titleMedium.copy(
-                        color = PureWhite,
+                        color = Gold,
                         fontWeight = FontWeight.Bold
                     )
                 )
                 Spacer(Modifier.height(8.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    profile.badges.forEach { badge ->
-                        BadgeItem(
-                            title = badge.title,
-                            description = badge.description,
-                            unlocked = badge.unlocked
-                        )
-                    }
-                }
+                ArcadeTextField(
+                    value = profile.currentPassword,
+                    label = "Contrasena actual (si tienes una)",
+                    leading = Icons.Default.Lock,
+                    keyboardType = KeyboardType.Password,
+                    isPassword = true,
+                    onValueChange = onCurrentPasswordChange
+                )
+                Spacer(Modifier.height(8.dp))
+                ArcadeTextField(
+                    value = profile.newPassword,
+                    label = "Nueva contraseña",
+                    leading = Icons.Default.Lock,
+                    keyboardType = KeyboardType.Password,
+                    isPassword = true,
+                    onValueChange = onNewPasswordChange
+                )
+                Spacer(Modifier.height(8.dp))
+                ArcadeTextField(
+                    value = profile.confirmPassword,
+                    label = "Repite contraseña",
+                    leading = Icons.Default.Lock,
+                    keyboardType = KeyboardType.Password,
+                    isPassword = true,
+                    onValueChange = onConfirmPasswordChange
+                )
+                Spacer(Modifier.height(10.dp))
+                ArcadePrimaryButton(
+                    text = if (profile.isSavingPassword) "ACTUALIZANDO..." else "ACTUALIZAR CONTRASEÑA",
+                    enabled = !profile.isSavingPassword,
+                    onClick = onChangePassword
+                )
             }
         }
 
@@ -1171,56 +1259,34 @@ private fun ProfileTab(
 }
 
 @Composable
-private fun BadgeItem(title: String, description: String, unlocked: Boolean) {
-    Surface(
+private fun ArcadeTextField(
+    value: String,
+    label: String,
+    leading: ImageVector,
+    keyboardType: KeyboardType,
+    isPassword: Boolean = false,
+    onValueChange: (String) -> Unit
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        leadingIcon = { Icon(leading, contentDescription = null) },
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = if (unlocked) Gold.copy(alpha = 0.14f) else DeepBlue.copy(alpha = 0.35f)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .border(
-                    width = 1.dp,
-                    color = if (unlocked) Gold.copy(alpha = 0.75f) else PureWhite.copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(14.dp)
-                )
-                .padding(horizontal = 10.dp, vertical = 8.dp)
-        ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = if (unlocked) Gold else PureWhite,
-                    fontWeight = FontWeight.Bold
-                )
-            )
-            Text(
-                text = description,
-                style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatsLine(label: String, value: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
+        singleLine = true,
+        visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = PureWhite,
+            unfocusedTextColor = PureWhite,
+            focusedBorderColor = Gold,
+            unfocusedBorderColor = TextSecondary.copy(alpha = 0.5f),
+            focusedLabelColor = Gold,
+            unfocusedLabelColor = TextSecondary,
+            focusedLeadingIconColor = Gold,
+            unfocusedLeadingIconColor = TextSecondary
         )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium.copy(
-                color = PureWhite,
-                fontWeight = FontWeight.Bold
-            )
-        )
-    }
+    )
 }
 
 @Composable
@@ -1240,10 +1306,11 @@ private fun BottomGameNav(
     onSelect: (MainTab) -> Unit
 ) {
     val items = listOf(
-        BottomItem(MainTab.DASHBOARD, "Mercado", Icons.Default.Home),
-        BottomItem(MainTab.BALL_ROOM, "Bolas", Icons.Default.Casino),
-        BottomItem(MainTab.BATTLE, "Battle", Icons.Default.SportsEsports),
-        BottomItem(MainTab.PROFILE, "Perfil", Icons.Default.Person)
+        BottomItem(MainTab.DASHBOARD, stringResource(R.string.nav_market), Icons.Default.Home),
+        BottomItem(MainTab.BALL_ROOM, stringResource(R.string.nav_balls), Icons.Default.Casino),
+        BottomItem(MainTab.BATTLE, stringResource(R.string.nav_battle), Icons.Default.SportsEsports),
+        BottomItem(MainTab.MINIGAMES, stringResource(R.string.nav_minigames), Icons.Default.PlayArrow),
+        BottomItem(MainTab.PROFILE, stringResource(R.string.nav_profile), Icons.Default.Person)
     )
 
     ArcadePanel(contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)) {

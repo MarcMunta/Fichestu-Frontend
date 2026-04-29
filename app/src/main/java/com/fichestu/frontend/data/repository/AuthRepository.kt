@@ -3,189 +3,160 @@ package com.fichestu.frontend.data.repository
 import com.fichestu.frontend.data.model.ApiErrorResponse
 import com.fichestu.frontend.data.model.AuthResponse
 import com.fichestu.frontend.data.model.AuthResult
+import com.fichestu.frontend.data.model.GenericResponse
+import com.fichestu.frontend.data.model.GoogleLoginRequest
 import com.fichestu.frontend.data.model.LoginRequest
+import com.fichestu.frontend.data.model.PasswordResetConfirmRequest
+import com.fichestu.frontend.data.model.PasswordResetRequest
 import com.fichestu.frontend.data.model.RegisterRequest
+import com.fichestu.frontend.data.model.SessionResponse
 import com.fichestu.frontend.data.remote.ApiClient
-import com.fichestu.frontend.data.remote.AuthApi
 import com.google.gson.Gson
 import java.io.IOException
-import java.net.ConnectException
-import java.net.SocketTimeoutException
-import java.net.UnknownHostException
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import retrofit2.Response
 
 class AuthRepository {
-    private val gson = Gson()
 
-    suspend fun login(baseUrl: String, email: String, password: String): Result<AuthResult> {
-        return runSafely(baseUrl) {
-            val response = performRequestWithFallback(baseUrl) { api ->
-                api.login(
-                    request = LoginRequest(
-                        email = email,
-                        password = password
-                    )
+    suspend fun login(email: String, password: String): Result<AuthResult> {
+        return runSafely {
+            val response = ApiClient.authApi.login(
+                LoginRequest(email = email, password = password)
+            )
+            val result = parseResponse(response, "Login correcto")
+            SessionStore.setAuth(result.token, email.substringBefore('@'))
+            result
+        }
+    }
+
+    suspend fun register(username: String, email: String, password: String): Result<AuthResult> {
+        return runSafely {
+            val response = ApiClient.authApi.register(
+                RegisterRequest(username = username, email = email, password = password)
+            )
+            parseResponse(response, "Registro completado")
+        }
+    }
+
+    suspend fun loginWithGoogle(idToken: String): Result<AuthResult> {
+        return runSafely {
+            val response = ApiClient.authApi.loginWithGoogle(
+                GoogleLoginRequest(idToken = idToken)
+            )
+            val result = parseResponse(response, "Login con Google correcto")
+            SessionStore.setAuth(result.token, SessionStore.displayName())
+            result
+        }
+    }
+
+    suspend fun validateSession(): Result<SessionResponse> {
+        return try {
+            val auth = SessionStore.authHeaderOrNull()
+                ?: return Result.failure(Exception("Sesion no iniciada"))
+            val response = ApiClient.authApi.me(auth)
+            if (response.isSuccessful && response.body() != null) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception("No se pudo validar la sesion (${response.code()})"))
+            }
+        } catch (error: IOException) {
+            Result.failure(Exception("Error de red: verifica conexion o servidor."))
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
+    suspend fun requestPasswordReset(email: String): Result<String> {
+        return runMessageSafely {
+            val response = ApiClient.authApi.requestPasswordReset(
+                PasswordResetRequest(email = email)
+            )
+            parseMessageResponse(response, "Revisa tu correo para continuar")
+        }
+    }
+
+    suspend fun confirmPasswordReset(
+        email: String,
+        token: String,
+        newPassword: String,
+        confirmPassword: String
+    ): Result<String> {
+        return runMessageSafely {
+            val response = ApiClient.authApi.confirmPasswordReset(
+                PasswordResetConfirmRequest(
+                    email = email,
+                    token = token,
+                    newPassword = newPassword,
+                    confirmPassword = confirmPassword
                 )
-            }
-
-            parseSuccessfulAuthResponse(response, fallbackMessage = "Login correcto").let { result ->
-                val token = result.token?.takeIf { it.isNotBlank() }
-                    ?: throw IllegalStateException("El backend no devolvio token en el login")
-                result.copy(token = token)
-            }
+            )
+            parseMessageResponse(response, "Contrasena actualizada correctamente")
         }
     }
 
-    suspend fun register(baseUrl: String, username: String, email: String, password: String): Result<AuthResult> {
-        return runSafely(baseUrl) {
-            val response = performRequestWithFallback(baseUrl) { api ->
-                api.register(
-                    request = RegisterRequest(
-                        username = username,
-                        email = email,
-                        password = password
-                    )
-                )
-            }
-
-            parseSuccessfulAuthResponse(response, fallbackMessage = "Registro completado")
-        }
-    }
-
-    private suspend fun runSafely(baseUrl: String, block: suspend () -> AuthResult): Result<AuthResult> {
-        return runCatching {
-            block()
-        }.mapFailure { error ->
-            mapToUserFacingError(baseUrl = baseUrl, throwable = error)
-        }
-    }
-
-    private suspend fun performRequestWithFallback(
-        baseUrl: String,
-        call: suspend (api: AuthApi) -> Response<AuthResponse>
-    ): Response<AuthResponse> {
-        val candidates = buildBaseUrlCandidates(baseUrl)
-        var lastNetworkError: IOException? = null
-
-        for (candidate in candidates) {
-            try {
-                return call(ApiClient.authApi(candidate))
-            } catch (error: IOException) {
-                lastNetworkError = error
-            }
-        }
-
-        throw lastNetworkError
-            ?: IllegalStateException("No se pudo conectar al backend")
-    }
-
-    private fun parseSuccessfulAuthResponse(
+    private fun parseResponse(
         response: Response<AuthResponse>,
-        fallbackMessage: String
+        defaultMessage: String
     ): AuthResult {
         if (response.isSuccessful) {
             val body = response.body()
-            val success = body?.success ?: true
-            if (!success) {
-                throw IllegalStateException(body?.message ?: "Operacion rechazada por el backend")
-            }
-
             return AuthResult(
-                message = body?.message?.takeIf { it.isNotBlank() } ?: fallbackMessage,
+                message = body?.message ?: defaultMessage,
                 token = body?.token
             )
         }
 
-        val backendMessage = extractBackendMessage(response)
-        throw IllegalStateException(
-            backendMessage ?: "Operacion fallida (HTTP ${response.code()})"
-        )
-    }
-
-    private fun extractBackendMessage(response: Response<AuthResponse>): String? {
-        val rawBody = response.errorBody()?.string()?.trim().orEmpty()
-        if (rawBody.isBlank()) {
-            return null
-        }
-
-        val authMessage = runCatching {
-            gson.fromJson(rawBody, AuthResponse::class.java)?.message
+        val rawError = response.errorBody()?.string()
+        val apiError = runCatching {
+            Gson().fromJson(rawError, ApiErrorResponse::class.java)
         }.getOrNull()
-        if (!authMessage.isNullOrBlank()) {
-            return authMessage
+        val finalError = when {
+            !apiError?.message.isNullOrBlank() -> apiError?.message
+            response.code() == 409 -> "El usuario o email ya esta registrado"
+            response.code() == 401 -> "Credenciales incorrectas"
+            else -> "Error en el servidor (${response.code()})"
         }
 
-        val apiMessage = runCatching {
-            gson.fromJson(rawBody, ApiErrorResponse::class.java)?.message
+        throw Exception(finalError)
+    }
+
+    private fun parseMessageResponse(
+        response: Response<GenericResponse>,
+        defaultMessage: String
+    ): String {
+        if (response.isSuccessful) {
+            return response.body()?.message ?: defaultMessage
+        }
+
+        val rawError = response.errorBody()?.string()
+        val apiError = runCatching {
+            Gson().fromJson(rawError, ApiErrorResponse::class.java)
         }.getOrNull()
-        if (!apiMessage.isNullOrBlank()) {
-            return apiMessage
+        val finalError = when {
+            !apiError?.message.isNullOrBlank() -> apiError?.message
+            response.code() == 400 -> "Datos invalidos"
+            else -> "Error en el servidor (${response.code()})"
         }
 
-        return null
+        throw Exception(finalError)
     }
 
-    private fun buildBaseUrlCandidates(baseUrl: String): List<String> {
-        val normalizedUrl = normalizeBaseUrl(baseUrl)
-        val parsed = normalizedUrl.toHttpUrlOrNull() ?: return listOf(normalizedUrl)
-        if (parsed.host != EMULATOR_HOST) {
-            return listOf(normalizedUrl)
+    private suspend fun runSafely(block: suspend () -> AuthResult): Result<AuthResult> {
+        return try {
+            Result.success(block())
+        } catch (error: IOException) {
+            Result.failure(Exception("Error de red: verifica conexion o servidor."))
+        } catch (error: Exception) {
+            Result.failure(error)
         }
-
-        val fallbackPort = when (parsed.port) {
-            8080 -> 8081
-            8081 -> 8080
-            else -> null
-        } ?: return listOf(normalizedUrl)
-
-        val fallbackUrl = parsed.newBuilder()
-            .port(fallbackPort)
-            .build()
-            .toString()
-
-        return listOf(normalizedUrl, fallbackUrl).distinct()
     }
 
-    private fun normalizeBaseUrl(baseUrl: String): String {
-        val trimmed = baseUrl.trim()
-        return if (trimmed.endsWith('/')) trimmed else "$trimmed/"
-    }
-
-    private fun mapToUserFacingError(baseUrl: String, throwable: Throwable): Throwable {
-        if (throwable is IllegalStateException) {
-            return throwable
+    private suspend fun runMessageSafely(block: suspend () -> String): Result<String> {
+        return try {
+            Result.success(block())
+        } catch (error: IOException) {
+            Result.failure(Exception("Error de red: verifica conexion o servidor."))
+        } catch (error: Exception) {
+            Result.failure(error)
         }
-
-        val message = when (throwable) {
-            is SocketTimeoutException -> {
-                "Timeout al conectar con el backend (${normalizeBaseUrl(baseUrl)})"
-            }
-
-            is ConnectException, is UnknownHostException -> {
-                "No se pudo conectar al backend (${normalizeBaseUrl(baseUrl)}). Verifica que Fichestu-Backend este levantado."
-            }
-
-            is IOException -> {
-                "Error de red al conectar con el backend"
-            }
-
-            else -> {
-                throwable.message ?: "Error inesperado"
-            }
-        }
-
-        return IllegalStateException(message, throwable)
-    }
-
-    private inline fun <T> Result<T>.mapFailure(transform: (Throwable) -> Throwable): Result<T> {
-        return fold(
-            onSuccess = { Result.success(it) },
-            onFailure = { Result.failure(transform(it)) }
-        )
-    }
-
-    private companion object {
-        const val EMULATOR_HOST = "10.0.2.2"
     }
 }

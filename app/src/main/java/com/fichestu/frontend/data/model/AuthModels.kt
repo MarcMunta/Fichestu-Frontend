@@ -29,3 +29,32 @@ data class AuthResult(
     val message: String,
     val token: String? = null
 )
+
+data class SessionResponse(
+    val message: String? = null,
+    val success: Boolean? = null,
+    val userId: Int? = null,
+    val username: String? = null,
+    val email: String? = null,
+    val role: String? = null
+)
+
+data class GoogleLoginRequest(
+    val idToken: String
+)
+
+data class PasswordResetRequest(
+    val email: String
+)
+
+data class PasswordResetConfirmRequest(
+    val email: String,
+    val token: String,
+    val newPassword: String,
+    val confirmPassword: String
+)
+
+data class GenericResponse(
+    val message: String? = null,
+    val success: Boolean? = null
+)

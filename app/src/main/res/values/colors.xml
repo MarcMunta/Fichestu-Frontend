@@ -1,0 +1,26 @@
+<resources>
+    <color name="fichestu_gold">#FFD700</color>
+    <color name="fichestu_gold_light">#FFE54C</color>
+    <color name="fichestu_gold_dark">#B8860B</color>
+    <color name="fichestu_gold_border">#A6FFD700</color>
+    <color name="fichestu_gold_overlay">#0AFFD700</color>
+
+    <color name="fichestu_chip_red">#E63946</color>
+    <color name="fichestu_chip_red_dark">#A8252F</color>
+    <color name="fichestu_chip_red_shadow">#6E1820</color>
+    <color name="fichestu_coin_red_light">#F26B76</color>
+    <color name="fichestu_deep_blue">#1D3557</color>
+    <color name="fichestu_pure_white">#F1FAEE</color>
+    <color name="fichestu_panel_blue">#142844</color>
+    <color name="fichestu_night_blue">#0B1424</color>
+    <color name="fichestu_shield_blue">#5DB6E8</color>
+    <color name="fichestu_reflect_purple">#9D6BFF</color>
+    <color name="fichestu_alive_green">#3DDC97</color>
+    <color name="fichestu_eyebrow_blue">#5C7FB8</color>
+    <color name="fichestu_dice_face">#D9E4DA</color>
+
+    <color name="fichestu_input_bg">#0F1E36</color>
+    <color name="fichestu_input_border">#2A4A70</color>
+    <color name="fichestu_text_secondary">#8FAFC8</color>
+    <color name="fichestu_card_border">#73FFD700</color>
+</resources>

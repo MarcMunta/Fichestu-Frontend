@@ -1,5 +1,6 @@
 package com.fichestu.frontend.data.remote
 
+import com.fichestu.frontend.BuildConfig
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -7,29 +8,37 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
-    fun authApi(baseUrl: String): AuthApi {
+    // Backend Fichestu en Docker, host alcanzable via Radmin VPN.
+    // Cambia AQUI si el host/puerto cambian. Emulador local: "http://10.0.2.2:8080/".
+    private const val BASE_URL = "http://26.226.245.83:8080/"
+    private val retrofit: Retrofit by lazy {
+
         val logging = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
 
         val client = OkHttpClient.Builder()
             .addInterceptor(logging)
-            .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
-            .writeTimeout(20, TimeUnit.SECONDS)
-            .followRedirects(false)
-            .followSslRedirects(false)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
             .build()
 
-        return Retrofit.Builder()
-            .baseUrl(baseUrl.ensureTrailingSlash())
+        Retrofit.Builder()
+            .baseUrl(BASE_URL)
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(AuthApi::class.java)
     }
 
-    private fun String.ensureTrailingSlash(): String {
-        return if (endsWith('/')) this else "$this/"
+    val authApi: AuthApi by lazy {
+        retrofit.create(AuthApi::class.java)
+    }
+
+    val gameApi: GameApi by lazy {
+        retrofit.create(GameApi::class.java)
+    }
+
+    val profileApi: ProfileApi by lazy {
+        retrofit.create(ProfileApi::class.java)
     }
 }

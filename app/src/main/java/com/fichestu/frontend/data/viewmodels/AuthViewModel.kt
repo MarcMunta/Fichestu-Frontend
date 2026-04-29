@@ -1,10 +1,11 @@
-package com.fichestu.frontend.ui
+package com.fichestu.frontend.data.viewmodels
 
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fichestu.frontend.BuildConfig
 import com.fichestu.frontend.data.repository.AuthRepository
+import com.fichestu.frontend.data.repository.SessionStore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -48,6 +49,7 @@ class AuthViewModel(
     }
 
     fun logout() {
+        SessionStore.clear()
         _uiState.update {
             it.copy(
                 isAuthenticated = false,
@@ -59,25 +61,55 @@ class AuthViewModel(
         }
     }
 
+//    // --- FUNCIÓN PARA LOGIN CON GOOGLE ---
+    fun onGoogleLoginSuccess(idToken: String) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, message = "") }
+
+            val result = repository.loginWithGoogle(idToken)
+
+            _uiState.update { current ->
+                result.fold(
+                    onSuccess = { authResult ->
+                        val displayName = deriveDisplayName(
+                            username = current.username,
+                            email = current.email
+                        )
+                        SessionStore.setAuth(authResult.token, displayName)
+                        current.copy(
+                            isLoading = false,
+                            isAuthenticated = true,
+                            token = authResult.token.orEmpty(),
+                            displayName = displayName,
+                            message = authResult.message
+                        )
+                    },
+                    onFailure = { error ->
+                        current.copy(
+                            isLoading = false,
+                            message = error.message ?: "Error al conectar con Google"
+                        )
+                    }
+                )
+            }
+        }
+    }
+
     fun submit() {
         val state = _uiState.value
 
-        if (!isValidInput(state)) {
-            return
-        }
+        if (!isValidInput(state)) return
 
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, message = "") }
 
             val result = if (state.isLoginMode) {
                 repository.login(
-                    baseUrl = BuildConfig.BASE_URL,
                     email = state.email.trim(),
                     password = state.password
                 )
             } else {
                 repository.register(
-                    baseUrl = BuildConfig.BASE_URL,
                     username = state.username.trim(),
                     email = state.email.trim(),
                     password = state.password
@@ -88,31 +120,32 @@ class AuthViewModel(
                 result.fold(
                     onSuccess = { authResult ->
                         if (state.isLoginMode) {
+                            val displayName = deriveDisplayName(
+                                username = state.username,
+                                email = state.email
+                            )
+                            SessionStore.setAuth(authResult.token, displayName)
                             current.copy(
                                 isLoading = false,
                                 isAuthenticated = true,
                                 token = authResult.token.orEmpty(),
                                 password = "",
-                                displayName = deriveDisplayName(
-                                    username = state.username,
-                                    email = state.email
-                                ),
+                                displayName = displayName,
                                 message = authResult.message
                             )
                         } else {
                             current.copy(
                                 isLoading = false,
                                 isLoginMode = true,
-                                username = "",
                                 password = "",
-                                message = "${authResult.message}. Ya puedes iniciar sesion"
+                                message = "${authResult.message}. Ya puedes iniciar sesión"
                             )
                         }
                     },
                     onFailure = { error ->
                         current.copy(
                             isLoading = false,
-                            message = error.message ?: "Error de conexion"
+                            message = error.message ?: "Error de conexión"
                         )
                     }
                 )
@@ -126,13 +159,14 @@ class AuthViewModel(
             return false
         }
 
-        if (state.email.isBlank() || !Patterns.EMAIL_ADDRESS.matcher(state.email.trim()).matches()) {
-            _uiState.update { it.copy(message = "Introduce un email valido") }
+        val emailMatches = Patterns.EMAIL_ADDRESS.matcher(state.email.trim()).matches()
+        if (state.email.isBlank() || !emailMatches) {
+            _uiState.update { it.copy(message = "Introduce un email válido") }
             return false
         }
 
         if (state.password.isBlank()) {
-            _uiState.update { it.copy(message = "La password es obligatoria") }
+            _uiState.update { it.copy(message = "La contraseña es obligatoria") }
             return false
         }
 
