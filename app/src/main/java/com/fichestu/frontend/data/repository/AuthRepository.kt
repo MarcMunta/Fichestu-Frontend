@@ -3,8 +3,11 @@ package com.fichestu.frontend.data.repository
 import com.fichestu.frontend.data.model.ApiErrorResponse
 import com.fichestu.frontend.data.model.AuthResponse
 import com.fichestu.frontend.data.model.AuthResult
+import com.fichestu.frontend.data.model.GenericResponse
 import com.fichestu.frontend.data.model.GoogleLoginRequest
 import com.fichestu.frontend.data.model.LoginRequest
+import com.fichestu.frontend.data.model.PasswordResetConfirmRequest
+import com.fichestu.frontend.data.model.PasswordResetRequest
 import com.fichestu.frontend.data.model.RegisterRequest
 import com.fichestu.frontend.data.model.SessionResponse
 import com.fichestu.frontend.data.remote.ApiClient
@@ -62,6 +65,34 @@ class AuthRepository {
         }
     }
 
+    suspend fun requestPasswordReset(email: String): Result<String> {
+        return runMessageSafely {
+            val response = ApiClient.authApi.requestPasswordReset(
+                PasswordResetRequest(email = email)
+            )
+            parseMessageResponse(response, "Revisa tu correo para continuar")
+        }
+    }
+
+    suspend fun confirmPasswordReset(
+        email: String,
+        token: String,
+        newPassword: String,
+        confirmPassword: String
+    ): Result<String> {
+        return runMessageSafely {
+            val response = ApiClient.authApi.confirmPasswordReset(
+                PasswordResetConfirmRequest(
+                    email = email,
+                    token = token,
+                    newPassword = newPassword,
+                    confirmPassword = confirmPassword
+                )
+            )
+            parseMessageResponse(response, "Contrasena actualizada correctamente")
+        }
+    }
+
     private fun parseResponse(
         response: Response<AuthResponse>,
         defaultMessage: String
@@ -88,7 +119,38 @@ class AuthRepository {
         throw Exception(finalError)
     }
 
+    private fun parseMessageResponse(
+        response: Response<GenericResponse>,
+        defaultMessage: String
+    ): String {
+        if (response.isSuccessful) {
+            return response.body()?.message ?: defaultMessage
+        }
+
+        val rawError = response.errorBody()?.string()
+        val apiError = runCatching {
+            Gson().fromJson(rawError, ApiErrorResponse::class.java)
+        }.getOrNull()
+        val finalError = when {
+            !apiError?.message.isNullOrBlank() -> apiError?.message
+            response.code() == 400 -> "Datos invalidos"
+            else -> "Error en el servidor (${response.code()})"
+        }
+
+        throw Exception(finalError)
+    }
+
     private suspend fun runSafely(block: suspend () -> AuthResult): Result<AuthResult> {
+        return try {
+            Result.success(block())
+        } catch (error: IOException) {
+            Result.failure(Exception("Error de red: verifica conexion o servidor."))
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
+    private suspend fun runMessageSafely(block: suspend () -> String): Result<String> {
         return try {
             Result.success(block())
         } catch (error: IOException) {
