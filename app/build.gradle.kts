@@ -22,7 +22,20 @@ android {
         buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8081/\"")
     }
 
+    signingConfigs {
+        create("sharedDebug") {
+            storeFile = file("debug/fichestu-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("sharedDebug")
+        }
+
         release {
             isMinifyEnabled = false
             proguardFiles(
