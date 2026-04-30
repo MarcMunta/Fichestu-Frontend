@@ -9,6 +9,7 @@ import com.fichestu.frontend.data.model.BattleRoundRequestDto
 import com.fichestu.frontend.data.model.CooldownResponseDto
 import com.fichestu.frontend.data.model.EnterBallRoomResponseDto
 import com.fichestu.frontend.data.model.GameBootstrapResponse
+import com.fichestu.frontend.data.model.GameMarketResponseDto
 import com.fichestu.frontend.data.model.GameTokenDto
 import com.fichestu.frontend.data.model.GameTradeRequest
 import com.fichestu.frontend.data.model.MatchStateResponseDto
@@ -67,9 +68,9 @@ class GameRepository {
 
     suspend fun buy(currentState: GameUiState): Result<GameUiState> = runSafely {
         val selected = currentState.market.selectedToken
-        val response = ApiClient.gameApi.buy(
+        val response = ApiClient.marketApi.buy(
             authorization = requireAuth(),
-            request = GameTradeRequest(token = selected.name, quantity = 1)
+            request = GameTradeRequest(token = selected.name, tokenId = selected.toTokenIdNumber(), quantity = 1)
         )
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         currentState.copy(market = mapMarket(dto, selected), transientMessage = dto.message)
@@ -77,9 +78,9 @@ class GameRepository {
 
     suspend fun sell(currentState: GameUiState): Result<GameUiState> = runSafely {
         val selected = currentState.market.selectedToken
-        val response = ApiClient.gameApi.sell(
+        val response = ApiClient.marketApi.sell(
             authorization = requireAuth(),
-            request = GameTradeRequest(token = selected.name, quantity = 1)
+            request = GameTradeRequest(token = selected.name, tokenId = selected.toTokenIdNumber(), quantity = 1)
         )
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         currentState.copy(market = mapMarket(dto, selected), transientMessage = dto.message)
@@ -129,7 +130,7 @@ class GameRepository {
 
         currentState.copy(
             currentMatchId = dto.matchId,
-            activeTab = MainTab.BATTLE,
+            activeTab = MainTab.BALL_ROOM,
             ballRoom = mapBallRoom(dto.ballRoom),
             battle = mapBattle(dto.battle),
             profile = currentState.profile.copy(stats = stats, badges = recomputeBadges(stats)),
@@ -139,12 +140,13 @@ class GameRepository {
 
     suspend fun playBattleRound(currentState: GameUiState, matchId: Int): Result<GameUiState> = runSafely {
         val selectedAction = currentState.battle.selectedAction
-        val response = ApiClient.gameApi.playBattleRound(
+        val response = ApiClient.gameApi.submitBattleAction(
             authorization = requireAuth(),
             matchId = matchId,
             request = BattleRoundRequestDto(
                 action = selectedAction.name,
-                selectedToken = currentState.market.selectedToken.name
+                selectedToken = currentState.market.selectedToken.name,
+                tokenId = currentState.market.selectedToken.toTokenIdNumber()
             )
         )
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
@@ -170,7 +172,7 @@ class GameRepository {
     }
 
     suspend fun claimRewarded(currentState: GameUiState): Result<GameUiState> = runSafely {
-        val response = ApiClient.gameApi.claimRewarded(requireAuth())
+        val response = ApiClient.marketApi.claimReward(requireAuth())
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         val stats = currentState.profile.stats.copy(rewardedAdsClaimed = dto.rewardedAdsClaimed)
 
@@ -231,7 +233,17 @@ class GameRepository {
         )
     }
 
-    private fun mapBallRoom(dto: BallRoomDto, pendingSelectedBallId: Int? = null): BallRoomUiState {
+    private fun mapMarket(dto: GameMarketResponseDto, selected: TokenId): MarketUiState {
+        return MarketUiState(
+            selectedToken = selected,
+            tokens = dto.tokens.map { it.toMarketToken() },
+            cashBalance = dto.cashBalance,
+            lastResetDayIndex = 0L,
+            resetCountdownLabel = "--:--:--"
+        )
+    }
+
+    private fun mapBallRoom(dto: BallRoomDto): BallRoomUiState {
         val players = dto.players.map { it.toBallPlayer() }
         val userIds = players.filter { it.isUser }.map { it.id }.toSet()
         val userPicked = players.any { it.isUser && it.selectedBallId != null }
@@ -318,6 +330,13 @@ class GameRepository {
         3 -> TokenId.VERDE
         4 -> TokenId.DORADA
         else -> TokenId.ROJA
+    }
+
+    private fun TokenId.toTokenIdNumber(): Int = when (this) {
+        TokenId.ROJA -> 1
+        TokenId.AZUL -> 2
+        TokenId.VERDE -> 3
+        TokenId.DORADA -> 4
     }
 
     private fun String.toBallRoomPhase(): BallRoomPhase = when (this.uppercase()) {

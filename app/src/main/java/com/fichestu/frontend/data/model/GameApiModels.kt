@@ -8,6 +8,7 @@ data class GameBootstrapResponse(
     val cashBalance: Double,
     val rewardedCooldownSec: Int,
     val tokens: List<GameTokenDto>,
+    val badges: List<Any>? = null,
     val stats: ProfileStatsDto
 )
 
@@ -32,8 +33,19 @@ data class ProfileStatsDto(
 )
 
 data class GameTradeRequest(
-    val token: String,
+    val token: String? = null,
+    val tokenId: Int,
     val quantity: Int = 1
+)
+
+data class GameMarketResponseDto(
+    val message: String,
+    val success: Boolean,
+    val cashBalance: Double,
+    val totalBalance: Double,
+    val rewardedCooldownSec: Int,
+    val rewardedAdsClaimed: Int,
+    val tokens: List<GameTokenDto>
 )
 
 data class WalletResponseDto(
@@ -89,7 +101,8 @@ data class MatchStateResponseDto(
 
 data class BattleRoundRequestDto(
     val action: String,
-    val selectedToken: String
+    val selectedToken: String? = null,
+    val tokenId: Int? = null
 )
 
 data class BattleDto(

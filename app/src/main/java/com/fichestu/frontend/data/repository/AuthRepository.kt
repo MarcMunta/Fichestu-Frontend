@@ -52,7 +52,7 @@ class AuthRepository {
         return try {
             val auth = SessionStore.authHeaderOrNull()
                 ?: return Result.failure(Exception("Sesion no iniciada"))
-            val response = ApiClient.authApi.me(auth)
+            val response = ApiClient.userApi.me(auth)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {

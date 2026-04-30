@@ -31,6 +31,10 @@ class AuthViewModel(
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
+    init {
+        restoreSession()
+    }
+
     fun updateUsername(value: String) = _uiState.update { it.copy(username = value, message = "") }
     fun updateEmail(value: String) = _uiState.update { it.copy(email = value, message = "") }
     fun updatePassword(value: String) = _uiState.update { it.copy(password = value, message = "") }
@@ -58,6 +62,32 @@ class AuthViewModel(
                 displayName = "",
                 message = "Sesion cerrada"
             )
+        }
+    }
+
+    private fun restoreSession() {
+        val existing = SessionStore.authHeaderOrNull() ?: return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoading = true, message = "Validando sesion...") }
+            val result = repository.validateSession()
+            _uiState.update { current ->
+                result.fold(
+                    onSuccess = { session ->
+                        val displayName = session.username ?: SessionStore.displayName()
+                        SessionStore.setAuth(existing.removePrefix("Bearer "), displayName)
+                        current.copy(
+                            isLoading = false,
+                            isAuthenticated = true,
+                            displayName = displayName,
+                            message = session.message ?: "Sesion restaurada"
+                        )
+                    },
+                    onFailure = {
+                        SessionStore.clear()
+                        current.copy(isLoading = false, message = "")
+                    }
+                )
+            }
         }
     }
 

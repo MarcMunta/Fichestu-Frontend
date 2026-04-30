@@ -207,6 +207,14 @@ fun LobbyView(
     onEnterRoom: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var countdown by remember { mutableIntStateOf(20) }
+    LaunchedEffect(Unit) {
+        while (countdown > 0) {
+            delay(1000)
+            countdown -= 1
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         AmbientBackground(particleCount = 14)
 
@@ -219,7 +227,7 @@ fun LobbyView(
         ) {
             DisplayGold(
                 text = "SALA DE PARTIDA",
-                fontSize = 38,
+                fontSize = 34,
                 textAlign = TextAlign.Center
             )
             Text(
@@ -227,7 +235,7 @@ fun LobbyView(
                 style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
             )
 
-            Spacer(Modifier.height(16.dp))
+            CountdownRing(value = countdown, max = 20, label = "EMPIEZA EN")
 
             // 10 player slots in 5x2 grid
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -276,7 +284,7 @@ fun LobbyView(
                     }
                     Spacer(Modifier.height(8.dp))
                     RuleNumLine(1, "Elige 1 bola entre ${GameRules.BALL_COUNT}. Cada bola esconde un multiplicador.")
-                    RuleNumLine(2, "Battle Royale de cartas. Ãšltimo en pie gana.")
+                    RuleNumLine(2, "Duelo de cartas. Ultimo en pie gana.")
                     RuleNumLine(3, "El ganador aplica su multiplicador a un token del mercado.")
                 }
             }
@@ -377,7 +385,7 @@ private fun PlayerSlot(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(
                 if (ready) {
                     Brush.verticalGradient(
@@ -390,7 +398,7 @@ private fun PlayerSlot(
             .border(
                 1.dp,
                 if (ready) Gold.copy(alpha = 0.4f) else PureWhite.copy(alpha = 0.08f),
-                RoundedCornerShape(14.dp)
+                RoundedCornerShape(8.dp)
             )
             .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -475,14 +483,14 @@ fun BallsPoolView(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .clip(RoundedCornerShape(24.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .background(
                         Brush.radialGradient(
                             listOf(Gold.copy(alpha = 0.10f), NightBlue),
                             radius = 800f
                         )
                     )
-                    .border(1.dp, Gold.copy(alpha = 0.20f), RoundedCornerShape(24.dp))
+                    .border(1.dp, Gold.copy(alpha = 0.20f), RoundedCornerShape(8.dp))
             ) {
                 val fieldW = maxWidth
                 val fieldH = maxHeight
@@ -565,9 +573,9 @@ private fun BallsHud(timer: Int, ballsLeft: Int) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(
             modifier = Modifier
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(8.dp))
                 .background(NightBlue.copy(alpha = 0.7f))
-                .border(1.dp, Gold.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+                .border(1.dp, Gold.copy(alpha = 0.25f), RoundedCornerShape(8.dp))
                 .padding(horizontal = 14.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -582,9 +590,9 @@ private fun BallsHud(timer: Int, ballsLeft: Int) {
         }
         Column(
             modifier = Modifier
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(8.dp))
                 .background(NightBlue.copy(alpha = 0.7f))
-                .border(1.dp, PureWhite.copy(alpha = 0.10f), RoundedCornerShape(14.dp))
+                .border(1.dp, PureWhite.copy(alpha = 0.10f), RoundedCornerShape(8.dp))
                 .padding(horizontal = 14.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -693,9 +701,9 @@ private fun BallPreview(ball: BallOption?, modifier: Modifier = Modifier) {
         Box(
             modifier = modifier
                 .heightIn(min = 60.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(8.dp))
                 .background(NightBlue.copy(alpha = 0.5f))
-                .border(1.dp, PureWhite.copy(alpha = 0.15f), RoundedCornerShape(14.dp))
+                .border(1.dp, PureWhite.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
                 .padding(12.dp),
             contentAlignment = Alignment.CenterStart
         ) {
@@ -710,13 +718,13 @@ private fun BallPreview(ball: BallOption?, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .heightIn(min = 60.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(
                 Brush.linearGradient(
                     listOf(Gold.copy(alpha = 0.18f), ChipRed.copy(alpha = 0.10f))
                 )
             )
-            .border(1.dp, Gold.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+            .border(1.dp, Gold.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -880,14 +888,14 @@ fun ArenaView(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .clip(RoundedCornerShape(24.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .background(
                         Brush.radialGradient(
                             listOf(ChipRed.copy(alpha = 0.10f), NightBlue),
                             radius = 1000f
                         )
                     )
-                    .border(1.dp, ChipRed.copy(alpha = 0.20f), RoundedCornerShape(24.dp))
+                    .border(1.dp, ChipRed.copy(alpha = 0.20f), RoundedCornerShape(8.dp))
             ) {
                 ArenaFloor()
 
@@ -959,9 +967,9 @@ fun ArenaView(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
+                        .clip(RoundedCornerShape(8.dp))
                         .background(NightBlue.copy(alpha = 0.7f))
-                        .border(1.dp, PureWhite.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                        .border(1.dp, PureWhite.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
                         .padding(10.dp)
                 ) {
                     Column {
@@ -1201,14 +1209,14 @@ private fun HandCard(
         modifier = modifier
             .height(110.dp)
             .offset(y = if (selected) (-10).dp else 0.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(
                 Brush.linearGradient(listOf(skin.top, skin.bot))
             )
             .border(
                 if (selected) 3.dp else 1.5.dp,
                 if (selected) Gold else PureWhite.copy(alpha = 0.18f),
-                RoundedCornerShape(14.dp)
+                RoundedCornerShape(8.dp)
             )
             .clickable(onClick = onClick)
             .padding(8.dp)
@@ -1313,7 +1321,7 @@ fun VictoryView(
                     Column(
                         modifier = Modifier
                             .width(110.dp)
-                            .clip(RoundedCornerShape(14.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(
                                 if (isTarget)
                                     Brush.verticalGradient(
@@ -1325,7 +1333,7 @@ fun VictoryView(
                             .border(
                                 2.dp,
                                 if (isTarget) Gold else PureWhite.copy(alpha = 0.08f),
-                                RoundedCornerShape(14.dp)
+                                RoundedCornerShape(8.dp)
                             )
                             .padding(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1388,20 +1396,20 @@ internal fun BigPushButtonInternal(
 
     Box(
         modifier = modifier
-            .height(54.dp)
+            .height(50.dp)
             .alpha(if (enabled) 1f else 0.4f)
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(top = 4.dp)
-                .background(shadowColor, RoundedCornerShape(14.dp))
+                .background(shadowColor, RoundedCornerShape(8.dp))
         )
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = 4.dp)
-                .clip(RoundedCornerShape(14.dp))
+                .clip(RoundedCornerShape(8.dp))
                 .background(color)
                 .clickable(enabled = enabled, onClick = onClick),
             contentAlignment = Alignment.Center

@@ -35,11 +35,12 @@ class GameViewModel(
 
     private var rewardedCooldownJob: Job? = null
     private var autoBattleJob: Job? = null
+    private var autoRestartJob: Job? = null
 
     init {
         bootstrap()
-        startPassiveRefresh()
         startAutoFlow()
+        startPassiveRefresh()
     }
 
     fun initializePlayer(name: String) {
@@ -114,7 +115,8 @@ class GameViewModel(
     }
 
     fun selectTab(tab: MainTab) {
-        _uiState.update { it.copy(activeTab = tab) }
+        val normalized = if (tab == MainTab.BATTLE) MainTab.BALL_ROOM else tab
+        _uiState.update { it.copy(activeTab = normalized) }
     }
 
     fun selectToken(tokenId: com.fichestu.frontend.game.model.TokenId) {
@@ -142,10 +144,7 @@ class GameViewModel(
     fun applyMinigameResult(deltaCash: Double, message: String) {
         _uiState.update { state ->
             state.copy(
-                market = state.market.copy(
-                    cashBalance = (state.market.cashBalance + deltaCash).coerceAtLeast(0.0)
-                ),
-                transientMessage = message
+                transientMessage = "Minijuegos locales deshabilitados para economia real. Usa mercado, bonus diario o salas."
             )
         }
     }
@@ -229,6 +228,11 @@ class GameViewModel(
     }
 
     fun resetBattleAndRoom() {
+        autoRestartJob?.cancel()
+        resetBattleAndRoom(autoEnterRoom = false)
+    }
+
+    private fun resetBattleAndRoom(autoEnterRoom: Boolean) {
         viewModelScope.launch {
             val snapshot = _uiState.value
             val matchId = snapshot.currentMatchId
@@ -248,8 +252,17 @@ class GameViewModel(
                         log = listOf("Nuevo ciclo listo. Vuelve al sorteo de bolas.")
                     ),
                     activeTab = MainTab.BALL_ROOM,
-                    transientMessage = "Battle cerrada. Preparado para una nueva sala."
+                    transientMessage = if (autoEnterRoom) {
+                        "Partida finalizada. Abriendo nueva sala..."
+                    } else {
+                        "Battle cerrada. Preparado para una nueva sala."
+                    }
                 )
+            }
+
+            if (autoEnterRoom) {
+                val result = repository.enterBallRoom(_uiState.value)
+                applyResult(result)
             }
         }
     }
@@ -322,7 +335,7 @@ class GameViewModel(
                             autoBattleJob = viewModelScope.launch {
                                 delay(600)
                                 if (uiState.value.ballRoom.phase == BallRoomPhase.REVEALED) {
-                                    selectTab(MainTab.BATTLE)
+                                    selectTab(MainTab.BALL_ROOM)
                                 }
                             }
                         }
@@ -331,6 +344,45 @@ class GameViewModel(
                 }
         }
 
+        // Watch canRevealBattle to auto-reveal once everyone has picked
+        viewModelScope.launch {
+            uiState
+                .map {
+                    it.ballRoom.canRevealBattle && it.ballRoom.phase == BallRoomPhase.PICKING
+                }
+                .distinctUntilChanged()
+                .collect { ready ->
+                    autoRevealJob?.cancel()
+                    if (ready) {
+                        autoRevealJob = viewModelScope.launch {
+                            delay(2_000)
+                            val now = uiState.value
+                            if (now.ballRoom.canRevealBattle &&
+                                now.ballRoom.phase == BallRoomPhase.PICKING
+                            ) {
+                                revealBallMultipliers()
+                            }
+                        }
+                    }
+                }
+        }
+
+        viewModelScope.launch {
+            uiState
+                .map { it.battle.phase }
+                .distinctUntilChanged()
+                .collect { phase ->
+                    autoRestartJob?.cancel()
+                    if (phase == BattlePhase.FINISHED) {
+                        autoRestartJob = viewModelScope.launch {
+                            delay(4_500)
+                            if (uiState.value.battle.phase == BattlePhase.FINISHED) {
+                                resetBattleAndRoom(autoEnterRoom = true)
+                            }
+                        }
+                    }
+                }
+        }
     }
 
     private fun startPassiveRefresh() {

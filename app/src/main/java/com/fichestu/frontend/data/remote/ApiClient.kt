@@ -35,6 +35,14 @@ object ApiClient {
         retrofit.create(GameApi::class.java)
     }
 
+    val marketApi: MarketApi by lazy {
+        retrofit.create(MarketApi::class.java)
+    }
+
+    val userApi: UserApi by lazy {
+        retrofit.create(UserApi::class.java)
+    }
+
     val profileApi: ProfileApi by lazy {
         retrofit.create(ProfileApi::class.java)
     }
