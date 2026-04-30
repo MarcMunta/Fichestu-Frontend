@@ -46,7 +46,6 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.SportsEsports
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -128,10 +127,16 @@ fun FichestuGameScreen(
         }
     }
 
+    val visibleTab = if (uiState.activeTab == MainTab.BATTLE) MainTab.BALL_ROOM else uiState.activeTab
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(DeepBlue, NightBlue)))
+            .background(
+                Brush.linearGradient(
+                    listOf(NightBlue, DeepBlue, Color(0xFF2A145B))
+                )
+            )
             .windowInsetsPadding(WindowInsets.systemBars)
     ) {
         GameBackgroundPattern()
@@ -154,7 +159,7 @@ fun FichestuGameScreen(
                     .fillMaxWidth()
             ) {
                 AnimatedContent(
-                    targetState = uiState.activeTab,
+                    targetState = visibleTab,
                     transitionSpec = {
                         val forward = targetState.ordinal >= initialState.ordinal
                         (slideInHorizontally(tween(260)) { if (forward) it else -it } + fadeIn(tween(200)))
@@ -174,22 +179,26 @@ fun FichestuGameScreen(
                             onClaimRewarded = viewModel::claimRewardedAd
                         )
 
-                        MainTab.BALL_ROOM -> BallRoomFlow(
-                            ballRoom = uiState.ballRoom,
-                            cashBalance = uiState.market.cashBalance,
-                            onEnterRoom = viewModel::enterBallRoom,
-                            onPickBall = viewModel::pickBall,
-                            onRevealMultipliers = viewModel::revealBallMultipliers,
-                            onOpenBattle = { viewModel.selectTab(MainTab.BATTLE) }
-                        )
-
-                        MainTab.BATTLE -> BattleFlow(
-                            battle = uiState.battle,
-                            market = uiState.market,
-                            onSelectAction = viewModel::chooseBattleAction,
-                            onPlayRound = viewModel::playBattleRound,
-                            onResetCycle = viewModel::resetBattleAndRoom
-                        )
+                        MainTab.BALL_ROOM, MainTab.BATTLE -> {
+                            if (uiState.battle.phase == BattlePhase.LOCKED) {
+                                BallRoomFlow(
+                                    ballRoom = uiState.ballRoom,
+                                    cashBalance = uiState.market.cashBalance,
+                                    onEnterRoom = viewModel::enterBallRoom,
+                                    onPickBall = viewModel::pickBall,
+                                    onRevealMultipliers = viewModel::revealBallMultipliers,
+                                    onOpenBattle = { viewModel.selectTab(MainTab.BALL_ROOM) }
+                                )
+                            } else {
+                                BattleFlow(
+                                    battle = uiState.battle,
+                                    market = uiState.market,
+                                    onSelectAction = viewModel::chooseBattleAction,
+                                    onPlayRound = viewModel::playBattleRound,
+                                    onResetCycle = viewModel::resetBattleAndRoom
+                                )
+                            }
+                        }
 
                         MainTab.MINIGAMES -> MinigamesTab(
                             cashBalance = uiState.market.cashBalance,
@@ -212,7 +221,7 @@ fun FichestuGameScreen(
             }
 
             BottomGameNav(
-                activeTab = uiState.activeTab,
+                activeTab = visibleTab,
                 onSelect = viewModel::selectTab
             )
         }
@@ -388,7 +397,7 @@ private fun DashboardTab(
                 )
                 Spacer(Modifier.height(10.dp))
                 ArcadeSecondaryButton(
-                    text = "ENTRAR SORTEO BOLAS (EUR ${GameRules.BALL_ENTRY_COST.toInt()})",
+                    text = "Jugar pagando 10€",
                     onClick = onEnterBallRoom
                 )
             }
@@ -1308,7 +1317,6 @@ private fun BottomGameNav(
     val items = listOf(
         BottomItem(MainTab.DASHBOARD, stringResource(R.string.nav_market), Icons.Default.Home),
         BottomItem(MainTab.BALL_ROOM, stringResource(R.string.nav_balls), Icons.Default.Casino),
-        BottomItem(MainTab.BATTLE, stringResource(R.string.nav_battle), Icons.Default.SportsEsports),
         BottomItem(MainTab.MINIGAMES, stringResource(R.string.nav_minigames), Icons.Default.PlayArrow),
         BottomItem(MainTab.PROFILE, stringResource(R.string.nav_profile), Icons.Default.Person)
     )
@@ -1323,10 +1331,10 @@ private fun BottomGameNav(
                 Surface(
                     modifier = Modifier
                         .weight(1f)
-                        .height(56.dp)
+                        .height(50.dp)
                         .clickable { onSelect(item.tab) },
-                    shape = RoundedCornerShape(16.dp),
-                    color = if (selected) Gold.copy(alpha = 0.24f) else DeepBlue.copy(alpha = 0.45f)
+                    shape = RoundedCornerShape(8.dp),
+                    color = if (selected) Gold.copy(alpha = 0.28f) else PanelBlue.copy(alpha = 0.70f)
                 ) {
                     Row(
                         modifier = Modifier
@@ -1334,7 +1342,7 @@ private fun BottomGameNav(
                             .border(
                                 1.dp,
                                 if (selected) Gold else PureWhite.copy(alpha = 0.12f),
-                                RoundedCornerShape(16.dp)
+                                RoundedCornerShape(8.dp)
                             )
                             .padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,

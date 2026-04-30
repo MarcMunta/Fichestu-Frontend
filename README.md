@@ -28,18 +28,56 @@ Tambien puedes compilar por consola:
 
 La URL por defecto del backend es:
 
-- `http://10.0.2.2:8081/`
+- `http://26.226.245.83:8080/`
 
-Esta URL funciona desde el emulador Android cuando el backend corre en Docker.
-Si arrancas backend en local con `spring-boot:run` (puerto `8080`), la app intenta fallback automatico entre `8081` y `8080`.
+Se define en:
+
+- `app/build.gradle.kts` -> `BuildConfig.BASE_URL`
+
+Para backend local desde emulador Android usa:
+
+- `http://10.0.2.2:8080/`
+
+Para dispositivo fisico usa la IP LAN/VPN del host Docker.
 
 ## Endpoints usados por la app
 
-La app usa autenticacion JSON contra el backend Spring:
+La app usa JWT Bearer guardado en `SharedPreferences`.
 
 - `POST /api/auth/login`
 - `POST /api/auth/register`
+- `GET /api/auth/me`
+- `GET /api/game/market`
+- `POST /api/game/market/buy`
+- `POST /api/game/market/sell`
+- `POST /api/game/rewarded/claim`
+- `POST /api/game/ball-room/enter`
+- `GET /api/game/match/state`
+- `POST /api/game/matches/{matchId}/pick-ball`
+- `POST /api/game/matches/{matchId}/reveal`
+- `POST /api/game/matches/{matchId}/battle/round`
+
+Estas rutas son aliases legacy compatibles con el backend Docker actual. El backend nuevo tambien expone el contrato canonico `/api/me`, `/api/market`, `/api/rewards/*`, `/api/games/*`.
+
+## Validacion en tablet emulator
+
+AVD probado:
+
+- `tablet_proyecto`
+- `emulator-5554`
+- resolucion `2560x1800`
+
+Comandos:
+
+```powershell
+.\gradlew.bat :app:assembleDebug --no-daemon --console=plain --quiet
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" -s emulator-5554 install -r app\build\outputs\apk\debug\app-debug.apk
+& "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe" -s emulator-5554 shell am start -n com.fichestu.frontend/.MainActivity
+```
 
 Si el contrato cambia, ajusta:
 
 - `app/src/main/java/com/fichestu/frontend/data/remote/AuthApi.kt`
+- `app/src/main/java/com/fichestu/frontend/data/remote/UserApi.kt`
+- `app/src/main/java/com/fichestu/frontend/data/remote/MarketApi.kt`
+- `app/src/main/java/com/fichestu/frontend/data/remote/GameApi.kt`

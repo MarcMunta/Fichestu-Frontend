@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -60,22 +61,14 @@ import kotlin.random.Random
    Ambient orbs, grid, particles, halos, confetti, displays
    ============================================================ */
 
-/** Background: drifting orbs + faint gold grid + rising particles. */
+/** Background: clean vivid gradient + subtle motion grid. */
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun AmbientBackground(
     modifier: Modifier = Modifier,
     particleCount: Int = 14
 ) {
     val transition = rememberInfiniteTransition(label = "ambient")
-    val drift by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(14_000, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "drift"
-    )
     val gridShift by transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
@@ -85,34 +78,25 @@ fun AmbientBackground(
         label = "grid"
     )
 
-    val seeds = remember {
-        List(particleCount) {
-            ParticleSeed(
-                x = Random.nextFloat(),
-                size = 3f + Random.nextInt(3),
-                color = when (it % 4) {
-                    0 -> ChipRed
-                    1 -> ShieldBlue
-                    else -> Gold
-                },
-                duration = 10_000 + (it % 7) * 2_000,
-                delay = (it * 700) % 8_000
-            )
-        }
-    }
-
     Box(modifier = modifier.fillMaxSize()) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w = size.width
             val h = size.height
 
-            // Gold grid with mask (dim away from center)
-            val cell = 80.dp.toPx()
+            drawRect(
+                brush = Brush.linearGradient(
+                    colors = listOf(NightBlue, Color(0xFF101827), Color(0xFF26104F)),
+                    start = Offset.Zero,
+                    end = Offset(w, h)
+                )
+            )
+
+            val cell = 96.dp.toPx()
             val gx = (gridShift * cell)
             var x = -cell + gx
             while (x < w + cell) {
                 drawLine(
-                    color = Gold.copy(alpha = 0.04f),
+                    color = ShieldBlue.copy(alpha = 0.045f),
                     start = Offset(x, 0f),
                     end = Offset(x, h),
                     strokeWidth = 1.dp.toPx()
@@ -122,7 +106,7 @@ fun AmbientBackground(
             var y = -cell + gx
             while (y < h + cell) {
                 drawLine(
-                    color = Gold.copy(alpha = 0.04f),
+                    color = Gold.copy(alpha = 0.035f),
                     start = Offset(0f, y),
                     end = Offset(w, y),
                     strokeWidth = 1.dp.toPx()
@@ -130,51 +114,18 @@ fun AmbientBackground(
                 y += cell
             }
 
-            // Three drifting orbs (gold, red, shield)
-            val dx = (drift - 0.5f) * 60.dp.toPx()
-            val dy = (drift - 0.5f) * 40.dp.toPx()
-
-            drawCircle(
-                brush = Brush.radialGradient(
-                    listOf(Gold.copy(alpha = 0.32f), Color.Transparent),
-                    center = Offset(w * 0.10f + dx, h * 0.18f + dy),
-                    radius = 220.dp.toPx()
-                ),
-                radius = 220.dp.toPx(),
-                center = Offset(w * 0.10f + dx, h * 0.18f + dy)
-            )
-            drawCircle(
-                brush = Brush.radialGradient(
-                    listOf(ChipRed.copy(alpha = 0.30f), Color.Transparent),
-                    center = Offset(w * 0.92f - dx, h * 0.45f - dy),
-                    radius = 200.dp.toPx()
-                ),
-                radius = 200.dp.toPx(),
-                center = Offset(w * 0.92f - dx, h * 0.45f - dy)
-            )
-            drawCircle(
-                brush = Brush.radialGradient(
-                    listOf(ShieldBlue.copy(alpha = 0.22f), Color.Transparent),
-                    center = Offset(w * 0.55f + dy, h * 1.05f + dx),
-                    radius = 180.dp.toPx()
-                ),
-                radius = 180.dp.toPx(),
-                center = Offset(w * 0.55f + dy, h * 1.05f + dx)
-            )
-        }
-
-        // Floating particles (overlaid as small Boxes for cheaper repaint)
-        seeds.forEach { seed ->
-            val particle by transition.animateFloat(
-                initialValue = 0f,
-                targetValue = 1f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(seed.duration, easing = LinearEasing),
-                    initialStartOffset = androidx.compose.animation.core.StartOffset(seed.delay)
-                ),
-                label = "p${seed.x}"
-            )
-            FloatingParticle(seed = seed, t = particle)
+            val stripeGap = 180.dp.toPx()
+            var sx = -h
+            while (sx < w + h) {
+                drawLine(
+                    color = ReflectPurple.copy(alpha = 0.06f),
+                    start = Offset(sx, h),
+                    end = Offset(sx + h, 0f),
+                    strokeWidth = 3.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+                sx += stripeGap
+            }
         }
     }
 }
@@ -306,7 +257,7 @@ fun Eyebrow(
 fun PremiumPanel(
     modifier: Modifier = Modifier,
     glow: Boolean = false,
-    cornerRadius: Dp = 24.dp,
+    cornerRadius: Dp = 8.dp,
     content: @Composable BoxScope.() -> Unit
 ) {
     Box(

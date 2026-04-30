@@ -105,17 +105,18 @@ fun ArcadePanel(
     contentPadding: PaddingValues = PaddingValues(16.dp),
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val shape = RoundedCornerShape(8.dp)
     Surface(
         modifier = modifier
             .shadow(
-                elevation = 12.dp,
-                shape = RoundedCornerShape(24.dp),
-                ambientColor = Gold.copy(alpha = 0.18f),
-                spotColor = Gold.copy(alpha = 0.12f)
+                elevation = 8.dp,
+                shape = shape,
+                ambientColor = Gold.copy(alpha = 0.10f),
+                spotColor = Gold.copy(alpha = 0.08f)
             )
-            .border(1.5.dp, CardBorder, RoundedCornerShape(24.dp)),
-        shape = RoundedCornerShape(24.dp),
-        color = PanelBlue.copy(alpha = 0.93f)
+            .border(1.dp, CardBorder, shape),
+        shape = shape,
+        color = PanelBlue.copy(alpha = 0.90f)
     ) {
         Column(
             modifier = Modifier
@@ -180,19 +181,21 @@ private fun ArcadeButtonBase(
     val isPressed by interactionSource.collectIsPressedAsState()
     val offsetY = if (isPressed && enabled) 4.dp else 0.dp
 
-    Box(modifier = modifier.height(56.dp)) {
+    val shape = RoundedCornerShape(8.dp)
+
+    Box(modifier = modifier.height(52.dp)) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .offset(y = 4.dp)
-                .background(bottomColor, RoundedCornerShape(18.dp))
+                .offset(y = 3.dp)
+                .background(bottomColor, shape)
         )
 
         Button(
             onClick = onClick,
             enabled = enabled,
             interactionSource = interactionSource,
-            shape = RoundedCornerShape(18.dp),
+            shape = shape,
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color.Transparent,
                 contentColor = textColor,
@@ -203,8 +206,8 @@ private fun ArcadeButtonBase(
             modifier = Modifier
                 .fillMaxSize()
                 .offset(y = offsetY)
-                .border(1.5.dp, Gold.copy(alpha = 0.35f), RoundedCornerShape(18.dp))
-                .background(topBrush, RoundedCornerShape(18.dp))
+                .border(1.dp, Gold.copy(alpha = 0.28f), shape)
+                .background(topBrush, shape)
         ) {
             Text(
                 text = text,

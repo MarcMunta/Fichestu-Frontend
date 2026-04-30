@@ -40,7 +40,7 @@ interface AuthApi {
         @Body request: PasswordResetConfirmRequest
     ): Response<GenericResponse>
 
-    @GET("api/auth/me")
+    @GET("api/me")
     suspend fun me(
         @Header("Authorization") authorization: String
     ): Response<SessionResponse>
