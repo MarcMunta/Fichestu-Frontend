@@ -68,6 +68,7 @@ data class BallRoomDto(
     val phase: String,
     val statusMessage: String,
     val canRevealBattle: Boolean,
+    val selectionDeadlineEpochMs: Long?,
     val players: List<BallPlayerDto>,
     val balls: List<BallOptionDto>
 )

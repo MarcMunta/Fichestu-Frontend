@@ -76,7 +76,9 @@ data class BallRoomUiState(
     val players: List<BallPlayer> = emptyList(),
     val balls: List<BallOption> = emptyList(),
     val statusMessage: String = "Paga EUR ${GameRules.BALL_ENTRY_COST.toInt()} para entrar en la sala.",
-    val canRevealBattle: Boolean = false
+    val canRevealBattle: Boolean = false,
+    val selectionDeadlineEpochMs: Long? = null,
+    val pendingSelectedBallId: Int? = null
 )
 
 enum class BattleCardType {
