@@ -42,6 +42,7 @@ class GameViewModel(
     private var autoRevealJob: Job? = null
     private var autoRestartJob: Job? = null
     private var nextBattleCardId = 1L
+    private var matchmakingVisualDeadlineMs: Long? = null
 
     init {
         bootstrap()
@@ -124,6 +125,10 @@ class GameViewModel(
         _uiState.update { it.copy(activeTab = tab) }
     }
 
+    fun openBallRoomTab() {
+        selectTab(MainTab.BALL_ROOM)
+    }
+
     fun selectToken(tokenId: com.fichestu.frontend.game.model.TokenId) {
         _uiState.update { state ->
             state.copy(market = state.market.copy(selectedToken = tokenId))
@@ -160,6 +165,10 @@ class GameViewModel(
     fun enterBallRoom() {
         viewModelScope.launch {
             val snapshot = _uiState.value
+            if (snapshot.ballRoom.phase == BallRoomPhase.MATCHMAKING) {
+                _uiState.update { it.copy(transientMessage = "Ya estas buscando partida.") }
+                return@launch
+            }
             snapshot.currentMatchId?.let { matchId ->
                 runCatching { repository.closeMatch(matchId) }
                 _uiState.update { state ->
@@ -175,6 +184,50 @@ class GameViewModel(
             }
             val result = repository.enterBallRoom(_uiState.value)
             applyResult(result)
+        }
+    }
+
+    fun cancelMatchmaking() {
+        viewModelScope.launch {
+            val snapshot = _uiState.value
+            val matchId = snapshot.currentMatchId
+            if (matchId == null) {
+                _uiState.update { it.copy(transientMessage = "No hay matchmaking activo.") }
+                return@launch
+            }
+
+            val result = repository.cancelMatchmaking(snapshot, matchId)
+            applyResult(result)
+        }
+    }
+
+    fun abandonActiveMatchForExit(onComplete: (() -> Unit)? = null) {
+        viewModelScope.launch {
+            val snapshot = _uiState.value
+            val matchId = snapshot.currentMatchId
+            if (matchId != null) {
+                val result = repository.abandonMatch(snapshot, matchId)
+                applyResult(result)
+            }
+            onComplete?.invoke()
+        }
+    }
+
+    fun refreshActiveMatch() {
+        viewModelScope.launch {
+            val current = _uiState.value
+            if (current.currentMatchId == null) return@launch
+            val result = repository.refreshMatch(current)
+            result.onSuccess { newState ->
+                _uiState.value = stabilizeMatchmakingTransition(current, newState).copy(
+                    battle = mergeBattleHand(newState.battle, current.battle)
+                )
+            }
+            result.onFailure { error ->
+                if (error is SessionExpiredException) {
+                    _uiState.update { it.copy(isSessionExpired = true) }
+                }
+            }
         }
     }
 
@@ -262,6 +315,60 @@ class GameViewModel(
             } else {
                 forceLocalRevealAndBattle(selectedBallId)
             }
+        }
+    }
+
+    fun autoFinishBallSelectionOnTimeout() {
+        viewModelScope.launch {
+            var snapshot = _uiState.value
+            if (snapshot.ballRoom.phase != BallRoomPhase.PICKING) return@launch
+
+            val matchId = snapshot.currentMatchId
+            if (matchId == null) {
+                _uiState.update { it.copy(transientMessage = "No hay sala activa") }
+                return@launch
+            }
+
+            val backendSelected = snapshot.ballRoom.players.firstOrNull { it.isUser }?.selectedBallId
+            val pendingSelected = snapshot.ballRoom.pendingSelectedBallId?.takeIf { pendingId ->
+                snapshot.ballRoom.balls.any { ball ->
+                    ball.id == pendingId && (!ball.isPicked || backendSelected == pendingId)
+                }
+            }
+            val selectedBallId = backendSelected
+                ?: pendingSelected
+                ?: snapshot.ballRoom.balls
+                    .filter { !it.isPicked }
+                    .randomOrNull()
+                    ?.id
+
+            if (selectedBallId == null) {
+                _uiState.update { it.copy(transientMessage = "No quedan bolas libres") }
+                return@launch
+            }
+
+            if (backendSelected == null) {
+                val pickResult = repository.pickBall(snapshot, matchId, selectedBallId)
+                pickResult.onSuccess { pickedState ->
+                    _uiState.value = pickedState.copy(
+                        transientMessage = "Tiempo agotado. Bola #$selectedBallId asignada."
+                    )
+                    snapshot = pickedState
+                }
+                pickResult.onFailure { error ->
+                    if (error is SessionExpiredException) {
+                        _uiState.update { it.copy(isSessionExpired = true) }
+                    } else {
+                        _uiState.update {
+                            it.copy(transientMessage = error.message ?: "No se pudo asignar bola automaticamente")
+                        }
+                    }
+                    return@launch
+                }
+            }
+
+            val revealResult = repository.revealMultipliers(snapshot, matchId)
+            revealResult.onSuccess { applyResult(Result.success(it)) }
         }
     }
 
@@ -569,7 +676,7 @@ class GameViewModel(
                     currentMatchId = null,
                     ballRoom = BallRoomUiState(
                         phase = BallRoomPhase.WAITING_ENTRY,
-                        statusMessage = "Paga EUR 10 para entrar en la sala."
+                            statusMessage = "Paga 10 FTC para entrar en la sala."
                     ),
                     battle = BattleUiState(
                         phase = BattlePhase.LOCKED,
@@ -612,6 +719,34 @@ class GameViewModel(
         _uiState.update { it.copy(transientMessage = null) }
     }
 
+    fun markNotificationsRead() {
+        viewModelScope.launch {
+            val result = repository.markNotificationsRead(_uiState.value)
+            result.onSuccess { nextState ->
+                mergeNotifications(nextState)
+            }
+            result.onFailure { error ->
+                if (error is SessionExpiredException) {
+                    expireSession(error)
+                }
+            }
+        }
+    }
+
+    fun clearNotifications() {
+        viewModelScope.launch {
+            val result = repository.clearNotifications(_uiState.value)
+            result.onSuccess { nextState ->
+                mergeNotifications(nextState)
+            }
+            result.onFailure { error ->
+                if (error is SessionExpiredException) {
+                    expireSession(error)
+                }
+            }
+        }
+    }
+
     private fun bootstrap() {
         viewModelScope.launch {
             _uiState.update { it.copy(transientMessage = "Cargando estado...") }
@@ -619,6 +754,7 @@ class GameViewModel(
             applyResult(result)
             if (result.isSuccess) {
                 loadProfile()
+                refreshNotifications()
             }
         }
     }
@@ -626,7 +762,14 @@ class GameViewModel(
     private fun loadProfile() {
         viewModelScope.launch {
             val result = profileRepository.loadProfile(_uiState.value)
-            result.onSuccess { _uiState.value = it }
+            result.onSuccess { nextState ->
+                _uiState.update { current ->
+                    current.copy(
+                        profile = nextState.profile,
+                        transientMessage = nextState.transientMessage
+                    )
+                }
+            }
             result.onFailure { error ->
                 if (error is SessionExpiredException) {
                     expireSession(error)
@@ -701,7 +844,7 @@ class GameViewModel(
                         autoRestartJob = viewModelScope.launch {
                             delay(4_500)
                             if (uiState.value.battle.phase == BattlePhase.FINISHED) {
-                                resetBattleAndRoom(autoEnterRoom = true)
+                                resetBattleAndRoom(autoEnterRoom = false)
                             }
                         }
                     }
@@ -712,20 +855,67 @@ class GameViewModel(
     private fun startPassiveRefresh() {
         viewModelScope.launch {
             while (isActive) {
-                delay(1000)
                 val current = _uiState.value
-                if (current.currentMatchId != null &&
-                    current.activeTab == MainTab.BATTLE &&
-                    current.battle.phase != BattlePhase.LOCKED &&
-                    current.battle.hand.isEmpty()
-                ) {
-                    val result = repository.refreshMatch(current)
-                    result.onSuccess { newState ->
-                        _uiState.value = newState.copy(
-                            battle = mergeBattleHand(newState.battle, current.battle)
-                        )
-                    }
+                if (shouldRefreshMatch(current)) {
+                    refreshMatchFromState(current)
                 }
+                delay(passiveRefreshDelayMs(_uiState.value))
+            }
+        }
+
+        viewModelScope.launch {
+            while (isActive) {
+                delay(10_000)
+                refreshNotifications()
+            }
+        }
+    }
+
+    private fun shouldRefreshMatch(current: GameUiState): Boolean {
+        if (current.currentMatchId == null) return false
+
+        val shouldRefreshBattle = current.activeTab == MainTab.BATTLE &&
+            current.battle.phase != BattlePhase.LOCKED &&
+            current.battle.hand.isEmpty()
+        val shouldRefreshBallRoom = current.activeTab == MainTab.BALL_ROOM &&
+            (current.ballRoom.phase == BallRoomPhase.MATCHMAKING ||
+                current.ballRoom.phase == BallRoomPhase.PICKING)
+
+        return shouldRefreshBattle || shouldRefreshBallRoom
+    }
+
+    private fun passiveRefreshDelayMs(current: GameUiState): Long {
+        if (current.currentMatchId == null) return 2_500L
+
+        return when {
+            current.activeTab == MainTab.BALL_ROOM &&
+                current.ballRoom.phase == BallRoomPhase.MATCHMAKING -> {
+                val remainingMs = current.ballRoom.selectionDeadlineEpochMs
+                    ?.let { it - System.currentTimeMillis() }
+                when {
+                    remainingMs == null -> 3_000L
+                    remainingMs <= 1_000L -> 500L
+                    remainingMs <= 3_500L -> 1_000L
+                    else -> 3_000L
+                }
+            }
+            current.activeTab == MainTab.BALL_ROOM &&
+                current.ballRoom.phase == BallRoomPhase.PICKING -> 2_000L
+            current.activeTab == MainTab.BATTLE -> 1_500L
+            else -> 2_500L
+        }
+    }
+
+    private suspend fun refreshMatchFromState(current: GameUiState) {
+        val result = repository.refreshMatch(current)
+        result.onSuccess { newState ->
+            _uiState.value = newState.copy(
+                battle = mergeBattleHand(newState.battle, current.battle)
+            )
+        }
+        result.onFailure { error ->
+            if (error is SessionExpiredException) {
+                _uiState.update { it.copy(isSessionExpired = true) }
             }
         }
     }
@@ -748,10 +938,13 @@ class GameViewModel(
     }
 
     private fun applyResult(result: Result<GameUiState>) {
+        var shouldRefreshNotifications = false
         _uiState.update { current ->
             result.fold(
                 onSuccess = { success ->
-                    success.copy(battle = mergeBattleHand(success.battle, current.battle))
+                    shouldRefreshNotifications = true
+                    stabilizeMatchmakingTransition(current, success)
+                        .copy(battle = mergeBattleHand(success.battle, current.battle))
                 },
                 onFailure = { error ->
                     if (error is SessionExpiredException) {
@@ -763,6 +956,65 @@ class GameViewModel(
                         current.copy(transientMessage = error.message ?: "Error de conexión")
                     }
                 }
+            )
+        }
+        if (shouldRefreshNotifications) {
+            refreshNotifications()
+        }
+    }
+
+    private fun stabilizeMatchmakingTransition(current: GameUiState, next: GameUiState): GameUiState {
+        if (next.ballRoom.phase == BallRoomPhase.MATCHMAKING) {
+            if (matchmakingVisualDeadlineMs == null) {
+                matchmakingVisualDeadlineMs = next.ballRoom.selectionDeadlineEpochMs
+                    ?: current.ballRoom.selectionDeadlineEpochMs
+                    ?: (System.currentTimeMillis() + 15_000L)
+            }
+            return next.copy(
+                ballRoom = next.ballRoom.copy(selectionDeadlineEpochMs = matchmakingVisualDeadlineMs)
+            )
+        }
+
+        val deadline = matchmakingVisualDeadlineMs
+        val isEarlyPickingTransition = current.ballRoom.phase == BallRoomPhase.MATCHMAKING &&
+            next.ballRoom.phase == BallRoomPhase.PICKING &&
+            deadline != null &&
+            System.currentTimeMillis() < deadline
+
+        if (isEarlyPickingTransition) {
+            return next.copy(
+                ballRoom = current.ballRoom.copy(
+                    selectionDeadlineEpochMs = deadline,
+                    statusMessage = "Preparando seleccion de bolas..."
+                ),
+                battle = current.battle,
+                activeTab = current.activeTab
+            )
+        }
+
+        matchmakingVisualDeadlineMs = null
+        return next
+    }
+
+    private fun refreshNotifications() {
+        viewModelScope.launch {
+            val result = repository.loadNotifications(_uiState.value)
+            result.onSuccess { nextState ->
+                mergeNotifications(nextState)
+            }
+            result.onFailure { error ->
+                if (error is SessionExpiredException) {
+                    expireSession(error)
+                }
+            }
+        }
+    }
+
+    private fun mergeNotifications(nextState: GameUiState) {
+        _uiState.update { current ->
+            current.copy(
+                notifications = nextState.notifications,
+                unreadNotificationCount = nextState.unreadNotificationCount
             )
         }
     }
@@ -782,7 +1034,7 @@ class GameViewModel(
             activeTab = MainTab.DASHBOARD,
             ballRoom = BallRoomUiState(
                 phase = BallRoomPhase.WAITING_ENTRY,
-                statusMessage = "Paga EUR 10 para entrar en la sala."
+                statusMessage = "Paga 10 FTC para entrar en la sala."
             ),
             battle = BattleUiState(
                 phase = BattlePhase.LOCKED,

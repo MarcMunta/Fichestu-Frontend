@@ -59,7 +59,7 @@ data class WalletResponseDto(
 data class EnterBallRoomResponseDto(
     val message: String,
     val success: Boolean,
-    val matchId: Int,
+    val matchId: Int?,
     val cashBalance: Double,
     val ballRoom: BallRoomDto
 )
@@ -69,6 +69,7 @@ data class BallRoomDto(
     val statusMessage: String,
     val canRevealBattle: Boolean,
     val selectionDeadlineEpochMs: Long?,
+    val serverNowEpochMs: Long? = null,
     val players: List<BallPlayerDto>,
     val balls: List<BallOptionDto>
 )

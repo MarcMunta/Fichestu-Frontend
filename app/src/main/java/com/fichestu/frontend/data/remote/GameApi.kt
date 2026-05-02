@@ -45,6 +45,18 @@ interface GameApi {
         @Body request: PickBallRequestDto
     ): Response<MatchStateResponseDto>
 
+    @POST("api/game/matches/{matchId}/matchmaking/cancel")
+    suspend fun cancelMatchmaking(
+        @Header("Authorization") authorization: String,
+        @Path("matchId") matchId: Int
+    ): Response<EnterBallRoomResponseDto>
+
+    @POST("api/game/matches/{matchId}/abandon")
+    suspend fun abandonMatch(
+        @Header("Authorization") authorization: String,
+        @Path("matchId") matchId: Int
+    ): Response<EnterBallRoomResponseDto>
+
     @POST("api/game/matches/{matchId}/reveal")
     suspend fun revealMultipliers(
         @Header("Authorization") authorization: String,

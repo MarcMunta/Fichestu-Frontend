@@ -310,7 +310,7 @@ fun StatusTicker(text: String, modifier: Modifier = Modifier) {
 }
 
 fun formatCurrency(value: Double): String {
-    return String.format(Locale.US, "EUR %.2f", value)
+    return String.format(Locale.US, "%.2f FTC", value)
 }
 
 fun formatPercent(value: Double): String {

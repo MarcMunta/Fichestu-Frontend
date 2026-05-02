@@ -49,6 +49,7 @@ data class MarketUiState(
 
 enum class BallRoomPhase {
     WAITING_ENTRY,
+    MATCHMAKING,
     PICKING,
     REVEALED,
     READY_FOR_BATTLE
@@ -75,7 +76,7 @@ data class BallRoomUiState(
     val phase: BallRoomPhase = BallRoomPhase.WAITING_ENTRY,
     val players: List<BallPlayer> = emptyList(),
     val balls: List<BallOption> = emptyList(),
-    val statusMessage: String = "Paga EUR ${GameRules.BALL_ENTRY_COST.toInt()} para entrar en la sala.",
+    val statusMessage: String = "Paga ${GameRules.BALL_ENTRY_COST.toInt()} FTC para entrar en la sala.",
     val canRevealBattle: Boolean = false,
     val selectionDeadlineEpochMs: Long? = null,
     val pendingSelectedBallId: Int? = null
@@ -162,6 +163,15 @@ data class ProfileUiState(
     val stats: ProfileStats = ProfileStats()
 )
 
+data class NotificationUi(
+    val id: Int,
+    val title: String,
+    val message: String,
+    val type: String,
+    val read: Boolean,
+    val createdAt: String
+)
+
 data class GameUiState(
     val currentMatchId: Int? = null,
     val activeTab: MainTab = MainTab.DASHBOARD,
@@ -172,5 +182,7 @@ data class GameUiState(
     val rewardedAvailable: Boolean = true,
     val rewardedCooldownSec: Int = 0,
     val isSessionExpired: Boolean = false,
+    val notifications: List<NotificationUi> = emptyList(),
+    val unreadNotificationCount: Int = 0,
     val transientMessage: String? = null
 )

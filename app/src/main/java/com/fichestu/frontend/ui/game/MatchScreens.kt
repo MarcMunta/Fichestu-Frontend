@@ -95,21 +95,23 @@ fun BallRoomFlow(
     cashBalance: Double,
     isInRoom: Boolean,
     onEnterRoom: () -> Unit,
+    onCancelMatchmaking: () -> Unit,
     onPickBall: (Int) -> Unit,
-    onStartPicking: () -> Unit,
     onFinishSelection: () -> Unit,
+    onSelectionTimeout: () -> Unit,
+    onMatchmakingFinished: () -> Unit,
     onOpenBattle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     when (ballRoom.phase) {
-        BallRoomPhase.WAITING_ENTRY -> LobbyView(
+        BallRoomPhase.WAITING_ENTRY, BallRoomPhase.MATCHMAKING -> LobbyView(
+            ballRoom = ballRoom,
             cashBalance = cashBalance,
             statusMessage = ballRoom.statusMessage,
             isInRoom = isInRoom,
-            players = ballRoom.players,
-            playerCount = ballRoom.players.size,
-            onStartPicking = onStartPicking,
             onEnterRoom = onEnterRoom,
+            onCancelMatchmaking = onCancelMatchmaking,
+            onMatchmakingFinished = onMatchmakingFinished,
             modifier = modifier
         )
         BallRoomPhase.PICKING -> {
@@ -118,6 +120,7 @@ fun BallRoomFlow(
                 ballRoom = ballRoom,
                 onPickBall = onPickBall,
                 onConfirm = onFinishSelection,
+                onTimeout = onSelectionTimeout,
                 modifier = modifier
             )
         }
@@ -214,25 +217,48 @@ private fun initialsFor(nickname: String): String =
 
 @Composable
 fun LobbyView(
+    ballRoom: BallRoomUiState,
     cashBalance: Double,
     statusMessage: String,
     isInRoom: Boolean = false,
-    players: List<BallPlayer> = emptyList(),
-    playerCount: Int = 0,
-    onStartPicking: () -> Unit = {},
     onEnterRoom: () -> Unit,
+    onCancelMatchmaking: () -> Unit,
+    onMatchmakingFinished: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var countdown by remember { mutableIntStateOf(20) }
-    val displayedPlayerCount = maxOf(playerCount, if (isInRoom) 1 else 0)
-    LaunchedEffect(isInRoom) {
-        countdown = 20
-        while (isInRoom && countdown > 0) {
-            delay(1000)
-            countdown -= 1
+    var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+    var rulesExpanded by remember { mutableStateOf(false) }
+    var activeDeadlineMs by remember { mutableStateOf<Long?>(null) }
+    val isMatchmaking = ballRoom.phase == BallRoomPhase.MATCHMAKING
+    val hasActiveLobbyMatch = isInRoom || isMatchmaking
+    val maxCountdown = 15
+    val serverDeadline = ballRoom.selectionDeadlineEpochMs
+    val countdown = if (hasActiveLobbyMatch) {
+        val deadline = activeDeadlineMs ?: serverDeadline ?: nowMs + maxCountdown * 1000L
+        ((deadline - nowMs).coerceAtLeast(0L) / 1000L).toInt().coerceIn(0, maxCountdown)
+    } else {
+        maxCountdown
+    }
+    val players = ballRoom.players
+    val displayedPlayerCount = maxOf(players.size, if (hasActiveLobbyMatch) 1 else 0)
+
+    LaunchedEffect(hasActiveLobbyMatch, ballRoom.selectionDeadlineEpochMs) {
+        if (hasActiveLobbyMatch && activeDeadlineMs == null) {
+            activeDeadlineMs = ballRoom.selectionDeadlineEpochMs
+                ?: (System.currentTimeMillis() + maxCountdown * 1000L)
         }
-        if (isInRoom) {
-            onStartPicking()
+        if (!hasActiveLobbyMatch) {
+            activeDeadlineMs = null
+        }
+        while (hasActiveLobbyMatch) {
+            nowMs = System.currentTimeMillis()
+            delay(250)
+        }
+    }
+
+    LaunchedEffect(hasActiveLobbyMatch, countdown) {
+        if (hasActiveLobbyMatch && countdown == 0) {
+            onMatchmakingFinished()
         }
     }
 
@@ -252,14 +278,30 @@ fun LobbyView(
                 textAlign = TextAlign.Center
             )
             Text(
-                text = "Entrada: EUR ${GameRules.BALL_ENTRY_COST.toInt()}",
+                    text = "Entrada: ${GameRules.BALL_ENTRY_COST.toInt()} FTC",
                 style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
             )
 
             CountdownRing(
-                value = if (isInRoom) countdown else 20,
-                max = 20,
-                label = if (isInRoom) "EMPIEZA EN" else "PAGA PARA ENTRAR"
+                value = countdown,
+                max = maxCountdown,
+                label = when {
+                    !hasActiveLobbyMatch -> "PAGA PARA ENTRAR"
+                    countdown == 0 -> "LISTO"
+                    else -> "BUSCANDO"
+                },
+                centerText = when {
+                    !hasActiveLobbyMatch -> "${GameRules.BALL_ENTRY_COST.toInt()} FTC"
+                    countdown == 0 -> "..."
+                    else -> "${countdown}s"
+                },
+                helperText = when {
+                    !hasActiveLobbyMatch -> null
+                    countdown == 0 -> "PREPARANDO"
+                    else -> "CANCELAR"
+                },
+                enabled = hasActiveLobbyMatch || cashBalance >= GameRules.BALL_ENTRY_COST,
+                onClick = if (hasActiveLobbyMatch) onCancelMatchmaking else onEnterRoom
             )
 
             // 10 player slots in 5x2 grid
@@ -272,8 +314,8 @@ fun LobbyView(
                             PlayerSlot(
                                 initials = if (idx == 0) "TÚ" else "P${idx + 1}",
                                 color = PLAYER_PALETTE[idx],
-                                ready = player != null || (isInRoom && idx == 0),
-                                isYou = player?.isUser == true || (isInRoom && idx == 0),
+                                ready = player != null || (hasActiveLobbyMatch && idx == 0),
+                                isYou = player?.isUser == true || (hasActiveLobbyMatch && idx == 0),
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -281,7 +323,13 @@ fun LobbyView(
                 }
             }
 
-            PremiumPanel(modifier = Modifier.fillMaxWidth(), glow = true) {
+            HowToPlayTogglePanel(
+                expanded = rulesExpanded,
+                onToggle = { rulesExpanded = !rulesExpanded },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            if (false) PremiumPanel(modifier = Modifier.fillMaxWidth(), glow = true) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(
@@ -312,13 +360,15 @@ fun LobbyView(
                     RuleNumLine(1, "Elige 1 bola entre ${GameRules.BALL_COUNT}. Cada bola esconde un multiplicador.")
                     RuleNumLine(2, "Duelo de cartas. Ultimo en pie gana.")
                     RuleNumLine(3, "El ganador aplica su multiplicador a un token del mercado.")
+                    RuleNumLine(4, "Matchmaking dura 15s o termina antes si entran 10 jugadores.")
+                    RuleNumLine(5, "Puedes cancelar mientras busca partida; se devuelve la entrada.")
                 }
             }
 
             Spacer(Modifier.weight(1f))
 
             Text(
-                text = if (isInRoom) {
+                text = if (hasActiveLobbyMatch) {
                     "Esperando jugadores: $displayedPlayerCount/10."
                 } else {
                     statusMessage
@@ -330,24 +380,94 @@ fun LobbyView(
                 modifier = Modifier.fillMaxWidth()
             )
             Text(
-                text = "Saldo: EUR ${"%.2f".format(cashBalance)}",
+                    text = "Saldo: ${"%.2f".format(cashBalance)} FTC",
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = Gold,
                     fontWeight = FontWeight.ExtraBold
                 )
             )
 
-            BigPushButtonInternal(
-                text = if (isInRoom) {
-                    "YA ESTÁS EN LA SALA"
-                } else {
-                    "PAGAR ${GameRules.BALL_ENTRY_COST.toInt()} EUR Y JUGAR"
-                },
-                color = Gold,
-                enabled = !isInRoom && cashBalance >= GameRules.BALL_ENTRY_COST,
-                onClick = onEnterRoom,
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (hasActiveLobbyMatch) {
+                BigPushButtonInternal(
+                    text = "CANCELAR MATCHMAKING Y DEVOLVER ENTRADA",
+                    color = ChipRed,
+                    onClick = onCancelMatchmaking,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else if (cashBalance < GameRules.BALL_ENTRY_COST) {
+                Text(
+                    text = "Saldo insuficiente para entrar.",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = ChipRed,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HowToPlayTogglePanel(
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    PremiumPanel(modifier = modifier.clickable(onClick = onToggle), glow = true) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Gold),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "?",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                color = NightBlue,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        text = "COMO SE JUEGA",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            color = PureWhite,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    )
+                }
+                Text(
+                    text = if (expanded) "OCULTAR" else "VER",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = Gold,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                )
+            }
+
+            Spacer(Modifier.height(6.dp))
+            if (expanded) {
+                RuleNumLine(1, "Pulsa el boton circular y paga ${GameRules.BALL_ENTRY_COST.toInt()} FTC. Puedes cancelar durante el matchmaking y recuperar la entrada.")
+                RuleNumLine(2, "Elige 1 bola entre ${GameRules.BALL_COUNT}. Cada bola esconde un multiplicador.")
+                RuleNumLine(3, "Juega Battle Royale. El ganador aplica su multiplicador a un token del mercado.")
+            } else {
+                Text(
+                    text = "Pulsa para abrir reglas completas.",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = TextSecondary,
+                        lineHeight = 15.sp
+                    )
+                )
+            }
         }
     }
 }
@@ -355,37 +475,60 @@ fun LobbyView(
 @Composable
 private fun RuleNumLine(num: Int, text: String) {
     Row(
-        modifier = Modifier.padding(vertical = 4.dp),
-        verticalAlignment = Alignment.Top
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(
-            text = num.toString(),
-            modifier = Modifier.width(24.dp),
-            style = MaterialTheme.typography.titleLarge.copy(
-                color = Gold,
-                fontWeight = FontWeight.ExtraBold
+        Box(
+            modifier = Modifier
+                .width(28.dp)
+                .height(24.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(
+                text = num.toString(),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = Gold,
+                    fontWeight = FontWeight.ExtraBold,
+                    lineHeight = 18.sp
+                )
             )
-        )
+        }
         Text(
             text = text,
+            modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodySmall.copy(
                 color = TextSecondary,
-                lineHeight = 18.sp
+                lineHeight = 16.sp,
+                fontSize = 11.sp
             )
         )
     }
 }
 
 @Composable
-private fun CountdownRing(value: Int, max: Int, label: String) {
-    val pct = value.toFloat() / max.toFloat()
+private fun CountdownRing(
+    value: Int,
+    max: Int,
+    label: String,
+    centerText: String,
+    helperText: String? = null,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    val safeMax = max.coerceAtLeast(1)
+    val pct = value.coerceIn(0, safeMax).toFloat() / safeMax.toFloat()
+    val clickModifier = if (enabled) Modifier.clickable(onClick = onClick) else Modifier.alpha(0.62f)
 
     Box(
-        modifier = Modifier.size(140.dp),
+        modifier = Modifier
+            .size(154.dp)
+            .clip(CircleShape)
+            .then(clickModifier),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.size(140.dp)) {
-            // bg ring
+        Canvas(modifier = Modifier.size(154.dp)) {
             drawArc(
                 color = PureWhite.copy(alpha = 0.10f),
                 startAngle = -90f,
@@ -393,7 +536,6 @@ private fun CountdownRing(value: Int, max: Int, label: String) {
                 useCenter = false,
                 style = Stroke(width = 10.dp.toPx())
             )
-            // progress
             drawArc(
                 brush = Brush.sweepGradient(listOf(Gold, ChipRed, Gold)),
                 startAngle = -90f,
@@ -404,7 +546,31 @@ private fun CountdownRing(value: Int, max: Int, label: String) {
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Eyebrow(text = label)
-            DisplayGold(text = "${value}s", fontSize = 48)
+            DisplayGold(
+                text = centerText,
+                fontSize = if (centerText.endsWith("s")) 48 else 28,
+                textAlign = TextAlign.Center
+            )
+            if (!helperText.isNullOrBlank()) {
+                Text(
+                    text = helperText,
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = PureWhite,
+                        fontWeight = FontWeight.ExtraBold,
+                        fontSize = 11.sp,
+                        letterSpacing = 1.4.sp
+                    )
+                )
+            }
+            if (!enabled && !centerText.endsWith("s")) {
+                Text(
+                    text = "SIN SALDO",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = ChipRed,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                )
+            }
         }
     }
 }
@@ -480,66 +646,87 @@ fun BallsPoolView(
     ballRoom: BallRoomUiState,
     onPickBall: (Int) -> Unit,
     onConfirm: () -> Unit,
+    onTimeout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val timer = rememberBallPickCountdown(ballRoom.phase)
     val userPick = ballRoom.balls.firstOrNull { it.id == ballRoom.pendingSelectedBallId }
     val hasCommittedPick = false
     val ballsLeft = ballRoom.balls.count { !it.isPicked }
+    var timeoutHandled by remember(ballRoom.phase) { mutableStateOf(false) }
+
+    LaunchedEffect(timer) {
+        if (timer == 0 && !timeoutHandled) {
+            timeoutHandled = true
+            onTimeout()
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
-        AmbientBackground(particleCount = 18)
+        AmbientBackground(particleCount = 26)
 
-        Column(modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 12.dp, vertical = 10.dp)) {
-            // Header
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(
+                    Brush.radialGradient(
+                        listOf(
+                            Gold.copy(alpha = 0.16f),
+                            DeepBlue.copy(alpha = 0.86f),
+                            NightBlue.copy(alpha = 0.98f)
+                        ),
+                        radius = 1_250f
+                    )
+                )
+                .border(1.dp, Gold.copy(alpha = 0.28f), RoundedCornerShape(18.dp))
+        ) {
+            FloorStars()
+
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
+                verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    DisplayGold(text = "ELIGE TU BOLA", fontSize = 32)
+                    DisplayGold(text = "ELIGE TU BOLA", fontSize = 34)
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "Toca una bola libre y confirma tu eleccion antes de que termine el tiempo.",
+                        style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
+                    )
                     Text(
                         text = ballRoom.statusMessage,
-                        style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = PureWhite.copy(alpha = 0.72f),
+                            fontWeight = FontWeight.SemiBold
+                        )
                     )
                 }
                 BallsHud(timer = timer, ballsLeft = ballsLeft)
             }
 
-            Spacer(Modifier.height(8.dp))
-
-            // Floating field
             BoxWithConstraints(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .heightIn(min = 300.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(
-                        Brush.radialGradient(
-                            listOf(Gold.copy(alpha = 0.10f), NightBlue),
-                            radius = 800f
-                        )
-                    )
-                    .border(1.dp, Gold.copy(alpha = 0.20f), RoundedCornerShape(8.dp))
+                    .fillMaxSize()
+                    .padding(start = 18.dp, end = 18.dp, top = 96.dp, bottom = 100.dp)
             ) {
                 val fieldW = maxWidth
                 val fieldH = maxHeight
+                val nodeSize = if (maxHeight > 360.dp) 58.dp else 50.dp
 
-                FloorStars()
-
-                // Place balls deterministically (seed by ball ids)
                 val positions = remember(ballRoom.balls.size) {
                     scatteredPositions(ballRoom.balls.size, seed = 42)
                 }
 
                 ballRoom.balls.forEachIndexed { idx, ball ->
                     val (rx, ry) = positions.getOrNull(idx) ?: (0.5f to 0.5f)
-                    val xDp = fieldW * rx - 28.dp
-                    val yDp = fieldH * ry - 28.dp
+                    val xDp = (fieldW - nodeSize) * rx
+                    val yDp = (fieldH - nodeSize) * ry
                     BallNode(
                         ball = ball,
                         ownerColor = colorFor(ball.pickedBy, ballRoom.players),
@@ -551,25 +738,26 @@ fun BallsPoolView(
                         onClick = { onPickBall(ball.id) },
                         modifier = Modifier
                             .offset { IntOffset(xDp.roundToPx(), yDp.roundToPx()) }
-                            .size(62.dp)
+                            .size(nodeSize)
                     )
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
-
-            // Footer: preview + confirm
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                BallPreview(ball = userPick, modifier = Modifier.weight(1f))
+                BallPreview(ball = userPick, modifier = Modifier.weight(0.9f))
                 BigPushButtonInternal(
                     text = confirmBallButtonText(userPick, hasCommittedPick),
                     color = Gold,
                     enabled = userPick != null,
-                    onClick = onConfirm
+                    onClick = onConfirm,
+                    modifier = Modifier.weight(1.1f)
                 )
             }
         }
@@ -940,20 +1128,23 @@ fun ArenaView(
                         ArenaFloor()
 
                         val opponents = battle.players.filterNot { it.isUser }
-                        val arc = arcPositions(opponents.size.coerceAtLeast(1))
+                        val positions = opponentGridPositions(opponents.size.coerceAtLeast(1))
                         val w = maxWidth
                         val h = maxHeight
 
                         opponents.forEachIndexed { i, opp ->
-                            val (rx, ry) = arc[i]
-                            val x = w * rx - 48.dp
-                            val y = h * ry - 18.dp
+                            val (rx, ry) = positions[i]
+                            val nodeWidth = 76.dp
+                            val nodeHeight = 82.dp
+                            val x = (w - nodeWidth) * rx
+                            val y = (h - nodeHeight) * ry
                             OpponentNode(
                                 player = opp,
                                 selected = opp.id == battle.selectedTargetId,
                                 onClick = { onSelectTarget(opp.id) },
                                 modifier = Modifier
                                     .offset { IntOffset(x.roundToPx(), y.roundToPx()) }
+                                    .width(nodeWidth)
                             )
                         }
 
@@ -1243,11 +1434,13 @@ private fun OpponentNode(
         }
         Text(
             text = player.nickname,
+            maxLines = 1,
             style = MaterialTheme.typography.labelSmall.copy(
                 color = PureWhite,
-                fontSize = 10.sp,
+                fontSize = 9.sp,
                 fontWeight = FontWeight.Bold
-            )
+            ),
+            textAlign = TextAlign.Center
         )
         // HP bar
         Box(
@@ -1503,7 +1696,7 @@ fun VictoryView(
                             textAlign = TextAlign.Center
                         )
                         Text(
-                            text = "EUR ${"%.2f".format(token.currentPrice)}",
+                            text = "${"%.2f".format(token.currentPrice)} FTC",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = Gold,
                                 fontWeight = FontWeight.Bold
@@ -1602,4 +1795,22 @@ internal fun scatteredPositions(count: Int, seed: Int = 42): List<Pair<Float, Fl
         out += (rng.nextFloat() to rng.nextFloat())
     }
     return out
+}
+
+internal fun opponentGridPositions(count: Int): List<Pair<Float, Float>> {
+    if (count <= 0) return emptyList()
+
+    val positions = listOf(
+        0.06f to 0.08f,
+        0.27f to 0.08f,
+        0.48f to 0.08f,
+        0.69f to 0.08f,
+        0.90f to 0.08f,
+        0.22f to 0.48f,
+        0.34f to 0.74f,
+        0.66f to 0.48f,
+        0.78f to 0.74f
+    )
+
+    return positions.take(count)
 }
