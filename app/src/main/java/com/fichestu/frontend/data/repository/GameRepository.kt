@@ -243,11 +243,14 @@ class GameRepository {
         )
     }
 
-    private fun mapBallRoom(dto: BallRoomDto): BallRoomUiState {
+    private fun mapBallRoom(
+        dto: BallRoomDto,
+        pendingSelectedBallId: Int? = null
+    ): BallRoomUiState {
         val players = dto.players.map { it.toBallPlayer() }
         val userIds = players.filter { it.isUser }.map { it.id }.toSet()
         val userPicked = players.any { it.isUser && it.selectedBallId != null }
-        val pendingAvailable = pendingSelectedBallId?.let { pending ->
+        val pendingAvailable = pendingSelectedBallId?.let { pending: Int ->
             dto.balls.any { it.id == pending && it.pickedBy == null }
         } == true
         return BallRoomUiState(

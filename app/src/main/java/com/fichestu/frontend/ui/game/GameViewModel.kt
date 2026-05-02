@@ -35,6 +35,7 @@ class GameViewModel(
 
     private var rewardedCooldownJob: Job? = null
     private var autoBattleJob: Job? = null
+    private var autoRevealJob: Job? = null
     private var autoRestartJob: Job? = null
 
     init {
@@ -144,7 +145,10 @@ class GameViewModel(
     fun applyMinigameResult(deltaCash: Double, message: String) {
         _uiState.update { state ->
             state.copy(
-                transientMessage = "Minijuegos locales deshabilitados para economia real. Usa mercado, bonus diario o salas."
+                market = state.market.copy(
+                    cashBalance = (state.market.cashBalance + deltaCash).coerceAtLeast(0.0)
+                ),
+                transientMessage = message
             )
         }
     }
