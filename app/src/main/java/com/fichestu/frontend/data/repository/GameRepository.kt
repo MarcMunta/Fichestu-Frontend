@@ -13,10 +13,13 @@ import com.fichestu.frontend.data.model.GameMarketResponseDto
 import com.fichestu.frontend.data.model.GameTokenDto
 import com.fichestu.frontend.data.model.GameTradeRequest
 import com.fichestu.frontend.data.model.MatchStateResponseDto
+import com.fichestu.frontend.data.model.NotificationDto
+import com.fichestu.frontend.data.model.NotificationListResponseDto
 import com.fichestu.frontend.data.model.PickBallRequestDto
 import com.fichestu.frontend.data.model.ProfileStatsDto
 import com.fichestu.frontend.data.model.WalletResponseDto
 import com.fichestu.frontend.data.remote.ApiClient
+import com.fichestu.frontend.game.GameRules
 import com.fichestu.frontend.game.model.BadgeUi
 import com.fichestu.frontend.game.model.BallOption
 import com.fichestu.frontend.game.model.BallPlayer
@@ -30,12 +33,33 @@ import com.fichestu.frontend.game.model.GameUiState
 import com.fichestu.frontend.game.model.MainTab
 import com.fichestu.frontend.game.model.MarketToken
 import com.fichestu.frontend.game.model.MarketUiState
+import com.fichestu.frontend.game.model.NotificationUi
 import com.fichestu.frontend.game.model.ProfileStats
 import com.fichestu.frontend.game.model.ProfileUiState
 import com.fichestu.frontend.game.model.TokenId
 import java.io.IOException
 
 class GameRepository {
+
+    suspend fun loadNotifications(currentState: GameUiState): Result<GameUiState> = runSafely {
+        val response = ApiClient.notificationApi.list(requireAuth())
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
+        currentState.withNotifications(dto)
+    }
+
+    suspend fun markNotificationsRead(currentState: GameUiState): Result<GameUiState> = runSafely {
+        val response = ApiClient.notificationApi.markAllRead(requireAuth())
+        parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
+        val refreshed = ApiClient.notificationApi.list(requireAuth())
+        val dto = parseResponse(refreshed.isSuccessful, refreshed.body(), refreshed.errorBody()?.string(), refreshed.code())
+        currentState.withNotifications(dto)
+    }
+
+    suspend fun clearNotifications(currentState: GameUiState): Result<GameUiState> = runSafely {
+        val response = ApiClient.notificationApi.clear(requireAuth())
+        parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
+        currentState.copy(notifications = emptyList(), unreadNotificationCount = 0)
+    }
 
     suspend fun bootstrap(currentState: GameUiState?): Result<GameUiState> = runSafely {
         val auth = requireAuth()
@@ -50,11 +74,22 @@ class GameRepository {
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         val nextBattle = mapBattle(dto.battle)
         val nextBallRoom = mapBallRoom(dto.ballRoom, currentState.ballRoom.pendingSelectedBallId)
+        val matchmakingDeadlineNotReached = currentState.ballRoom.selectionDeadlineEpochMs
+            ?.let { it > System.currentTimeMillis() + 250L } == true
+        val shouldHoldMatchmakingUntilLocalDeadline =
+            currentState.ballRoom.phase == BallRoomPhase.MATCHMAKING &&
+                nextBallRoom.phase == BallRoomPhase.PICKING &&
+                matchmakingDeadlineNotReached &&
+                currentState.ballRoom.players.size < GameRules.ROOM_SIZE
         val stableBallRoom = if (
             currentState.ballRoom.phase == BallRoomPhase.PICKING &&
             nextBallRoom.phase == BallRoomPhase.WAITING_ENTRY
         ) {
             nextBallRoom.copy(phase = BallRoomPhase.PICKING)
+        } else if (shouldHoldMatchmakingUntilLocalDeadline) {
+            currentState.ballRoom.copy(
+                statusMessage = "Preparando seleccion de bolas..."
+            )
         } else {
             nextBallRoom
         }
@@ -101,12 +136,41 @@ class GameRepository {
             currentMatchId = dto.matchId,
             activeTab = MainTab.BALL_ROOM,
             market = currentState.market.copy(cashBalance = dto.cashBalance),
-            ballRoom = mapBallRoom(dto.ballRoom).copy(
-                phase = BallRoomPhase.WAITING_ENTRY,
-                statusMessage = "Sala creada. Esperando jugadores..."
-            ),
+            ballRoom = mapBallRoom(dto.ballRoom),
             battle = BattleUiState(phase = BattlePhase.LOCKED, log = listOf("Completa el sorteo de bolas para desbloquear el Battle Royale.")),
             profile = currentState.profile.copy(stats = currentState.profile.stats.copy(ballRoomsPlayed = currentState.profile.stats.ballRoomsPlayed + 1)),
+            transientMessage = dto.message
+        )
+    }
+
+    suspend fun cancelMatchmaking(currentState: GameUiState, matchId: Int): Result<GameUiState> = runSafely {
+        val response = ApiClient.gameApi.cancelMatchmaking(requireAuth(), matchId)
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
+        currentState.copy(
+            currentMatchId = null,
+            activeTab = MainTab.BALL_ROOM,
+            market = currentState.market.copy(cashBalance = dto.cashBalance),
+            ballRoom = mapBallRoom(dto.ballRoom),
+            battle = BattleUiState(
+                phase = BattlePhase.LOCKED,
+                log = listOf("Matchmaking cancelado")
+            ),
+            transientMessage = dto.message
+        )
+    }
+
+    suspend fun abandonMatch(currentState: GameUiState, matchId: Int): Result<GameUiState> = runSafely {
+        val response = ApiClient.gameApi.abandonMatch(requireAuth(), matchId)
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
+        currentState.copy(
+            currentMatchId = null,
+            activeTab = MainTab.BALL_ROOM,
+            market = currentState.market.copy(cashBalance = dto.cashBalance),
+            ballRoom = mapBallRoom(dto.ballRoom),
+            battle = BattleUiState(
+                phase = BattlePhase.LOCKED,
+                log = listOf("Partida abandonada. Un bot ocupa tu plaza si la sala ya habia avanzado.")
+            ),
             transientMessage = dto.message
         )
     }
@@ -259,6 +323,14 @@ class GameRepository {
         pendingSelectedBallId: Int? = null
     ): BallRoomUiState {
         val players = dto.players.map { it.toBallPlayer() }
+        val localDeadlineEpochMs = dto.selectionDeadlineEpochMs?.let { deadline ->
+            val serverNow = dto.serverNowEpochMs
+            if (serverNow != null) {
+                System.currentTimeMillis() + (deadline - serverNow).coerceAtLeast(0L)
+            } else {
+                deadline
+            }
+        }
         val userIds = players.filter { it.isUser }.map { it.id }.toSet()
         val userPicked = players.any { it.isUser && it.selectedBallId != null }
         val pendingAvailable = pendingSelectedBallId?.let { pending: Int ->
@@ -270,7 +342,7 @@ class GameRepository {
             balls = dto.balls.map { it.toBallOption(userIds) },
             statusMessage = dto.statusMessage,
             canRevealBattle = dto.canRevealBattle,
-            selectionDeadlineEpochMs = dto.selectionDeadlineEpochMs,
+            selectionDeadlineEpochMs = localDeadlineEpochMs,
             pendingSelectedBallId = if (!userPicked && pendingAvailable) pendingSelectedBallId else null
         )
     }
@@ -301,6 +373,24 @@ class GameRepository {
             averageMultiplier = dto.averageMultiplier,
             rewardedAdsClaimed = dto.rewardedAdsClaimed,
             totalMultiplierAccumulated = dto.averageMultiplier * dto.ballRoomsPlayed
+        )
+    }
+
+    private fun GameUiState.withNotifications(dto: NotificationListResponseDto): GameUiState {
+        return copy(
+            notifications = dto.notifications.map { it.toNotificationUi() },
+            unreadNotificationCount = dto.unreadCount
+        )
+    }
+
+    private fun NotificationDto.toNotificationUi(): NotificationUi {
+        return NotificationUi(
+            id = id,
+            title = title,
+            message = message,
+            type = type,
+            read = read,
+            createdAt = createdAt
         )
     }
 
@@ -354,8 +444,10 @@ class GameRepository {
     }
 
     private fun String.toBallRoomPhase(): BallRoomPhase = when (this.uppercase()) {
+        "MATCHMAKING", "WAITING_PLAYERS" -> BallRoomPhase.MATCHMAKING
         "PICKING", "READY_REVEAL" -> BallRoomPhase.PICKING
         "REVEALED" -> BallRoomPhase.REVEALED
+        "READY_FOR_BATTLE" -> BallRoomPhase.READY_FOR_BATTLE
         else -> BallRoomPhase.WAITING_ENTRY
     }
 

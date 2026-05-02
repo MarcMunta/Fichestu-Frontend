@@ -46,4 +46,8 @@ object ApiClient {
     val profileApi: ProfileApi by lazy {
         retrofit.create(ProfileApi::class.java)
     }
+
+    val notificationApi: NotificationApi by lazy {
+        retrofit.create(NotificationApi::class.java)
+    }
 }

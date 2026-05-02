@@ -1,5 +1,6 @@
 package com.fichestu.frontend.ui.game
 
+import android.app.Activity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.systemBars
@@ -43,6 +45,7 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
@@ -53,8 +56,12 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,6 +70,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -73,6 +81,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.fichestu.frontend.R
 import com.fichestu.frontend.game.GameRules
 import com.fichestu.frontend.game.engine.GameEngine
@@ -87,6 +98,7 @@ import com.fichestu.frontend.game.model.GameUiState
 import com.fichestu.frontend.game.model.MainTab
 import com.fichestu.frontend.game.model.MarketToken
 import com.fichestu.frontend.game.model.MarketUiState
+import com.fichestu.frontend.game.model.NotificationUi
 import com.fichestu.frontend.game.model.ProfileStats
 import com.fichestu.frontend.game.model.ProfileUiState
 import com.fichestu.frontend.game.model.TokenId
@@ -109,6 +121,9 @@ fun FichestuGameScreen(
     viewModel: GameViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var notificationTrayOpen by remember { mutableStateOf(false) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val activity = LocalContext.current as? Activity
 
     LaunchedEffect(playerName) {
         viewModel.initializePlayer(playerName)
@@ -121,9 +136,22 @@ fun FichestuGameScreen(
     }
 
     LaunchedEffect(uiState.transientMessage) {
-        if (!uiState.transientMessage.isNullOrBlank()) {
-            delay(2600)
+        val message = uiState.transientMessage?.trim()
+        if (!message.isNullOrBlank()) {
+            delay(3000)
             viewModel.consumeTransientMessage()
+        }
+    }
+
+    DisposableEffect(lifecycleOwner, activity, uiState.currentMatchId) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP && activity?.isChangingConfigurations != true) {
+                viewModel.abandonActiveMatchForExit(onLogout)
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 
@@ -149,8 +177,18 @@ fun FichestuGameScreen(
         ) {
             GameTopBar(
                 playerName = uiState.profile.playerName,
+                profilePicUrl = uiState.profile.profilePicUrl,
                 totalBalance = uiState.market.totalBalance,
-                onLogout = onLogout
+                notificationCount = uiState.unreadNotificationCount,
+                notificationsOpen = notificationTrayOpen,
+                onToggleNotifications = {
+                    val willOpen = !notificationTrayOpen
+                    notificationTrayOpen = willOpen
+                    if (willOpen) {
+                        viewModel.markNotificationsRead()
+                    }
+                },
+                onLogout = { viewModel.abandonActiveMatchForExit(onLogout) }
             )
 
             Box(
@@ -175,7 +213,7 @@ fun FichestuGameScreen(
                             onSelectToken = viewModel::selectToken,
                             onBuy = viewModel::buySelectedToken,
                             onSell = viewModel::sellSelectedToken,
-                            onEnterBallRoom = viewModel::enterBallRoom,
+                            onOpenBallRoom = viewModel::openBallRoomTab,
                             onClaimRewarded = viewModel::claimRewardedAd
                         )
 
@@ -189,9 +227,11 @@ fun FichestuGameScreen(
                                     isInRoom = uiState.currentMatchId != null ||
                                         uiState.ballRoom.players.any { it.isUser },
                                     onEnterRoom = viewModel::enterBallRoom,
+                                    onCancelMatchmaking = viewModel::cancelMatchmaking,
                                     onPickBall = viewModel::pickBall,
-                                    onStartPicking = viewModel::startBallPicking,
                                     onFinishSelection = viewModel::finishBallSelection,
+                                    onSelectionTimeout = viewModel::autoFinishBallSelectionOnTimeout,
+                                    onMatchmakingFinished = viewModel::refreshActiveMatch,
                                     onOpenBattle = { viewModel.selectTab(MainTab.BATTLE) }
                                 )
                             } else {
@@ -221,7 +261,7 @@ fun FichestuGameScreen(
                             onNewPasswordChange = viewModel::updateNewPassword,
                             onConfirmPasswordChange = viewModel::updateConfirmPassword,
                             onChangePassword = viewModel::changePassword,
-                            onLogout = onLogout
+                            onLogout = { viewModel.abandonActiveMatchForExit(onLogout) }
                         )
                     }
                 }
@@ -236,16 +276,34 @@ fun FichestuGameScreen(
         AnimatedVisibility(
             visible = !uiState.transientMessage.isNullOrBlank(),
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 82.dp),
+                .align(Alignment.TopCenter)
+                .padding(top = 86.dp),
             enter = fadeIn(tween(180)),
             exit = fadeOut(tween(180))
         ) {
-            StatusTicker(
+            NotificationToast(
                 text = uiState.transientMessage.orEmpty(),
                 modifier = Modifier
-                    .fillMaxWidth(0.92f)
+                    .widthIn(max = 420.dp)
+                    .fillMaxWidth(0.58f)
                     .heightIn(min = 42.dp)
+            )
+        }
+
+        AnimatedVisibility(
+            visible = notificationTrayOpen,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 86.dp, end = 14.dp),
+            enter = fadeIn(tween(180)),
+            exit = fadeOut(tween(160))
+        ) {
+            NotificationTray(
+                notifications = uiState.notifications,
+                onClear = {
+                    viewModel.clearNotifications()
+                    notificationTrayOpen = false
+                }
             )
         }
     }
@@ -254,7 +312,11 @@ fun FichestuGameScreen(
 @Composable
 private fun GameTopBar(
     playerName: String,
+    profilePicUrl: String?,
     totalBalance: Double,
+    notificationCount: Int,
+    notificationsOpen: Boolean,
+    onToggleNotifications: () -> Unit,
     onLogout: () -> Unit
 ) {
     ArcadePanel(contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)) {
@@ -271,13 +333,21 @@ private fun GameTopBar(
                     .border(2.dp, GoldDark, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = playerName.take(1).uppercase(Locale.US),
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        color = NightBlue,
-                        fontWeight = FontWeight.ExtraBold
+                if (!profilePicUrl.isNullOrBlank()) {
+                    AsyncImage(
+                        model = profilePicUrl,
+                        contentDescription = "Foto de perfil",
+                        modifier = Modifier.fillMaxSize()
                     )
-                )
+                } else {
+                    Text(
+                        text = playerName.take(1).uppercase(Locale.US),
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            color = NightBlue,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    )
+                }
             }
 
             Column(modifier = Modifier.weight(1f)) {
@@ -295,6 +365,12 @@ private fun GameTopBar(
                     )
                 )
             }
+
+            NotificationBell(
+                count = notificationCount,
+                isOpen = notificationsOpen,
+                onClick = onToggleNotifications
+            )
 
             Surface(
                 modifier = Modifier
@@ -334,6 +410,216 @@ private fun GameTopBar(
 }
 
 @Composable
+private fun NotificationBell(
+    count: Int,
+    isOpen: Boolean,
+    onClick: () -> Unit
+) {
+    Box {
+        Surface(
+            modifier = Modifier
+                .size(52.dp)
+                .clickable(onClick = onClick),
+            shape = RoundedCornerShape(14.dp),
+            color = if (isOpen) Gold.copy(alpha = 0.24f) else PanelBlue.copy(alpha = 0.92f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .border(
+                        1.dp,
+                        if (isOpen) Gold else Gold.copy(alpha = 0.45f),
+                        RoundedCornerShape(14.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Notifications,
+                    contentDescription = "Notificaciones",
+                    tint = if (isOpen) Gold else PureWhite,
+                    modifier = Modifier.size(23.dp)
+                )
+            }
+        }
+
+        if (count > 0) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(22.dp),
+                shape = CircleShape,
+                color = ChipRed
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = if (count > 9) "9+" else count.toString(),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = PureWhite,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 10.sp
+                        ),
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NotificationToast(
+    text: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .border(1.dp, Gold.copy(alpha = 0.55f), RoundedCornerShape(18.dp)),
+        shape = RoundedCornerShape(18.dp),
+        color = PanelBlue.copy(alpha = 0.96f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(26.dp)
+                    .clip(CircleShape)
+                    .background(Gold),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Notifications,
+                    contentDescription = null,
+                    tint = NightBlue,
+                    modifier = Modifier.size(15.dp)
+                )
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge.copy(
+                    color = PureWhite,
+                    fontWeight = FontWeight.Bold
+                ),
+                maxLines = 2
+            )
+        }
+    }
+}
+
+@Composable
+private fun NotificationTray(
+    notifications: List<NotificationUi>,
+    onClear: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .width(340.dp)
+            .heightIn(max = 380.dp)
+            .border(1.dp, Gold.copy(alpha = 0.55f), RoundedCornerShape(22.dp)),
+        shape = RoundedCornerShape(22.dp),
+        color = PanelBlue.copy(alpha = 0.98f)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = null,
+                        tint = Gold,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = "Notificaciones",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            color = PureWhite,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    )
+                }
+
+                if (notifications.isNotEmpty()) {
+                    Text(
+                        text = "LIMPIAR",
+                        modifier = Modifier.clickable(onClick = onClear),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = Gold,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = 1.sp
+                        )
+                    )
+                }
+            }
+
+            if (notifications.isEmpty()) {
+                Text(
+                    text = "Sin notificaciones por ahora.",
+                    style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 300.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(notifications, key = { it.id }) { notification ->
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            color = DeepBlue.copy(alpha = 0.62f)
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .border(
+                                        1.dp,
+                                        PureWhite.copy(alpha = 0.08f),
+                                        RoundedCornerShape(14.dp)
+                                    )
+                                    .padding(10.dp)
+                            ) {
+                                Text(
+                                    text = notification.title,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        color = PureWhite,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                )
+                                Spacer(Modifier.height(3.dp))
+                                Text(
+                                    text = notification.message,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = TextSecondary,
+                                        lineHeight = 16.sp
+                                    )
+                                )
+                                Spacer(Modifier.height(3.dp))
+                                Text(
+                                    text = formatNotificationTime(notification.createdAt),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = TextSecondary,
+                                        letterSpacing = 0.4.sp
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun DashboardTab(
     market: MarketUiState,
     rewardedAvailable: Boolean,
@@ -341,7 +627,7 @@ private fun DashboardTab(
     onSelectToken: (TokenId) -> Unit,
     onBuy: () -> Unit,
     onSell: () -> Unit,
-    onEnterBallRoom: () -> Unit,
+    onOpenBallRoom: () -> Unit,
     onClaimRewarded: () -> Unit
 ) {
     val selected = market.selectedMarketToken ?: return
@@ -423,7 +709,7 @@ private fun DashboardTab(
                 Spacer(Modifier.height(10.dp))
                 ArcadePrimaryButton(
                     text = if (rewardedAvailable) {
-                        "REWARDED +EUR 25"
+                        "REWARDED +25 FTC"
                     } else {
                         "REWARDED ${rewardedCooldownSec}s"
                     },
@@ -432,8 +718,8 @@ private fun DashboardTab(
                 )
                 Spacer(Modifier.height(10.dp))
                 ArcadeSecondaryButton(
-                    text = "Jugar pagando 10 EUR",
-                    onClick = onEnterBallRoom
+                    text = "Jugar pagando 10 FTC",
+                    onClick = onOpenBallRoom
                 )
             }
         }
@@ -449,7 +735,7 @@ private fun DashboardTab(
                 )
                 Spacer(Modifier.height(8.dp))
                 RuleLine("Cron diario 00:00 vende todas tus fichas a saldo.")
-                RuleLine("Tras reset diario, cada precio base cae entre EUR 5 y EUR 500.")
+                RuleLine("Tras reset diario, cada precio base cae entre 5 y 500 FTC.")
                 RuleLine("El ganador del Battle aplica su multiplicador al token seleccionado.")
                 RuleLine("Sala de bolas: 10 jugadores y 50 bolas únicas.")
             }
@@ -659,7 +945,7 @@ private fun BallRoomTab(
         item {
             ArcadePanel {
                 Text(
-                    text = "Entrada: EUR ${GameRules.BALL_ENTRY_COST.toInt()} | Sala: ${GameRules.ROOM_SIZE} jugadores | Bolas: ${GameRules.BALL_COUNT}",
+                    text = "Entrada: ${GameRules.BALL_ENTRY_COST.toInt()} FTC | Sala: ${GameRules.ROOM_SIZE} jugadores | Bolas: ${GameRules.BALL_COUNT}",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = PureWhite,
                         fontWeight = FontWeight.SemiBold
@@ -1409,6 +1695,14 @@ private data class BottomItem(
     val label: String,
     val icon: ImageVector
 )
+
+private fun formatNotificationTime(raw: String): String {
+    return raw
+        .replace("T", " ")
+        .replace("Z", "")
+        .take(16)
+        .ifBlank { "Ahora" }
+}
 
 @Composable
 private fun GameBackgroundPattern() {

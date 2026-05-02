@@ -1,6 +1,5 @@
 package com.fichestu.frontend.navigation
 
-import android.app.Activity
 import android.net.Uri
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.Composable
@@ -73,11 +72,13 @@ fun AppNavGraph() {
                 playerName = playerName,
                 onLogout = {
                     SessionStore.clear()
+                    if (navController.currentDestination?.route == AppRoute.AUTH) {
+                        return@FichestuGameScreen
+                    }
                     navController.navigate(AppRoute.AUTH) {
-                        popUpTo(AppRoute.GAME) {
+                        popUpTo(navController.graph.id) {
                             inclusive = true
                         }
-                        launchSingleTop = true
                     }
                 }
             )

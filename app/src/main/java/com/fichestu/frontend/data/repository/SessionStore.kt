@@ -20,7 +20,8 @@ object SessionStore {
     fun init(context: Context) {
         if (prefs != null) return
         prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        token = prefs?.getString(KEY_TOKEN, null)
+        prefs?.edit()?.remove(KEY_TOKEN)?.apply()
+        token = null
         displayName = prefs?.getString(KEY_DISPLAY_NAME, "Jugador") ?: "Jugador"
     }
 
@@ -28,7 +29,7 @@ object SessionStore {
         this.token = token
         this.displayName = displayName.ifBlank { "Jugador" }
         prefs?.edit()
-            ?.putString(KEY_TOKEN, token)
+            ?.remove(KEY_TOKEN)
             ?.putString(KEY_DISPLAY_NAME, this.displayName)
             ?.apply()
     }
