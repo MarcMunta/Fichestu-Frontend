@@ -56,9 +56,11 @@ import androidx.compose.ui.unit.sp
 import com.fichestu.frontend.game.GameRules
 import com.fichestu.frontend.game.engine.GameEngine
 import com.fichestu.frontend.game.model.BallOption
+import com.fichestu.frontend.game.model.BallPlayer
 import com.fichestu.frontend.game.model.BallRoomPhase
 import com.fichestu.frontend.game.model.BallRoomUiState
 import com.fichestu.frontend.game.model.BattleCardType
+import com.fichestu.frontend.game.model.BattleHandCard
 import com.fichestu.frontend.game.model.BattlePhase
 import com.fichestu.frontend.game.model.BattlePlayer
 import com.fichestu.frontend.game.model.BattleUiState
@@ -83,7 +85,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /* ============================================================
-   FICHESTU â€” Match flow screens (Lobby â†’ Bolas â†’ Reveal â†’ Cards â†’ Victoria)
+   FICHESTU - Match flow screens (Lobby -> Bolas -> Reveal -> Cards -> Victoria)
    Wired to GameViewModel state. Backend-ready: solo lee de UiState.
    ============================================================ */
 
@@ -91,9 +93,11 @@ import kotlin.random.Random
 fun BallRoomFlow(
     ballRoom: BallRoomUiState,
     cashBalance: Double,
+    isInRoom: Boolean,
     onEnterRoom: () -> Unit,
     onPickBall: (Int) -> Unit,
-    onRevealMultipliers: () -> Unit,
+    onStartPicking: () -> Unit,
+    onFinishSelection: () -> Unit,
     onOpenBattle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -101,6 +105,10 @@ fun BallRoomFlow(
         BallRoomPhase.WAITING_ENTRY -> LobbyView(
             cashBalance = cashBalance,
             statusMessage = ballRoom.statusMessage,
+            isInRoom = isInRoom,
+            players = ballRoom.players,
+            playerCount = ballRoom.players.size,
+            onStartPicking = onStartPicking,
             onEnterRoom = onEnterRoom,
             modifier = modifier
         )
@@ -109,7 +117,7 @@ fun BallRoomFlow(
             BallsPoolView(
                 ballRoom = ballRoom,
                 onPickBall = onPickBall,
-                onConfirm = onRevealMultipliers,
+                onConfirm = onFinishSelection,
                 modifier = modifier
             )
         }
@@ -126,6 +134,8 @@ fun BattleFlow(
     battle: BattleUiState,
     market: MarketUiState,
     onSelectAction: (BattleCardType) -> Unit,
+    onSelectCard: (Long) -> Unit,
+    onSelectTarget: (String) -> Unit,
     onPlayRound: () -> Unit,
     onResetCycle: () -> Unit,
     modifier: Modifier = Modifier
@@ -136,6 +146,8 @@ fun BattleFlow(
             battle = battle,
             selectedTokenId = market.selectedToken,
             onSelectAction = onSelectAction,
+            onSelectCard = onSelectCard,
+            onSelectTarget = onSelectTarget,
             onPlayRound = onPlayRound,
             modifier = modifier
         )
@@ -159,7 +171,7 @@ private fun LockedView(modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            DisplayWhite(text = "ðŸ”’", fontSize = 80, textAlign = TextAlign.Center)
+            DisplayWhite(text = "LOCK", fontSize = 54, textAlign = TextAlign.Center)
             Spacer(Modifier.height(8.dp))
             DisplayGold(
                 text = "BATTLE BLOQUEADO",
@@ -204,14 +216,23 @@ private fun initialsFor(nickname: String): String =
 fun LobbyView(
     cashBalance: Double,
     statusMessage: String,
+    isInRoom: Boolean = false,
+    players: List<BallPlayer> = emptyList(),
+    playerCount: Int = 0,
+    onStartPicking: () -> Unit = {},
     onEnterRoom: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var countdown by remember { mutableIntStateOf(20) }
-    LaunchedEffect(Unit) {
-        while (countdown > 0) {
+    val displayedPlayerCount = maxOf(playerCount, if (isInRoom) 1 else 0)
+    LaunchedEffect(isInRoom) {
+        countdown = 20
+        while (isInRoom && countdown > 0) {
             delay(1000)
             countdown -= 1
+        }
+        if (isInRoom) {
+            onStartPicking()
         }
     }
 
@@ -235,19 +256,24 @@ fun LobbyView(
                 style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
             )
 
-            CountdownRing(value = countdown, max = 20, label = "EMPIEZA EN")
+            CountdownRing(
+                value = if (isInRoom) countdown else 20,
+                max = 20,
+                label = if (isInRoom) "EMPIEZA EN" else "PAGA PARA ENTRAR"
+            )
 
             // 10 player slots in 5x2 grid
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                repeat(0) { row ->
+                repeat(2) { row ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         repeat(5) { col ->
                             val idx = row * 5 + col
+                            val player = players.getOrNull(idx)
                             PlayerSlot(
-                                initials = if (idx == 0) "TÃš" else "P${idx + 1}",
+                                initials = if (idx == 0) "TÚ" else "P${idx + 1}",
                                 color = PLAYER_PALETTE[idx],
-                                ready = idx < 7 || idx == 0,
-                                isYou = idx == 0,
+                                ready = player != null || (isInRoom && idx == 0),
+                                isYou = player?.isUser == true || (isInRoom && idx == 0),
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -275,7 +301,7 @@ fun LobbyView(
                         }
                         Spacer(Modifier.width(10.dp))
                         Text(
-                            text = "CÃ“MO SE JUEGA",
+                            text = "CÓMO SE JUEGA",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 color = PureWhite,
                                 fontWeight = FontWeight.ExtraBold
@@ -292,7 +318,11 @@ fun LobbyView(
             Spacer(Modifier.weight(1f))
 
             Text(
-                text = statusMessage,
+                text = if (isInRoom) {
+                    "Esperando jugadores: $displayedPlayerCount/10."
+                } else {
+                    statusMessage
+                },
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = TextSecondary,
                     textAlign = TextAlign.Center
@@ -300,7 +330,7 @@ fun LobbyView(
                 modifier = Modifier.fillMaxWidth()
             )
             Text(
-                text = "Saldo: â‚¬ ${"%.2f".format(cashBalance)}",
+                text = "Saldo: EUR ${"%.2f".format(cashBalance)}",
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = Gold,
                     fontWeight = FontWeight.ExtraBold
@@ -308,9 +338,13 @@ fun LobbyView(
             )
 
             BigPushButtonInternal(
-                text = "PAGAR ${GameRules.BALL_ENTRY_COST.toInt()} EUR Y JUGAR",
+                text = if (isInRoom) {
+                    "YA ESTÁS EN LA SALA"
+                } else {
+                    "PAGAR ${GameRules.BALL_ENTRY_COST.toInt()} EUR Y JUGAR"
+                },
                 color = Gold,
-                enabled = cashBalance >= GameRules.BALL_ENTRY_COST,
+                enabled = !isInRoom && cashBalance >= GameRules.BALL_ENTRY_COST,
                 onClick = onEnterRoom,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -448,10 +482,9 @@ fun BallsPoolView(
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val timer = rememberDeadlineSeconds(ballRoom.selectionDeadlineEpochMs)
-    val committedPickId = ballRoom.players.firstOrNull { it.isUser }?.selectedBallId
-    val userPick = ballRoom.balls.firstOrNull { it.id == (committedPickId ?: ballRoom.pendingSelectedBallId) }
-    val hasCommittedPick = committedPickId != null
+    val timer = rememberBallPickCountdown(ballRoom.phase)
+    val userPick = ballRoom.balls.firstOrNull { it.id == ballRoom.pendingSelectedBallId }
+    val hasCommittedPick = false
     val ballsLeft = ballRoom.balls.count { !it.isPicked }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -483,6 +516,7 @@ fun BallsPoolView(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
+                    .heightIn(min = 300.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(
                         Brush.radialGradient(
@@ -512,12 +546,12 @@ fun BallsPoolView(
                         ownerInitials = ballRoom.players
                             .firstOrNull { it.id == ball.pickedBy }
                             ?.let { initialsFor(it.nickname) },
-                        isUserPicked = ball.id == committedPickId || ball.id == ballRoom.pendingSelectedBallId,
-                        enabled = !hasCommittedPick && !ball.isPicked,
+                        isUserPicked = ball.id == ballRoom.pendingSelectedBallId,
+                        enabled = !ball.isPicked,
                         onClick = { onPickBall(ball.id) },
                         modifier = Modifier
                             .offset { IntOffset(xDp.roundToPx(), yDp.roundToPx()) }
-                            .size(56.dp)
+                            .size(62.dp)
                     )
                 }
             }
@@ -534,7 +568,7 @@ fun BallsPoolView(
                 BigPushButtonInternal(
                     text = confirmBallButtonText(userPick, hasCommittedPick),
                     color = Gold,
-                    enabled = userPick != null && !hasCommittedPick,
+                    enabled = userPick != null,
                     onClick = onConfirm
                 )
             }
@@ -543,27 +577,22 @@ fun BallsPoolView(
 }
 
 @Composable
-private fun rememberDeadlineSeconds(deadlineEpochMs: Long?): Int {
-    var remaining by remember(deadlineEpochMs) {
-        mutableIntStateOf(secondsUntil(deadlineEpochMs))
+private fun rememberBallPickCountdown(phase: BallRoomPhase): Int {
+    var remaining by remember(phase) {
+        mutableIntStateOf(20)
     }
-    LaunchedEffect(deadlineEpochMs) {
-        while (true) {
-            remaining = secondsUntil(deadlineEpochMs)
-            delay(250)
+    LaunchedEffect(phase) {
+        remaining = 20
+        while (phase == BallRoomPhase.PICKING && remaining > 0) {
+            delay(1000)
+            remaining -= 1
         }
     }
     return remaining
 }
 
-private fun secondsUntil(deadlineEpochMs: Long?): Int {
-    if (deadlineEpochMs == null) return 0
-    val millisLeft = (deadlineEpochMs - System.currentTimeMillis()).coerceAtLeast(0)
-    return ((millisLeft + 999) / 1000).toInt()
-}
-
 private fun confirmBallButtonText(ball: BallOption?, hasCommittedPick: Boolean): String = when {
-    hasCommittedPick && ball != null -> "BOLA #${ball.id} SELECCIONADA"
+    hasCommittedPick && ball != null -> "CONTINUAR CON BOLA #${ball.id}"
     ball != null -> "SELECCIONAR BOLA #${ball.id}"
     else -> "SELECCIONAR BOLA"
 }
@@ -708,7 +737,7 @@ private fun BallPreview(ball: BallOption?, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.CenterStart
         ) {
             Text(
-                text = "Tu elecciÃ³n: â€”",
+                text = "Tu elección: -",
                 style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
             )
         }
@@ -731,7 +760,7 @@ private fun BallPreview(ball: BallOption?, modifier: Modifier = Modifier) {
     ) {
         Box(
             modifier = Modifier
-                .size(48.dp)
+                .size(62.dp)
                 .clip(CircleShape)
                 .background(Brush.radialGradient(listOf(GoldLight, Gold))),
             contentAlignment = Alignment.Center
@@ -745,7 +774,7 @@ private fun BallPreview(ball: BallOption?, modifier: Modifier = Modifier) {
             )
         }
         Column {
-            Eyebrow(text = "TU ELECCIÃ“N")
+            Eyebrow(text = "TU ELECCIÓN")
             Text(
                 text = "#${ball.id}",
                 style = MaterialTheme.typography.headlineSmall.copy(
@@ -828,7 +857,7 @@ fun RevealView(
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = if (mult >= 5.0) "Â¡Suerte de campeÃ³n!" else "A pelearlo en el Battle Royale",
+                    text = if (mult >= 5.0) "¡Suerte de campeón!" else "A pelearlo en el Battle Royale",
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = Gold,
                         fontWeight = FontWeight.Bold
@@ -837,7 +866,7 @@ fun RevealView(
             }
 
             BigPushButtonInternal(
-                text = "IR A BATTLE ROYALE â–¸",
+                text = "IR A BATTLE ROYALE >",
                 color = ChipRed,
                 onClick = onContinueToBattle,
                 modifier = Modifier.fillMaxWidth()
@@ -855,15 +884,19 @@ fun ArenaView(
     battle: BattleUiState,
     selectedTokenId: TokenId,
     onSelectAction: (BattleCardType) -> Unit,
+    onSelectCard: (Long) -> Unit,
+    onSelectTarget: (String) -> Unit,
     onPlayRound: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var logExpanded by remember { mutableStateOf(false) }
+
     Box(modifier = modifier.fillMaxSize()) {
         AmbientBackground(particleCount = 16)
 
         Column(modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 12.dp, vertical = 10.dp)) {
+            .padding(horizontal = 10.dp, vertical = 8.dp)) {
 
             // Header
             Row(
@@ -874,7 +907,7 @@ fun ArenaView(
                 Column(modifier = Modifier.weight(1f)) {
                     DisplayRed(text = "BATTLE ROYALE", fontSize = 28)
                     Text(
-                        text = "Ãšltima ficha en pie se queda con la corona.",
+                        text = "Última ficha en pie se queda con la corona.",
                         style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                     )
                 }
@@ -883,117 +916,217 @@ fun ArenaView(
 
             Spacer(Modifier.height(8.dp))
 
-            // Arena
-            BoxWithConstraints(
+            // Arena + optional side battle log
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(
-                        Brush.radialGradient(
-                            listOf(ChipRed.copy(alpha = 0.10f), NightBlue),
-                            radius = 1000f
-                        )
-                    )
-                    .border(1.dp, ChipRed.copy(alpha = 0.20f), RoundedCornerShape(8.dp))
+                    .weight(1.9f)
+                    .heightIn(min = 365.dp)
             ) {
-                ArenaFloor()
-
-                val opponents = battle.players.filterNot { it.isUser }
-                val arc = arcPositions(opponents.size.coerceAtLeast(1))
-                val w = maxWidth
-                val h = maxHeight
-
-                opponents.forEachIndexed { i, opp ->
-                    val (rx, ry) = arc[i]
-                    val x = w * rx - 36.dp
-                    val y = h * ry
-                    OpponentNode(
-                        player = opp,
+                Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    BoxWithConstraints(
                         modifier = Modifier
-                            .offset { IntOffset(x.roundToPx(), y.roundToPx()) }
-                    )
+                            .weight(if (logExpanded) 3.2f else 1f)
+                            .fillMaxHeight()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                                Brush.radialGradient(
+                                    listOf(ChipRed.copy(alpha = 0.10f), NightBlue),
+                                    radius = 1000f
+                                )
+                            )
+                            .border(1.dp, ChipRed.copy(alpha = 0.20f), RoundedCornerShape(8.dp))
+                    ) {
+                        ArenaFloor()
+
+                        val opponents = battle.players.filterNot { it.isUser }
+                        val arc = arcPositions(opponents.size.coerceAtLeast(1))
+                        val w = maxWidth
+                        val h = maxHeight
+
+                        opponents.forEachIndexed { i, opp ->
+                            val (rx, ry) = arc[i]
+                            val x = w * rx - 48.dp
+                            val y = h * ry - 18.dp
+                            OpponentNode(
+                                player = opp,
+                                selected = opp.id == battle.selectedTargetId,
+                                onClick = { onSelectTarget(opp.id) },
+                                modifier = Modifier
+                                    .offset { IntOffset(x.roundToPx(), y.roundToPx()) }
+                            )
+                        }
+
+                        val you = battle.players.firstOrNull { it.isUser }
+                        if (you != null) {
+                            YouNode(
+                                player = you,
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 14.dp)
+                            )
+                        }
+                    }
+
+                    if (logExpanded) {
+                        BattleLogSidePanel(
+                            log = battle.log,
+                            expanded = true,
+                            onToggle = { logExpanded = false },
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .weight(1f)
+                        )
+                    }
                 }
 
-                // YOU node bottom-center
-                val you = battle.players.firstOrNull { it.isUser }
-                if (you != null) {
-                    YouNode(
-                        player = you,
+                if (!logExpanded) {
+                    BattleLogButton(
+                        onClick = { logExpanded = true },
+                        latest = battle.log.lastOrNull().orEmpty(),
                         modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 10.dp)
+                            .align(Alignment.TopEnd)
+                            .padding(8.dp)
                     )
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "Token objetivo: ${selectedTokenId.name}",
+                style = MaterialTheme.typography.labelMedium.copy(color = Gold)
+            )
+            Spacer(Modifier.height(4.dp))
 
-            // Hand strip (3 cards: ATTACK / SHIELD / REBOUND)
+            // Hand strip (5 random cards)
             Eyebrow(text = "TU MANO", color = Gold)
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HandCard(
-                    type = BattleCardType.ATTACK,
-                    selected = battle.selectedAction == BattleCardType.ATTACK,
-                    onClick = { onSelectAction(BattleCardType.ATTACK) },
-                    modifier = Modifier.weight(1f)
-                )
-                HandCard(
-                    type = BattleCardType.SHIELD,
-                    selected = battle.selectedAction == BattleCardType.SHIELD,
-                    onClick = { onSelectAction(BattleCardType.SHIELD) },
-                    modifier = Modifier.weight(1f)
-                )
-                HandCard(
-                    type = BattleCardType.REBOUND,
-                    selected = battle.selectedAction == BattleCardType.REBOUND,
-                    onClick = { onSelectAction(BattleCardType.REBOUND) },
-                    modifier = Modifier.weight(1f)
-                )
+                battle.hand.take(5).forEach { card ->
+                    HandCard(
+                        card = card,
+                        selected = card.id == battle.selectedCardId,
+                        onClick = {
+                            onSelectAction(card.type)
+                            onSelectCard(card.id)
+                        },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
             BigPushButtonInternal(
                 text = if (battle.phase == BattlePhase.FINISHED) "FINALIZADO" else "JUGAR RONDA",
                 color = ChipRed,
                 enabled = battle.phase != BattlePhase.FINISHED,
                 onClick = onPlayRound,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
             )
+        }
+    }
+}
 
-            // Battle log (last 4)
-            if (battle.log.isNotEmpty()) {
-                Spacer(Modifier.height(8.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(NightBlue.copy(alpha = 0.7f))
-                        .border(1.dp, PureWhite.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
-                        .padding(10.dp)
-                ) {
-                    Column {
-                        Eyebrow(text = "BATTLE LOG")
-                        Spacer(Modifier.height(4.dp))
-                        battle.log.takeLast(4).reversed().forEach { line ->
-                            Text(
-                                text = line,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = TextSecondary,
-                                    fontSize = 11.sp,
-                                    lineHeight = 14.sp
-                                )
-                            )
-                        }
-                    }
-                }
+@Composable
+private fun BattleLogButton(
+    onClick: () -> Unit,
+    latest: String,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .width(96.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(NightBlue.copy(alpha = 0.84f))
+            .border(1.dp, PureWhite.copy(alpha = 0.12f), RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(8.dp)
+    ) {
+        Text(
+            text = "LOG",
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = Gold,
+                fontWeight = FontWeight.ExtraBold
+            )
+        )
+        Text(
+            text = "VER",
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = PureWhite,
+                fontWeight = FontWeight.ExtraBold
+            )
+        )
+        if (latest.isNotBlank()) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = latest,
+                maxLines = 1,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = TextSecondary,
+                    fontSize = 9.sp
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun BattleLogSidePanel(
+    log: List<String>,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(NightBlue.copy(alpha = 0.76f))
+            .border(1.dp, PureWhite.copy(alpha = 0.10f), RoundedCornerShape(8.dp))
+            .clickable(onClick = onToggle)
+            .padding(8.dp)
+    ) {
+        if (expanded) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Eyebrow(text = "BATTLE LOG")
+                Text(
+                    text = "OCULTAR",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = Gold,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                )
             }
-
-            // Token target indicator
+            Spacer(Modifier.height(8.dp))
+            log.takeLast(8).reversed().forEach { line ->
+                Text(
+                    text = line,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        lineHeight = 14.sp
+                    )
+                )
+                Spacer(Modifier.height(4.dp))
+            }
+        } else {
+            Text(
+                text = "LOG",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = Gold,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "Token objetivo: ${selectedTokenId.name}",
-                style = MaterialTheme.typography.labelMedium.copy(color = Gold)
+                text = "VER",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = PureWhite,
+                    fontWeight = FontWeight.ExtraBold
+                )
             )
         }
     }
@@ -1069,7 +1202,12 @@ private fun TurnPill(yours: Boolean, round: Int) {
 }
 
 @Composable
-private fun OpponentNode(player: BattlePlayer, modifier: Modifier = Modifier) {
+private fun OpponentNode(
+    player: BattlePlayer,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     val pct = (player.hp.toFloat() / GameRules.BATTLE_INITIAL_HP).coerceIn(0f, 1f)
     val palette = PLAYER_PALETTE[
         (player.id.hashCode().rem(PLAYER_PALETTE.size) + PLAYER_PALETTE.size) % PLAYER_PALETTE.size
@@ -1077,7 +1215,8 @@ private fun OpponentNode(player: BattlePlayer, modifier: Modifier = Modifier) {
 
     Column(
         modifier = modifier
-            .alpha(if (player.isAlive) 1f else 0.4f),
+            .alpha(if (player.isAlive) 1f else 0.4f)
+            .clickable(enabled = player.isAlive, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
@@ -1087,18 +1226,18 @@ private fun OpponentNode(player: BattlePlayer, modifier: Modifier = Modifier) {
                 .clip(CircleShape)
                 .background(Brush.linearGradient(listOf(palette, palette.copy(alpha = 0.7f))))
                 .border(
-                    2.dp,
-                    if (player.isAlive) palette else Color(0xFF6E7A8C),
+                    if (selected) 4.dp else 2.dp,
+                    if (selected) Gold else if (player.isAlive) palette else Color(0xFF6E7A8C),
                     CircleShape
                 ),
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = if (player.isAlive) initialsFor(player.nickname) else "âœ•",
+                text = if (player.isAlive) initialsFor(player.nickname) else "X",
                 style = MaterialTheme.typography.labelMedium.copy(
                     color = PureWhite,
                     fontWeight = FontWeight.ExtraBold,
-                    fontSize = 11.sp
+                    fontSize = 13.sp
                 )
             )
         }
@@ -1106,7 +1245,7 @@ private fun OpponentNode(player: BattlePlayer, modifier: Modifier = Modifier) {
             text = player.nickname,
             style = MaterialTheme.typography.labelSmall.copy(
                 color = PureWhite,
-                fontSize = 9.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Bold
             )
         )
@@ -1114,7 +1253,7 @@ private fun OpponentNode(player: BattlePlayer, modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .width(50.dp)
-                .height(4.dp)
+                .height(6.dp)
                 .clip(RoundedCornerShape(50))
                 .background(NightBlue)
         ) {
@@ -1148,7 +1287,7 @@ private fun YouNode(player: BattlePlayer, modifier: Modifier = Modifier) {
         }
         Box(
             modifier = Modifier
-                .size(72.dp)
+                .size(92.dp)
                 .clip(CircleShape)
                 .background(Brush.linearGradient(listOf(Gold, ChipRed)))
                 .border(
@@ -1159,7 +1298,7 @@ private fun YouNode(player: BattlePlayer, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "TÃš",
+                text = "TÚ",
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = PureWhite,
                     fontWeight = FontWeight.ExtraBold
@@ -1168,8 +1307,8 @@ private fun YouNode(player: BattlePlayer, modifier: Modifier = Modifier) {
         }
         Box(
             modifier = Modifier
-                .width(160.dp)
-                .height(10.dp)
+                .width(190.dp)
+                .height(12.dp)
                 .clip(RoundedCornerShape(50))
                 .background(NightBlue)
                 .border(1.dp, Gold.copy(alpha = 0.4f), RoundedCornerShape(50))
@@ -1193,21 +1332,21 @@ private fun YouNode(player: BattlePlayer, modifier: Modifier = Modifier) {
 
 @Composable
 private fun HandCard(
-    type: BattleCardType,
+    card: BattleHandCard,
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     data class CardSkin(val top: Color, val bot: Color, val label: String, val icon: String)
-    val skin = when (type) {
-        BattleCardType.ATTACK -> CardSkin(ChipRed, ChipRedDark, "ATAQUE", "âš”")
-        BattleCardType.SHIELD -> CardSkin(ShieldBlue, Color(0xFF2A78A8), "ESCUDO", "ðŸ›¡")
-        BattleCardType.REBOUND -> CardSkin(ReflectPurple, Color(0xFF5C3DAB), "REBOTE", "â†º")
+    val skin = when (card.type) {
+        BattleCardType.ATTACK -> CardSkin(ChipRed, ChipRedDark, "ATAQUE", "ATK")
+        BattleCardType.SHIELD -> CardSkin(ShieldBlue, Color(0xFF2A78A8), "DEFENSA", "DEF")
+        BattleCardType.REBOUND -> CardSkin(ReflectPurple, Color(0xFF5C3DAB), "REBOTE", "R")
     }
 
     Box(
         modifier = modifier
-            .height(110.dp)
+            .height(132.dp)
             .offset(y = if (selected) (-10).dp else 0.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(
@@ -1222,10 +1361,25 @@ private fun HandCard(
             .padding(8.dp)
     ) {
         Text(
-            text = skin.icon,
+            text = if (card.type == BattleCardType.ATTACK) card.power.toString() else skin.icon,
             modifier = Modifier.align(Alignment.Center),
-            style = MaterialTheme.typography.displayMedium.copy(fontSize = 38.sp)
+            style = MaterialTheme.typography.displayMedium.copy(
+                color = PureWhite,
+                fontSize = if (card.type == BattleCardType.ATTACK) 52.sp else 40.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
         )
+        if (card.type == BattleCardType.ATTACK) {
+            Text(
+                text = skin.icon,
+                modifier = Modifier.align(Alignment.TopEnd),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = PureWhite.copy(alpha = 0.8f),
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 9.sp
+                )
+            )
+        }
         Text(
             text = skin.label,
             modifier = Modifier.align(Alignment.BottomStart),
@@ -1264,11 +1418,11 @@ fun VictoryView(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Eyebrow(
-                text = "ðŸ† LAST CHIP STANDING ðŸ†",
+                text = "LAST CHIP STANDING",
                 color = Gold
             )
             DisplayGold(
-                text = if (isUserWinner) "Â¡VICTORIA!" else "DERROTA",
+                text = if (isUserWinner) "¡VICTORIA!" else "DERROTA",
                 fontSize = 56,
                 textAlign = TextAlign.Center
             )
@@ -1298,7 +1452,7 @@ fun VictoryView(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "ðŸ‘‘",
+                            text = "WIN",
                             style = MaterialTheme.typography.headlineMedium.copy(fontSize = 32.sp)
                         )
                     }
@@ -1312,7 +1466,7 @@ fun VictoryView(
                 }
             }
 
-            // Token list (read-only â€” engine ya aplicÃ³ el impacto al ganador)
+            // Token list (read-only - engine ya aplicó el impacto al ganador)
             Eyebrow(text = "TOKENS DEL MERCADO", color = Gold)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(count = market.tokens.size) { idx ->
@@ -1349,14 +1503,14 @@ fun VictoryView(
                             textAlign = TextAlign.Center
                         )
                         Text(
-                            text = "â‚¬ ${"%.2f".format(token.currentPrice)}",
+                            text = "EUR ${"%.2f".format(token.currentPrice)}",
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = Gold,
                                 fontWeight = FontWeight.Bold
                             )
                         )
                         Text(
-                            text = "${if (token.changePercent >= 0) "â–²" else "â–¼"} ${"%.1f".format(kotlin.math.abs(token.changePercent))}%",
+                            text = "${if (token.changePercent >= 0) "▲" else "▼"} ${"%.1f".format(kotlin.math.abs(token.changePercent))}%",
                             style = MaterialTheme.typography.labelSmall.copy(
                                 color = if (token.changePercent >= 0) AliveGreen else ChipRed,
                                 fontWeight = FontWeight.Bold,
@@ -1370,7 +1524,7 @@ fun VictoryView(
             Spacer(Modifier.weight(1f))
 
             BigPushButtonInternal(
-                text = "NUEVO CICLO â–¸",
+                text = "NUEVO CICLO >",
                 color = Gold,
                 onClick = onResetCycle,
                 modifier = Modifier.fillMaxWidth()
@@ -1380,7 +1534,7 @@ fun VictoryView(
 }
 
 /* ============================================================
-   SHARED â€” internal big button + scattered positions
+   SHARED - internal big button + scattered positions
    ============================================================ */
 
 @Composable

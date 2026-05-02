@@ -943,7 +943,7 @@ private fun DiceGame(
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Eyebrow(text = stringResource(R.string.mini_dice_sum))
-            DisplayGold(text = if (rolling) "??" else sum.toString(), fontSize = 70)
+            DisplayGold(text = if (rolling) "?" else sum.toString(), fontSize = 70)
             resultText?.takeIf { !rolling }?.let {
                 Text(
                     text = it,

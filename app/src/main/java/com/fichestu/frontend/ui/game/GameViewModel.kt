@@ -5,11 +5,14 @@ import androidx.lifecycle.viewModelScope
 import com.fichestu.frontend.data.repository.GameRepository
 import com.fichestu.frontend.data.repository.ProfileRepository
 import com.fichestu.frontend.data.repository.SessionExpiredException
+import com.fichestu.frontend.game.GameRules
 import com.fichestu.frontend.game.model.BadgeUi
 import com.fichestu.frontend.game.model.BallRoomPhase
+import com.fichestu.frontend.game.model.BattleHandCard
 import com.fichestu.frontend.game.model.BallRoomUiState
 import com.fichestu.frontend.game.model.BattleCardType
 import com.fichestu.frontend.game.model.BattlePhase
+import com.fichestu.frontend.game.model.BattlePlayer
 import com.fichestu.frontend.game.model.BattleUiState
 import com.fichestu.frontend.game.model.GameUiState
 import com.fichestu.frontend.game.model.MainTab
@@ -24,6 +27,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 class GameViewModel(
     private val repository: GameRepository = GameRepository(),
@@ -35,7 +39,9 @@ class GameViewModel(
 
     private var rewardedCooldownJob: Job? = null
     private var autoBattleJob: Job? = null
+    private var autoRevealJob: Job? = null
     private var autoRestartJob: Job? = null
+    private var nextBattleCardId = 1L
 
     init {
         bootstrap()
@@ -115,8 +121,7 @@ class GameViewModel(
     }
 
     fun selectTab(tab: MainTab) {
-        val normalized = if (tab == MainTab.BATTLE) MainTab.BALL_ROOM else tab
-        _uiState.update { it.copy(activeTab = normalized) }
+        _uiState.update { it.copy(activeTab = tab) }
     }
 
     fun selectToken(tokenId: com.fichestu.frontend.game.model.TokenId) {
@@ -144,7 +149,10 @@ class GameViewModel(
     fun applyMinigameResult(deltaCash: Double, message: String) {
         _uiState.update { state ->
             state.copy(
-                transientMessage = "Minijuegos locales deshabilitados para economia real. Usa mercado, bonus diario o salas."
+                market = state.market.copy(
+                    cashBalance = (state.market.cashBalance + deltaCash).coerceAtLeast(0.0)
+                ),
+                transientMessage = message
             )
         }
     }
@@ -152,20 +160,46 @@ class GameViewModel(
     fun enterBallRoom() {
         viewModelScope.launch {
             val snapshot = _uiState.value
-            val result = repository.enterBallRoom(snapshot)
+            snapshot.currentMatchId?.let { matchId ->
+                runCatching { repository.closeMatch(matchId) }
+                _uiState.update { state ->
+                    state.copy(
+                        currentMatchId = null,
+                        ballRoom = BallRoomUiState(
+                            phase = BallRoomPhase.WAITING_ENTRY,
+                            statusMessage = "Preparando nueva sala..."
+                        ),
+                        battle = BattleUiState(phase = BattlePhase.LOCKED)
+                    )
+                }
+            }
+            val result = repository.enterBallRoom(_uiState.value)
             applyResult(result)
+        }
+    }
+
+    fun startBallPicking() {
+        _uiState.update { state ->
+            if (state.currentMatchId == null || state.ballRoom.phase != BallRoomPhase.WAITING_ENTRY) {
+                state
+            } else {
+                state.copy(
+                    ballRoom = state.ballRoom.copy(
+                        phase = BallRoomPhase.PICKING,
+                        statusMessage = "Elige una bola.",
+                        pendingSelectedBallId = null
+                    ),
+                    transientMessage = "Sala lista. Elige tu bola."
+                )
+            }
         }
     }
 
     fun pickBall(ballId: Int) {
         val snapshot = _uiState.value
-        val userPicked = snapshot.ballRoom.players.firstOrNull { it.isUser }?.selectedBallId != null
         val option = snapshot.ballRoom.balls.firstOrNull { it.id == ballId }
-        if (userPicked) {
-            _uiState.update { it.copy(transientMessage = "Ya seleccionaste una bola") }
-            return
-        }
-        if (option == null || option.isPicked) {
+        val alreadyPickedByUser = snapshot.ballRoom.players.any { it.isUser && it.selectedBallId == ballId }
+        if (option == null || (option.isPicked && !alreadyPickedByUser)) {
             _uiState.update { it.copy(transientMessage = "Esa bola ya fue tomada") }
             return
         }
@@ -193,6 +227,44 @@ class GameViewModel(
         }
     }
 
+    fun finishBallSelection() {
+        viewModelScope.launch {
+            var snapshot = _uiState.value
+            val selectedBallId = snapshot.ballRoom.pendingSelectedBallId
+
+            if (selectedBallId == null) {
+                _uiState.update { it.copy(transientMessage = "Elige una bola primero") }
+                return@launch
+            }
+
+            val matchId = snapshot.currentMatchId
+            val backendSelected = snapshot.ballRoom.players.firstOrNull { it.isUser }?.selectedBallId
+            if (backendSelected != null && backendSelected != selectedBallId) {
+                forceLocalRevealAndBattle(selectedBallId)
+                return@launch
+            }
+            val alreadyPicked = backendSelected == selectedBallId
+            if (matchId != null && !alreadyPicked) {
+                val pickResult = repository.pickBall(snapshot, matchId, selectedBallId)
+                pickResult.onSuccess { pickedState ->
+                    _uiState.value = pickedState
+                    snapshot = pickedState
+                }
+                if (pickResult.isFailure) {
+                    forceLocalRevealAndBattle(selectedBallId)
+                    return@launch
+                }
+            }
+
+            val revealResult = matchId?.let { repository.revealMultipliers(snapshot, it) }
+            if (revealResult != null && revealResult.isSuccess) {
+                applyResult(revealResult)
+            } else {
+                forceLocalRevealAndBattle(selectedBallId)
+            }
+        }
+    }
+
     fun revealBallMultipliers() {
         viewModelScope.launch {
             val snapshot = _uiState.value
@@ -207,15 +279,122 @@ class GameViewModel(
         }
     }
 
+    private fun forceLocalRevealAndBattle(selectedBallId: Int) {
+        _uiState.update { state ->
+            val multiplier = localMultiplierFor(selectedBallId, state.ballRoom.balls.firstOrNull { it.id == selectedBallId }?.multiplier)
+            val existingPlayers = state.ballRoom.players
+            val userPlayer = existingPlayers.firstOrNull { it.isUser }
+                ?: com.fichestu.frontend.game.model.BallPlayer(
+                    id = "user",
+                    nickname = state.profile.playerName.ifBlank { "Tú" },
+                    isUser = true
+                )
+            val normalizedPlayers = buildList {
+                add(
+                    userPlayer.copy(
+                        id = "user",
+                        isUser = true,
+                        selectedBallId = selectedBallId,
+                        multiplier = multiplier
+                    )
+                )
+                existingPlayers.filterNot { it.isUser }.take(9).forEachIndexed { index, player ->
+                    add(
+                        player.copy(
+                            selectedBallId = player.selectedBallId ?: ((index + 2).coerceAtMost(50)),
+                            multiplier = player.multiplier ?: localMultiplierFor(index + 2, null)
+                        )
+                    )
+                }
+                while (size < 10) {
+                    val idx = size + 1
+                    add(
+                        com.fichestu.frontend.game.model.BallPlayer(
+                            id = "bot$idx",
+                            nickname = "Bot $idx",
+                            isUser = false,
+                            selectedBallId = idx,
+                            multiplier = localMultiplierFor(idx, null)
+                        )
+                    )
+                }
+            }
+            val revealedBalls = state.ballRoom.balls.map { ball ->
+                if (ball.id == selectedBallId) {
+                    ball.copy(multiplier = multiplier, pickedBy = "user")
+                } else {
+                    ball
+                }
+            }
+            val battlePlayers = normalizedPlayers.map { player ->
+                BattlePlayer(
+                    id = if (player.isUser) "user" else player.id,
+                    nickname = player.nickname,
+                    isUser = player.isUser,
+                    multiplier = player.multiplier ?: 1.0
+                )
+            }
+            state.copy(
+                ballRoom = state.ballRoom.copy(
+                    phase = BallRoomPhase.REVEALED,
+                    players = normalizedPlayers,
+                    balls = revealedBalls,
+                    canRevealBattle = true,
+                    pendingSelectedBallId = null,
+                    statusMessage = "Multiplicador revelado."
+                ),
+                battle = BattleUiState(
+                    phase = BattlePhase.READY,
+                    players = battlePlayers,
+                    round = 1,
+                    log = listOf("Battle Royale listo."),
+                    hand = drawBattleHand(),
+                    selectedTargetId = battlePlayers.firstOrNull { !it.isUser && it.isAlive }?.id
+                ),
+                transientMessage = "Te ha tocado x${"%.2f".format(multiplier)}."
+            )
+        }
+    }
+
+    private fun localMultiplierFor(ballId: Int, backendMultiplier: Double?): Double {
+        if (backendMultiplier != null && backendMultiplier != 1.0) return backendMultiplier
+        val values = listOf(0.5, 1.2, 1.5, 2.0, 3.0, 5.0, 10.0)
+        return values[(ballId * 37).mod(values.size)]
+    }
+
     fun chooseBattleAction(action: BattleCardType) {
         _uiState.update { state ->
             state.copy(battle = state.battle.copy(selectedAction = action))
         }
     }
 
+    fun chooseBattleCard(cardId: Long) {
+        _uiState.update { state ->
+            val card = state.battle.hand.firstOrNull { it.id == cardId } ?: return@update state
+            state.copy(
+                battle = state.battle.copy(
+                    selectedCardId = cardId,
+                    selectedAction = card.type
+                )
+            )
+        }
+    }
+
+    fun chooseBattleTarget(playerId: String) {
+        _uiState.update { state ->
+            val target = state.battle.players.firstOrNull { it.id == playerId && !it.isUser && it.isAlive }
+                ?: return@update state
+            state.copy(battle = state.battle.copy(selectedTargetId = target.id))
+        }
+    }
+
     fun playBattleRound() {
         viewModelScope.launch {
             val snapshot = _uiState.value
+            if (snapshot.battle.hand.isNotEmpty()) {
+                resolveLocalBattleRound()
+                return@launch
+            }
             val matchId = snapshot.currentMatchId
             if (matchId == null) {
                 _uiState.update { it.copy(transientMessage = "No hay battle activa") }
@@ -225,6 +404,151 @@ class GameViewModel(
             val result = repository.playBattleRound(snapshot, matchId)
             applyResult(result)
         }
+    }
+
+    private fun resolveLocalBattleRound() {
+        _uiState.update { state ->
+            val battle = ensureBattleHand(state.battle)
+            if (battle.players.none { it.isUser && it.isAlive }) {
+                return@update state.copy(transientMessage = "Ya no estás vivo.")
+            }
+            val card = battle.hand.firstOrNull { it.id == battle.selectedCardId } ?: battle.hand.firstOrNull()
+                ?: return@update state.copy(transientMessage = "No tienes cartas.")
+            val aliveOpponents = battle.players.filter { !it.isUser && it.isAlive }
+            val targetId = if (card.type == BattleCardType.ATTACK) {
+                battle.selectedTargetId?.takeIf { id -> aliveOpponents.any { it.id == id } }
+                    ?: aliveOpponents.firstOrNull()?.id
+            } else {
+                null
+            }
+
+            var userShield = false
+            var userRebound = false
+            val roundLog = mutableListOf<String>()
+            val afterUser = battle.players.map { player ->
+                when {
+                    player.isUser && card.type == BattleCardType.SHIELD -> {
+                        userShield = true
+                        roundLog += "Usas DEFENSA: reduces daño enemigo."
+                        player.copy(shieldActive = true, reboundActive = false)
+                    }
+                    player.isUser && card.type == BattleCardType.REBOUND -> {
+                        userRebound = true
+                        roundLog += "Usas REBOTE: devuelves parte del daño."
+                        player.copy(reboundActive = true, shieldActive = false)
+                    }
+                    targetId != null && player.id == targetId -> {
+                        val nextHp = (player.hp - card.power).coerceAtLeast(0)
+                        roundLog += "Atacas a ${player.nickname} con ${card.power} daño."
+                        player.copy(hp = nextHp, shieldActive = false, reboundActive = false)
+                    }
+                    else -> player.copy(shieldActive = false, reboundActive = false)
+                }
+            }
+
+            val livingBots = afterUser.filter { !it.isUser && it.isAlive }
+            val botAttackers = livingBots.shuffled().take(3)
+            val incoming = botAttackers.sumOf { Random.nextInt(1, 5) }
+            val reducedIncoming = when {
+                userShield -> (incoming - card.power).coerceAtLeast(0)
+                userRebound -> incoming / 2
+                else -> incoming
+            }
+            val reflectedDamage = if (userRebound) (card.power + (incoming / 2)).coerceAtLeast(3) else 0
+            val rebounded = reflectedDamage
+            val reflectedIds = botAttackers.map { it.id }.toSet()
+
+            val afterBots = afterUser.map { player ->
+                when {
+                    player.isUser -> player.copy(
+                        hp = (player.hp - reducedIncoming).coerceAtLeast(0),
+                        shieldActive = userShield,
+                        reboundActive = userRebound
+                    )
+                    userRebound && player.id in reflectedIds -> {
+                        player.copy(hp = (player.hp - reflectedDamage).coerceAtLeast(0))
+                    }
+                    else -> player
+                }
+            }
+            if (incoming > 0) {
+                roundLog += "Bots te atacan: $reducedIncoming daño."
+            }
+            if (userRebound && botAttackers.isNotEmpty()) {
+                roundLog += "Rebote devuelve $rebounded daño."
+            }
+
+            val alivePlayers = afterBots.filter { it.isAlive }
+            val winner = alivePlayers.singleOrNull()
+            val newHand = battle.hand.filterNot { it.id == card.id }.plus(drawBattleCard())
+            val nextSelectedCard = newHand.firstOrNull()?.id
+            val nextTarget = afterBots.firstOrNull {
+                !it.isUser && it.isAlive && it.id == battle.selectedTargetId
+            }?.id ?: afterBots.firstOrNull { !it.isUser && it.isAlive }?.id
+
+            state.copy(
+                battle = battle.copy(
+                    phase = if (winner != null) BattlePhase.FINISHED else BattlePhase.IN_PROGRESS,
+                    players = afterBots,
+                    round = battle.round + 1,
+                    log = battle.log + roundLog,
+                    winnerId = winner?.let { if (it.isUser) "user" else it.id },
+                    winnerName = winner?.nickname,
+                    winningMultiplier = winner?.multiplier,
+                    selectedAction = newHand.firstOrNull { it.id == nextSelectedCard }?.type ?: BattleCardType.ATTACK,
+                    hand = newHand,
+                    selectedCardId = nextSelectedCard,
+                    selectedTargetId = nextTarget,
+                    impactApplied = winner != null
+                ),
+                transientMessage = "Carta usada. Robas una nueva."
+            )
+        }
+    }
+
+    private fun drawBattleHand(): List<BattleHandCard> = List(5) { drawBattleCard() }
+
+    private fun drawBattleCard(): BattleHandCard {
+        val type = when (Random.nextInt(100)) {
+            in 0..74 -> BattleCardType.ATTACK
+            in 75..88 -> BattleCardType.SHIELD
+            else -> BattleCardType.REBOUND
+        }
+        return BattleHandCard(
+            id = nextBattleCardId++,
+            type = type,
+            power = when (type) {
+                BattleCardType.ATTACK -> Random.nextInt(1, 11)
+                BattleCardType.SHIELD -> Random.nextInt(5, 11)
+                BattleCardType.REBOUND -> Random.nextInt(3, 8)
+            }
+        )
+    }
+
+    private fun ensureBattleHand(battle: BattleUiState): BattleUiState {
+        if (battle.phase == BattlePhase.LOCKED || battle.phase == BattlePhase.FINISHED) return battle
+        val hand = if (battle.hand.size >= 5) battle.hand else battle.hand + List(5 - battle.hand.size) { drawBattleCard() }
+        val selectedCardId = battle.selectedCardId?.takeIf { id -> hand.any { it.id == id } } ?: hand.firstOrNull()?.id
+        val selectedTargetId = battle.selectedTargetId?.takeIf { id ->
+            battle.players.any { it.id == id && !it.isUser && it.isAlive }
+        } ?: battle.players.firstOrNull { !it.isUser && it.isAlive }?.id
+        val selectedAction = hand.firstOrNull { it.id == selectedCardId }?.type ?: battle.selectedAction
+        return battle.copy(
+            hand = hand,
+            selectedCardId = selectedCardId,
+            selectedTargetId = selectedTargetId,
+            selectedAction = selectedAction
+        )
+    }
+
+    private fun mergeBattleHand(incoming: BattleUiState, previous: BattleUiState): BattleUiState {
+        if (incoming.phase == BattlePhase.LOCKED || incoming.phase == BattlePhase.FINISHED) return incoming
+        val base = incoming.copy(
+            hand = previous.hand.takeIf { it.isNotEmpty() } ?: incoming.hand,
+            selectedCardId = previous.selectedCardId ?: incoming.selectedCardId,
+            selectedTargetId = previous.selectedTargetId ?: incoming.selectedTargetId
+        )
+        return ensureBattleHand(base)
     }
 
     fun resetBattleAndRoom() {
@@ -333,9 +657,9 @@ class GameViewModel(
                     when (phase) {
                         BallRoomPhase.REVEALED -> {
                             autoBattleJob = viewModelScope.launch {
-                                delay(600)
+                                delay(2_500)
                                 if (uiState.value.ballRoom.phase == BallRoomPhase.REVEALED) {
-                                    selectTab(MainTab.BALL_ROOM)
+                                    selectTab(MainTab.BATTLE)
                                 }
                             }
                         }
@@ -390,10 +714,16 @@ class GameViewModel(
             while (isActive) {
                 delay(1000)
                 val current = _uiState.value
-                if (current.currentMatchId != null || current.activeTab == MainTab.DASHBOARD) {
+                if (current.currentMatchId != null &&
+                    current.activeTab == MainTab.BATTLE &&
+                    current.battle.phase != BattlePhase.LOCKED &&
+                    current.battle.hand.isEmpty()
+                ) {
                     val result = repository.refreshMatch(current)
                     result.onSuccess { newState ->
-                        _uiState.value = newState
+                        _uiState.value = newState.copy(
+                            battle = mergeBattleHand(newState.battle, current.battle)
+                        )
                     }
                 }
             }
@@ -420,7 +750,9 @@ class GameViewModel(
     private fun applyResult(result: Result<GameUiState>) {
         _uiState.update { current ->
             result.fold(
-                onSuccess = { success -> success },
+                onSuccess = { success ->
+                    success.copy(battle = mergeBattleHand(success.battle, current.battle))
+                },
                 onFailure = { error ->
                     if (error is SessionExpiredException) {
                         current.copy(

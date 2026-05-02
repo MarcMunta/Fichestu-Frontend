@@ -87,6 +87,12 @@ enum class BattleCardType {
     REBOUND
 }
 
+data class BattleHandCard(
+    val id: Long,
+    val type: BattleCardType,
+    val power: Int
+)
+
 enum class BattlePhase {
     LOCKED,
     READY,
@@ -116,6 +122,9 @@ data class BattleUiState(
     val winnerName: String? = null,
     val winningMultiplier: Double? = null,
     val selectedAction: BattleCardType = BattleCardType.ATTACK,
+    val hand: List<BattleHandCard> = emptyList(),
+    val selectedCardId: Long? = null,
+    val selectedTargetId: String? = null,
     val impactApplied: Boolean = false,
     val interstitialAvailable: Boolean = true
 )

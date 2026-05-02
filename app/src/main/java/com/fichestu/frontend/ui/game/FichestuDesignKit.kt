@@ -471,8 +471,8 @@ private data class ConfettiSeed(
 fun arcPositions(count: Int): List<Pair<Float, Float>> = List(count) { i ->
     val t = if (count <= 1) 0.5f else i.toFloat() / (count - 1)
     val angle = Math.PI * (1.05 - t * 1.1) // -10° to 190°
-    val cx = 0.5f + (cos(angle).toFloat() * 0.36f)
-    val cy = 0.48f - (sin(angle).toFloat() * 0.28f)
+    val cx = 0.5f + (cos(angle).toFloat() * 0.44f)
+    val cy = 0.52f - (sin(angle).toFloat() * 0.38f)
     cx to cy
 }
 

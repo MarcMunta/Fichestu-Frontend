@@ -50,6 +50,14 @@ class GameRepository {
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         val nextBattle = mapBattle(dto.battle)
         val nextBallRoom = mapBallRoom(dto.ballRoom, currentState.ballRoom.pendingSelectedBallId)
+        val stableBallRoom = if (
+            currentState.ballRoom.phase == BallRoomPhase.PICKING &&
+            nextBallRoom.phase == BallRoomPhase.WAITING_ENTRY
+        ) {
+            nextBallRoom.copy(phase = BallRoomPhase.PICKING)
+        } else {
+            nextBallRoom
+        }
         currentState.copy(
             currentMatchId = dto.matchId,
             activeTab = if (
@@ -60,7 +68,7 @@ class GameRepository {
             } else {
                 currentState.activeTab
             },
-            ballRoom = nextBallRoom,
+            ballRoom = stableBallRoom,
             battle = nextBattle,
             transientMessage = currentState.transientMessage
         )
@@ -93,7 +101,10 @@ class GameRepository {
             currentMatchId = dto.matchId,
             activeTab = MainTab.BALL_ROOM,
             market = currentState.market.copy(cashBalance = dto.cashBalance),
-            ballRoom = mapBallRoom(dto.ballRoom),
+            ballRoom = mapBallRoom(dto.ballRoom).copy(
+                phase = BallRoomPhase.WAITING_ENTRY,
+                statusMessage = "Sala creada. Esperando jugadores..."
+            ),
             battle = BattleUiState(phase = BattlePhase.LOCKED, log = listOf("Completa el sorteo de bolas para desbloquear el Battle Royale.")),
             profile = currentState.profile.copy(stats = currentState.profile.stats.copy(ballRoomsPlayed = currentState.profile.stats.ballRoomsPlayed + 1)),
             transientMessage = dto.message
@@ -243,11 +254,14 @@ class GameRepository {
         )
     }
 
-    private fun mapBallRoom(dto: BallRoomDto): BallRoomUiState {
+    private fun mapBallRoom(
+        dto: BallRoomDto,
+        pendingSelectedBallId: Int? = null
+    ): BallRoomUiState {
         val players = dto.players.map { it.toBallPlayer() }
         val userIds = players.filter { it.isUser }.map { it.id }.toSet()
         val userPicked = players.any { it.isUser && it.selectedBallId != null }
-        val pendingAvailable = pendingSelectedBallId?.let { pending ->
+        val pendingAvailable = pendingSelectedBallId?.let { pending: Int ->
             dto.balls.any { it.id == pending && it.pickedBy == null }
         } == true
         return BallRoomUiState(

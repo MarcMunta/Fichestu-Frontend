@@ -180,20 +180,27 @@ fun FichestuGameScreen(
                         )
 
                         MainTab.BALL_ROOM, MainTab.BATTLE -> {
-                            if (uiState.battle.phase == BattlePhase.LOCKED) {
+                            val showBallRoom = uiState.battle.phase == BattlePhase.LOCKED ||
+                                uiState.activeTab != MainTab.BATTLE
+                            if (showBallRoom) {
                                 BallRoomFlow(
                                     ballRoom = uiState.ballRoom,
                                     cashBalance = uiState.market.cashBalance,
+                                    isInRoom = uiState.currentMatchId != null ||
+                                        uiState.ballRoom.players.any { it.isUser },
                                     onEnterRoom = viewModel::enterBallRoom,
                                     onPickBall = viewModel::pickBall,
-                                    onRevealMultipliers = viewModel::revealBallMultipliers,
-                                    onOpenBattle = { viewModel.selectTab(MainTab.BALL_ROOM) }
+                                    onStartPicking = viewModel::startBallPicking,
+                                    onFinishSelection = viewModel::finishBallSelection,
+                                    onOpenBattle = { viewModel.selectTab(MainTab.BATTLE) }
                                 )
                             } else {
                                 BattleFlow(
                                     battle = uiState.battle,
                                     market = uiState.market,
                                     onSelectAction = viewModel::chooseBattleAction,
+                                    onSelectCard = viewModel::chooseBattleCard,
+                                    onSelectTarget = viewModel::chooseBattleTarget,
                                     onPlayRound = viewModel::playBattleRound,
                                     onResetCycle = viewModel::resetBattleAndRoom
                                 )
@@ -289,11 +296,39 @@ private fun GameTopBar(
                 )
             }
 
-            ArcadeSecondaryButton(
-                text = "SALIR",
-                modifier = Modifier.width(96.dp),
-                onClick = onLogout
-            )
+            Surface(
+                modifier = Modifier
+                    .width(106.dp)
+                    .height(52.dp)
+                    .clickable(onClick = onLogout),
+                shape = RoundedCornerShape(8.dp),
+                color = PanelBlue.copy(alpha = 0.92f)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .border(1.dp, Gold.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Logout,
+                        contentDescription = null,
+                        tint = PureWhite,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = "SALIR",
+                        maxLines = 1,
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            color = PureWhite,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    )
+                }
+            }
         }
     }
 }
@@ -366,7 +401,7 @@ private fun DashboardTab(
         item {
             ArcadePanel {
                 Text(
-                    text = "Acciones Rapidas",
+                    text = "Acciones Rápidas",
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = PureWhite,
                         fontWeight = FontWeight.Bold
@@ -397,7 +432,7 @@ private fun DashboardTab(
                 )
                 Spacer(Modifier.height(10.dp))
                 ArcadeSecondaryButton(
-                    text = "Jugar pagando 10€",
+                    text = "Jugar pagando 10 EUR",
                     onClick = onEnterBallRoom
                 )
             }
@@ -406,7 +441,7 @@ private fun DashboardTab(
         item {
             ArcadePanel {
                 Text(
-                    text = "Reglas Criticas del Mercado",
+                    text = "Reglas Críticas del Mercado",
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = Gold,
                         fontWeight = FontWeight.Bold
@@ -416,7 +451,7 @@ private fun DashboardTab(
                 RuleLine("Cron diario 00:00 vende todas tus fichas a saldo.")
                 RuleLine("Tras reset diario, cada precio base cae entre EUR 5 y EUR 500.")
                 RuleLine("El ganador del Battle aplica su multiplicador al token seleccionado.")
-                RuleLine("Sala de bolas: 10 jugadores y 50 bolas unicas.")
+                RuleLine("Sala de bolas: 10 jugadores y 50 bolas únicas.")
             }
         }
     }
@@ -1225,7 +1260,7 @@ private fun ProfileTab(
                 Spacer(Modifier.height(8.dp))
                 ArcadeTextField(
                     value = profile.currentPassword,
-                    label = "Contrasena actual (si tienes una)",
+                    label = "Contraseña actual (si tienes una)",
                     leading = Icons.Default.Lock,
                     keyboardType = KeyboardType.Password,
                     isPassword = true,
@@ -1260,7 +1295,7 @@ private fun ProfileTab(
 
         item {
             ArcadeSecondaryButton(
-                text = "CERRAR SESION",
+                text = "CERRAR SESIÓN",
                 onClick = onLogout
             )
         }
