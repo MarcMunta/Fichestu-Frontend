@@ -243,7 +243,7 @@ class GameRepository {
         )
     }
 
-    private fun mapBallRoom(dto: BallRoomDto): BallRoomUiState {
+    private fun mapBallRoom(dto: BallRoomDto, pendingSelectedBallId: Int? = null): BallRoomUiState {
         val players = dto.players.map { it.toBallPlayer() }
         val userIds = players.filter { it.isUser }.map { it.id }.toSet()
         val userPicked = players.any { it.isUser && it.selectedBallId != null }

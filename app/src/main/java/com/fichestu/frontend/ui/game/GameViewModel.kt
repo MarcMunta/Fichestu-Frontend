@@ -35,6 +35,7 @@ class GameViewModel(
 
     private var rewardedCooldownJob: Job? = null
     private var autoBattleJob: Job? = null
+    private var autoRevealJob: Job? = null
     private var autoRestartJob: Job? = null
 
     init {

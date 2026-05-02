@@ -55,24 +55,24 @@
     <string name="mini_slots_top_tag">JACKPOT ROOM</string>
     <string name="mini_slots_description">3 rodillos, jackpot, apuesta rapida</string>
     <string name="mini_slots_jackpot">JACKPOT</string>
-    <string name="mini_slots_jackpot_value">EUR 12,450</string>
+    <string name="mini_slots_jackpot_value">12,450 FTC</string>
     <string name="mini_slots_spinning">GIRANDO...</string>
     <string name="mini_slots_spin">SPIN - %1$d</string>
     <string name="mini_slots_win">+%1$d F</string>
     <string name="mini_slots_loss">%1$d F</string>
     <string name="mini_slots_msg_win">Slots: premio +%1$d.</string>
     <string name="mini_slots_msg_loss">Slots: perdida %1$d.</string>
-    <string name="mini_msg_insufficient_bet">Saldo insuficiente para apostar EUR %1$d.</string>
+    <string name="mini_msg_insufficient_bet">Saldo insuficiente para apostar %1$d FTC.</string>
 
     <string name="mini_crash_title">Crash</string>
     <string name="mini_crash_tag">HIGH STAKES</string>
     <string name="mini_crash_description">curva en subida, cash out a tiempo</string>
     <string name="mini_crash_bust">BUST</string>
     <string name="mini_crash_new_round">NUEVA RONDA</string>
-    <string name="mini_crash_cash_out">CASH OUT - EUR %1$d</string>
-    <string name="mini_crash_start">INICIAR - EUR %1$d</string>
-    <string name="mini_crash_msg_bust">Crash: bust, -EUR %1$d.</string>
-    <string name="mini_crash_msg_cash_out">Crash: cash out +EUR %1$d.</string>
+    <string name="mini_crash_cash_out">CASH OUT - %1$d FTC</string>
+    <string name="mini_crash_start">INICIAR - %1$d FTC</string>
+    <string name="mini_crash_msg_bust">Crash: bust, -%1$d FTC.</string>
+    <string name="mini_crash_msg_cash_out">Crash: cash out +%1$d FTC.</string>
     <string name="mini_crash_msg_insufficient">Saldo insuficiente para Crash.</string>
 
     <string name="mini_coin_title">Coin Flip</string>
@@ -89,8 +89,8 @@
     <string name="mini_coin_winner">WINNER</string>
     <string name="mini_coin_win">GANASTE +200 F</string>
     <string name="mini_coin_loss">PERDIDA -100 F</string>
-    <string name="mini_coin_msg_win">Coin Flip: +EUR 200.</string>
-    <string name="mini_coin_msg_loss">Coin Flip: -EUR %1$d.</string>
+    <string name="mini_coin_msg_win">Coin Flip: +200 FTC.</string>
+    <string name="mini_coin_msg_loss">Coin Flip: -%1$d FTC.</string>
     <string name="mini_coin_msg_insufficient">Saldo insuficiente para Coin Flip.</string>
 
     <string name="mini_dice_title">Dice Royale</string>
@@ -111,8 +111,8 @@
     <string name="mini_dice_multiplier_60">x6.0</string>
     <string name="mini_dice_rolling">TIRANDO...</string>
     <string name="mini_dice_roll">TIRAR - 100</string>
-    <string name="mini_dice_msg_win">Dice Royale: +EUR %1$d.</string>
-    <string name="mini_dice_msg_loss">Dice Royale: -EUR %1$d.</string>
+    <string name="mini_dice_msg_win">Dice Royale: +%1$d FTC.</string>
+    <string name="mini_dice_msg_loss">Dice Royale: -%1$d FTC.</string>
     <string name="mini_dice_msg_tie">Dice Royale: empate, sin cambio.</string>
     <string name="mini_dice_msg_insufficient">Saldo insuficiente para Dice Royale.</string>
 </resources>
