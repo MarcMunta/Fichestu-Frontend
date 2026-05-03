@@ -102,6 +102,8 @@ data class MatchStateResponseDto(
 
 data class BattleRoundRequestDto(
     val action: String,
+    val cardPower: Int? = null,
+    val targetUserId: Int? = null,
     val selectedToken: String? = null,
     val tokenId: Int? = null
 )

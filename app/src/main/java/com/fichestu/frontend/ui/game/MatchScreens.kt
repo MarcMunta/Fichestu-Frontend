@@ -10,6 +10,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -152,6 +154,11 @@ fun BattleFlow(
             onSelectCard = onSelectCard,
             onSelectTarget = onSelectTarget,
             onPlayRound = onPlayRound,
+            modifier = modifier
+        )
+        BattlePhase.DEFEATED -> DefeatView(
+            battle = battle,
+            onReturnToEntry = onResetCycle,
             modifier = modifier
         )
         BattlePhase.FINISHED -> VictoryView(
@@ -1268,12 +1275,24 @@ private fun BattleLogSidePanel(
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val scrollState = rememberScrollState()
+    LaunchedEffect(log.size, expanded) {
+        if (expanded) {
+            scrollState.scrollTo(scrollState.maxValue)
+        }
+    }
+
+    val panelModifier = if (expanded) {
+        modifier
+    } else {
+        modifier.clickable(onClick = onToggle)
+    }
+
     Column(
-        modifier = modifier
+        modifier = panelModifier
             .clip(RoundedCornerShape(8.dp))
             .background(NightBlue.copy(alpha = 0.76f))
             .border(1.dp, PureWhite.copy(alpha = 0.10f), RoundedCornerShape(8.dp))
-            .clickable(onClick = onToggle)
             .padding(8.dp)
     ) {
         if (expanded) {
@@ -1285,6 +1304,7 @@ private fun BattleLogSidePanel(
                 Eyebrow(text = "BATTLE LOG")
                 Text(
                     text = "OCULTAR",
+                    modifier = Modifier.clickable(onClick = onToggle),
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = Gold,
                         fontWeight = FontWeight.ExtraBold
@@ -1292,16 +1312,33 @@ private fun BattleLogSidePanel(
                 )
             }
             Spacer(Modifier.height(8.dp))
-            log.takeLast(8).reversed().forEach { line ->
-                Text(
-                    text = line,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = TextSecondary,
-                        fontSize = 11.sp,
-                        lineHeight = 14.sp
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = true)
+                    .verticalScroll(scrollState)
+            ) {
+                log.forEach { line ->
+                    val isRoundHeader = line.matches(Regex("Ronda \\d+.*"))
+                    Text(
+                        text = line,
+                        style = if (isRoundHeader) {
+                            MaterialTheme.typography.labelMedium.copy(
+                                color = Gold,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 12.sp,
+                                letterSpacing = 1.2.sp
+                            )
+                        } else {
+                            MaterialTheme.typography.bodySmall.copy(
+                                color = TextSecondary,
+                                fontSize = 11.sp,
+                                lineHeight = 14.sp
+                            )
+                        }
                     )
-                )
-                Spacer(Modifier.height(4.dp))
+                    Spacer(Modifier.height(if (isRoundHeader) 6.dp else 4.dp))
+                }
             }
         } else {
             Text(
@@ -1583,6 +1620,135 @@ private fun HandCard(
                 letterSpacing = 1.sp
             )
         )
+    }
+}
+
+/* ============================================================
+   DEFEAT (BattlePhase.DEFEATED)
+   ============================================================ */
+
+@Composable
+fun DefeatView(
+    battle: BattleUiState,
+    onReturnToEntry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val placement = battle.placement?.let { "#$it" } ?: "Sin posicion"
+    val lastRoundIndex = battle.log.indexOfLast { it.matches(Regex("Ronda \\d+.*")) }
+    val lastEvents = if (lastRoundIndex >= 0) {
+        battle.log.drop(lastRoundIndex)
+    } else {
+        battle.log.takeLast(6)
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        AmbientBackground(particleCount = 24)
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Eyebrow(text = "BATTLE ROYALE", color = ChipRed)
+            Spacer(Modifier.height(6.dp))
+            DisplayRed(
+                text = "ELIMINADO",
+                fontSize = 42,
+                textAlign = TextAlign.Center
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Has perdido la partida. Revisa tu posicion y vuelve a la entrada cuando estes listo.",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center
+                )
+            )
+            Spacer(Modifier.height(12.dp))
+
+            PremiumPanel(modifier = Modifier.fillMaxWidth(), glow = true) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(70.dp)
+                            .clip(CircleShape)
+                            .background(Brush.radialGradient(listOf(ChipRed, ChipRedDark))),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "KO",
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                color = PureWhite,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 30.sp
+                            )
+                        )
+                    }
+
+                    Spacer(Modifier.width(18.dp))
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Eyebrow(text = "POSICION FINAL", color = Gold)
+                        DisplayGold(
+                            text = placement,
+                            fontSize = 46,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+
+            PremiumPanel(modifier = Modifier.fillMaxWidth().heightIn(max = 148.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Eyebrow(text = "ULTIMOS EVENTOS", color = Gold)
+                    if (lastEvents.isEmpty()) {
+                        Text(
+                            text = "No hay eventos registrados.",
+                            style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
+                        )
+                    } else {
+                        lastEvents.forEach { event ->
+                            val isRoundHeader = event.matches(Regex("Ronda \\d+.*"))
+                            Text(
+                                text = if (isRoundHeader) event else "- $event",
+                                style = if (isRoundHeader) {
+                                    MaterialTheme.typography.labelMedium.copy(
+                                        color = Gold,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        letterSpacing = 1.1.sp
+                                    )
+                                } else {
+                                    MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+
+            BigPushButtonInternal(
+                text = "VOLVER A LA ENTRADA",
+                color = Gold,
+                onClick = onReturnToEntry,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 

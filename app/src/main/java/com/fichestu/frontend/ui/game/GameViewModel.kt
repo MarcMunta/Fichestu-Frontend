@@ -122,7 +122,13 @@ class GameViewModel(
     }
 
     fun selectTab(tab: MainTab) {
-        _uiState.update { it.copy(activeTab = tab) }
+        _uiState.update { state ->
+            if (state.battle.phase == BattlePhase.DEFEATED && tab != MainTab.BATTLE) {
+                state.copy(transientMessage = "Pulsa volver a la entrada para salir de la pantalla de derrota.")
+            } else {
+                state.copy(activeTab = tab)
+            }
+        }
     }
 
     fun openBallRoomTab() {
@@ -464,8 +470,10 @@ class GameViewModel(
     }
 
     private fun localMultiplierFor(ballId: Int, backendMultiplier: Double?): Double {
-        if (backendMultiplier != null && backendMultiplier != 1.0) return backendMultiplier
-        val values = listOf(0.5, 1.2, 1.5, 2.0, 3.0, 5.0, 10.0)
+        if (backendMultiplier != null && backendMultiplier != 1.0) {
+            return backendMultiplier.coerceIn(GameRules.MULTIPLIER_MIN, GameRules.MULTIPLIER_MAX)
+        }
+        val values = listOf(0.5, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0)
         return values[(ballId * 37).mod(values.size)]
     }
 
@@ -498,18 +506,18 @@ class GameViewModel(
     fun playBattleRound() {
         viewModelScope.launch {
             val snapshot = _uiState.value
-            if (snapshot.battle.hand.isNotEmpty()) {
-                resolveLocalBattleRound()
-                return@launch
-            }
             val matchId = snapshot.currentMatchId
             if (matchId == null) {
-                _uiState.update { it.copy(transientMessage = "No hay battle activa") }
+                if (snapshot.battle.hand.isNotEmpty()) {
+                    resolveLocalBattleRound()
+                } else {
+                    _uiState.update { it.copy(transientMessage = "No hay battle activa") }
+                }
                 return@launch
             }
 
             val result = repository.playBattleRound(snapshot, matchId)
-            applyResult(result)
+            applyBattleRoundResult(result)
         }
     }
 
@@ -592,6 +600,28 @@ class GameViewModel(
             val nextTarget = afterBots.firstOrNull {
                 !it.isUser && it.isAlive && it.id == battle.selectedTargetId
             }?.id ?: afterBots.firstOrNull { !it.isUser && it.isAlive }?.id
+            val userAfterRound = afterBots.firstOrNull { it.isUser }
+            if (userAfterRound != null && !userAfterRound.isAlive) {
+                val placement = (afterBots.count { !it.isUser && it.isAlive } + 1).coerceAtLeast(2)
+                return@update state.copy(
+                    currentMatchId = null,
+                    activeTab = MainTab.BATTLE,
+                    ballRoom = BallRoomUiState(
+                        phase = BallRoomPhase.WAITING_ENTRY,
+                        statusMessage = "Paga 10 FTC para entrar en la sala."
+                    ),
+                    battle = battle.copy(
+                        phase = BattlePhase.DEFEATED,
+                        players = afterBots,
+                        placement = placement,
+                        hand = emptyList(),
+                        selectedCardId = null,
+                        selectedTargetId = null,
+                        log = battle.log + roundLog + "Has quedado en posicion #$placement."
+                    ),
+                    transientMessage = "Eliminado. Pulsa para volver a la entrada."
+                )
+            }
 
             state.copy(
                 battle = battle.copy(
@@ -633,7 +663,7 @@ class GameViewModel(
     }
 
     private fun ensureBattleHand(battle: BattleUiState): BattleUiState {
-        if (battle.phase == BattlePhase.LOCKED || battle.phase == BattlePhase.FINISHED) return battle
+        if (battle.phase == BattlePhase.LOCKED || battle.phase == BattlePhase.DEFEATED || battle.phase == BattlePhase.FINISHED) return battle
         val hand = if (battle.hand.size >= 5) battle.hand else battle.hand + List(5 - battle.hand.size) { drawBattleCard() }
         val selectedCardId = battle.selectedCardId?.takeIf { id -> hand.any { it.id == id } } ?: hand.firstOrNull()?.id
         val selectedTargetId = battle.selectedTargetId?.takeIf { id ->
@@ -649,7 +679,7 @@ class GameViewModel(
     }
 
     private fun mergeBattleHand(incoming: BattleUiState, previous: BattleUiState): BattleUiState {
-        if (incoming.phase == BattlePhase.LOCKED || incoming.phase == BattlePhase.FINISHED) return incoming
+        if (incoming.phase == BattlePhase.LOCKED || incoming.phase == BattlePhase.DEFEATED || incoming.phase == BattlePhase.FINISHED) return incoming
         val base = incoming.copy(
             hand = previous.hand.takeIf { it.isNotEmpty() } ?: incoming.hand,
             selectedCardId = previous.selectedCardId ?: incoming.selectedCardId,
@@ -800,7 +830,7 @@ class GameViewModel(
                     when (phase) {
                         BallRoomPhase.REVEALED -> {
                             autoBattleJob = viewModelScope.launch {
-                                delay(2_500)
+                                delay(6_500)
                                 if (uiState.value.ballRoom.phase == BallRoomPhase.REVEALED) {
                                     selectTab(MainTab.BATTLE)
                                 }
@@ -963,6 +993,54 @@ class GameViewModel(
         }
     }
 
+    private fun applyBattleRoundResult(result: Result<GameUiState>) {
+        var shouldRefreshNotifications = false
+        _uiState.update { current ->
+            result.fold(
+                onSuccess = { success ->
+                    shouldRefreshNotifications = true
+                    val next = stabilizeMatchmakingTransition(current, success)
+                        .copy(battle = mergeBattleHand(success.battle, current.battle))
+                    next.copy(
+                        battle = consumeBattleCardAfterBackendRound(next.battle, current.battle),
+                        transientMessage = "Carta usada. Robas una nueva."
+                    )
+                },
+                onFailure = { error ->
+                    if (error is SessionExpiredException) {
+                        current.copy(
+                            isSessionExpired = true,
+                            transientMessage = error.message
+                        )
+                    } else {
+                        current.copy(transientMessage = error.message ?: "Error de conexiÃ³n")
+                    }
+                }
+            )
+        }
+        if (shouldRefreshNotifications) {
+            refreshNotifications()
+        }
+    }
+
+    private fun consumeBattleCardAfterBackendRound(
+        incoming: BattleUiState,
+        previous: BattleUiState
+    ): BattleUiState {
+        if (incoming.phase == BattlePhase.LOCKED || incoming.phase == BattlePhase.DEFEATED || incoming.phase == BattlePhase.FINISHED) {
+            return incoming
+        }
+        val previousHand = previous.hand.takeIf { it.isNotEmpty() } ?: incoming.hand
+        val usedCardId = previous.selectedCardId ?: previousHand.firstOrNull()?.id
+        val nextHand = previousHand.filterNot { it.id == usedCardId }.plus(drawBattleCard()).take(5)
+        val nextSelectedCardId = nextHand.firstOrNull()?.id
+        return incoming.copy(
+            hand = nextHand,
+            selectedCardId = nextSelectedCardId,
+            selectedAction = nextHand.firstOrNull { it.id == nextSelectedCardId }?.type ?: incoming.selectedAction
+        )
+    }
+
     private fun stabilizeMatchmakingTransition(current: GameUiState, next: GameUiState): GameUiState {
         if (next.ballRoom.phase == BallRoomPhase.MATCHMAKING) {
             if (matchmakingVisualDeadlineMs == null) {
@@ -1055,7 +1133,7 @@ class GameViewModel(
         val winRate = if (stats.battlesPlayed == 0) 0.0 else stats.battlesWon.toDouble() / stats.battlesPlayed
         return listOf(
             BadgeUi("Primer Knockout", "Gana tu primera batalla.", stats.battlesWon >= 1),
-            BadgeUi("Sangre Fria", "Consigue multiplicador x10 o superior.", stats.bestMultiplier >= 10.0),
+            BadgeUi("Sangre Fria", "Consigue multiplicador x3 o superior.", stats.bestMultiplier >= 3.0),
             BadgeUi("Trader Diario", "Juega 5 salas de bolas.", stats.ballRoomsPlayed >= 5),
             BadgeUi("Maestro Royale", "Mantiene winrate del 50% con 6 batallas.", stats.battlesPlayed >= 6 && winRate >= 0.5),
             BadgeUi("Bonus Hunter", "Reclama 3 rewarded ads.", stats.rewardedAdsClaimed >= 3)

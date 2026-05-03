@@ -254,7 +254,7 @@ class GameEngine(
         battle: BattleUiState,
         userAction: BattleCardType
     ): Pair<BattleUiState, String?> {
-        if (battle.phase == BattlePhase.LOCKED || battle.phase == BattlePhase.FINISHED) {
+        if (battle.phase == BattlePhase.LOCKED || battle.phase == BattlePhase.DEFEATED || battle.phase == BattlePhase.FINISHED) {
             return battle to null
         }
 

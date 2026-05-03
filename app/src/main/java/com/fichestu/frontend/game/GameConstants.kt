@@ -13,7 +13,7 @@ object GameRules {
     const val BATTLE_ATTACK_MAX = 9
 
     const val MULTIPLIER_MIN = 0.5
-    const val MULTIPLIER_MAX = 100.0
+    const val MULTIPLIER_MAX = 3.0
 
     const val HISTORY_POINTS = 28
     const val USER_PLAYER_ID = "user"

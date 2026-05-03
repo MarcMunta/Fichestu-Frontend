@@ -284,8 +284,8 @@ fun FichestuGameScreen(
             NotificationToast(
                 text = uiState.transientMessage.orEmpty(),
                 modifier = Modifier
-                    .widthIn(max = 420.dp)
-                    .fillMaxWidth(0.58f)
+                    .widthIn(min = 300.dp, max = 560.dp)
+                    .fillMaxWidth(0.72f)
                     .heightIn(min = 42.dp)
             )
         }
@@ -498,11 +498,13 @@ private fun NotificationToast(
             }
             Text(
                 text = text,
+                modifier = Modifier.weight(1f),
                 style = MaterialTheme.typography.labelLarge.copy(
                     color = PureWhite,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 17.sp
                 ),
-                maxLines = 2
+                maxLines = 3
             )
         }
     }

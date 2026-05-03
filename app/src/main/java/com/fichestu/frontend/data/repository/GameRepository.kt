@@ -106,7 +106,7 @@ class GameRepository {
             ballRoom = stableBallRoom,
             battle = nextBattle,
             transientMessage = currentState.transientMessage
-        )
+        ).exitBattleIfUserEliminated()
     }
 
     suspend fun buy(currentState: GameUiState): Result<GameUiState> = runSafely {
@@ -215,11 +215,16 @@ class GameRepository {
 
     suspend fun playBattleRound(currentState: GameUiState, matchId: Int): Result<GameUiState> = runSafely {
         val selectedAction = currentState.battle.selectedAction
+        val selectedPower = currentState.battle.hand
+            .firstOrNull { it.id == currentState.battle.selectedCardId }
+            ?.power
         val response = ApiClient.gameApi.submitBattleAction(
             authorization = requireAuth(),
             matchId = matchId,
             request = BattleRoundRequestDto(
                 action = selectedAction.name,
+                cardPower = selectedPower,
+                targetUserId = currentState.battle.selectedTargetId?.toIntOrNull(),
                 selectedToken = currentState.market.selectedToken.name,
                 tokenId = currentState.market.selectedToken.toTokenIdNumber()
             )
@@ -243,7 +248,7 @@ class GameRepository {
             ballRoom = mapBallRoom(dto.ballRoom),
             profile = currentState.profile.copy(stats = nextStats, badges = recomputeBadges(nextStats)),
             transientMessage = dto.message
-        )
+        ).exitBattleIfUserEliminated()
     }
 
     suspend fun claimRewarded(currentState: GameUiState): Result<GameUiState> = runSafely {
@@ -383,6 +388,33 @@ class GameRepository {
         )
     }
 
+    private fun GameUiState.exitBattleIfUserEliminated(): GameUiState {
+        val me = battle.players.firstOrNull { it.isUser } ?: return this
+        if (currentMatchId == null || me.isAlive || battle.phase == BattlePhase.LOCKED || battle.phase == BattlePhase.DEFEATED) {
+            return this
+        }
+
+        val aliveRivals = battle.players.count { !it.isUser && it.isAlive }
+        val placement = (aliveRivals + 1).coerceAtLeast(2)
+        return copy(
+            currentMatchId = null,
+            activeTab = MainTab.BATTLE,
+            ballRoom = BallRoomUiState(
+                phase = BallRoomPhase.WAITING_ENTRY,
+                statusMessage = "Paga ${GameRules.BALL_ENTRY_COST.toInt()} FTC para entrar en la sala."
+            ),
+            battle = battle.copy(
+                phase = BattlePhase.DEFEATED,
+                placement = placement,
+                hand = emptyList(),
+                selectedCardId = null,
+                selectedTargetId = null,
+                log = battle.log + "Has quedado en posicion #$placement."
+            ),
+            transientMessage = "Eliminado. Pulsa para volver a la entrada."
+        )
+    }
+
     private fun NotificationDto.toNotificationUi(): NotificationUi {
         return NotificationUi(
             id = id,
@@ -411,12 +443,12 @@ class GameRepository {
         nickname = nickname,
         isUser = isUser,
         selectedBallId = selectedBallId,
-        multiplier = multiplier
+        multiplier = multiplier?.toSafeMultiplier()
     )
 
     private fun BallOptionDto.toBallOption(userIds: Set<String>): BallOption = BallOption(
         id = id,
-        multiplier = multiplier ?: 1.0,
+        multiplier = multiplier.toSafeMultiplier(),
         pickedBy = if (pickedBy != null && userIds.contains(pickedBy)) "user" else pickedBy
     )
 
@@ -425,8 +457,12 @@ class GameRepository {
         nickname = nickname,
         isUser = isUser,
         hp = hp,
-        multiplier = multiplier
+        multiplier = multiplier.toSafeMultiplier()
     )
+
+    private fun Double?.toSafeMultiplier(): Double {
+        return (this ?: 1.0).coerceIn(GameRules.MULTIPLIER_MIN, GameRules.MULTIPLIER_MAX)
+    }
 
     private fun Int.toTokenId(): TokenId = when (this) {
         1 -> TokenId.ROJA
@@ -454,6 +490,7 @@ class GameRepository {
     private fun String.toBattlePhase(): BattlePhase = when (this.uppercase()) {
         "READY" -> BattlePhase.READY
         "IN_PROGRESS" -> BattlePhase.IN_PROGRESS
+        "DEFEATED", "ELIMINATED" -> BattlePhase.DEFEATED
         "FINISHED", "CLOSED" -> BattlePhase.FINISHED
         else -> BattlePhase.LOCKED
     }
@@ -468,7 +505,7 @@ class GameRepository {
         val winRate = if (stats.battlesPlayed == 0) 0.0 else stats.battlesWon.toDouble() / stats.battlesPlayed
         return listOf(
             BadgeUi("Primer Knockout", "Gana tu primera batalla.", stats.battlesWon >= 1),
-            BadgeUi("Sangre Fria", "Consigue multiplicador x10 o superior.", stats.bestMultiplier >= 10.0),
+            BadgeUi("Sangre Fria", "Consigue multiplicador x3 o superior.", stats.bestMultiplier >= 3.0),
             BadgeUi("Trader Diario", "Juega 5 salas de bolas.", stats.ballRoomsPlayed >= 5),
             BadgeUi("Maestro Royale", "Mantiene winrate del 50% con 6 batallas.", stats.battlesPlayed >= 6 && winRate >= 0.5),
             BadgeUi("Bonus Hunter", "Reclama 3 rewarded ads.", stats.rewardedAdsClaimed >= 3)

@@ -98,6 +98,7 @@ enum class BattlePhase {
     LOCKED,
     READY,
     IN_PROGRESS,
+    DEFEATED,
     FINISHED
 }
 
@@ -122,6 +123,7 @@ data class BattleUiState(
     val winnerId: String? = null,
     val winnerName: String? = null,
     val winningMultiplier: Double? = null,
+    val placement: Int? = null,
     val selectedAction: BattleCardType = BattleCardType.ATTACK,
     val hand: List<BattleHandCard> = emptyList(),
     val selectedCardId: Long? = null,
