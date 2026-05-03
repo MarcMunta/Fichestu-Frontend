@@ -47,7 +47,6 @@ import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -242,15 +241,11 @@ fun FichestuGameScreen(
                                     onSelectCard = viewModel::chooseBattleCard,
                                     onSelectTarget = viewModel::chooseBattleTarget,
                                     onPlayRound = viewModel::playBattleRound,
-                                    onResetCycle = viewModel::resetBattleAndRoom
+                                    onSelectToken = viewModel::selectToken,
+                                    onResetCycle = viewModel::applyWinnerImpactAndReset
                                 )
                             }
                         }
-
-                        MainTab.MINIGAMES -> MinigamesTab(
-                            cashBalance = uiState.market.cashBalance,
-                            onResult = viewModel::applyMinigameResult
-                        )
 
                         MainTab.PROFILE -> ProfileTab(
                             profile = uiState.profile,
@@ -261,6 +256,7 @@ fun FichestuGameScreen(
                             onNewPasswordChange = viewModel::updateNewPassword,
                             onConfirmPasswordChange = viewModel::updateConfirmPassword,
                             onChangePassword = viewModel::changePassword,
+                            onUploadAvatar = viewModel::uploadProfileAvatar,
                             onLogout = { viewModel.abandonActiveMatchForExit(onLogout) }
                         )
                     }
@@ -284,8 +280,6 @@ fun FichestuGameScreen(
             NotificationToast(
                 text = uiState.transientMessage.orEmpty(),
                 modifier = Modifier
-                    .widthIn(min = 300.dp, max = 560.dp)
-                    .fillMaxWidth(0.72f)
                     .heightIn(min = 42.dp)
             )
         }
@@ -471,8 +465,14 @@ private fun NotificationToast(
     text: String,
     modifier: Modifier = Modifier
 ) {
+    val isCompact = text.length <= 34
+
     Surface(
         modifier = modifier
+            .widthIn(
+                min = if (isCompact) 0.dp else 300.dp,
+                max = if (isCompact) 360.dp else 560.dp
+            )
             .border(1.dp, Gold.copy(alpha = 0.55f), RoundedCornerShape(18.dp)),
         shape = RoundedCornerShape(18.dp),
         color = PanelBlue.copy(alpha = 0.96f)
@@ -498,13 +498,13 @@ private fun NotificationToast(
             }
             Text(
                 text = text,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.widthIn(max = if (isCompact) 270.dp else 470.dp),
                 style = MaterialTheme.typography.labelLarge.copy(
                     color = PureWhite,
                     fontWeight = FontWeight.Bold,
                     lineHeight = 17.sp
                 ),
-                maxLines = 3
+                maxLines = if (isCompact) 1 else 4
             )
         }
     }
@@ -1640,7 +1640,6 @@ private fun BottomGameNav(
     val items = listOf(
         BottomItem(MainTab.DASHBOARD, stringResource(R.string.nav_market), Icons.Default.Home),
         BottomItem(MainTab.BALL_ROOM, stringResource(R.string.nav_balls), Icons.Default.Casino),
-        BottomItem(MainTab.MINIGAMES, stringResource(R.string.nav_minigames), Icons.Default.PlayArrow),
         BottomItem(MainTab.PROFILE, stringResource(R.string.nav_profile), Icons.Default.Person)
     )
 

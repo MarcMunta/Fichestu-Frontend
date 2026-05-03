@@ -1,29 +1,54 @@
 package com.fichestu.frontend.data.repository
 
+import com.fichestu.frontend.data.model.BadgeDto
 import com.fichestu.frontend.data.model.ChangePasswordRequestDto
 import com.fichestu.frontend.data.model.ProfileResponseDto
+import com.fichestu.frontend.data.model.ProfileStatsDto
 import com.fichestu.frontend.data.model.UpdateProfileRequestDto
+import com.fichestu.frontend.BuildConfig
 import com.fichestu.frontend.data.remote.ApiClient
+import com.fichestu.frontend.game.model.BadgeUi
 import com.fichestu.frontend.game.model.GameUiState
+import com.fichestu.frontend.game.model.ProfileStats
 import com.fichestu.frontend.game.model.ProfileUiState
 import java.io.IOException
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class ProfileRepository {
 
     suspend fun loadProfile(currentState: GameUiState): Result<GameUiState> = runSafely {
-        val response = ApiClient.profileApi.getProfile(requireAuth())
+        val auth = requireAuth()
+        val response = ApiClient.profileApi.getProfile(auth)
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
+
+        val statsResponse = ApiClient.profileApi.getStats(auth)
+        val statsDto = parseResponse(
+            statsResponse.isSuccessful,
+            statsResponse.body(),
+            statsResponse.errorBody()?.string(),
+            statsResponse.code()
+        ).stats
+
+        val badgesResponse = ApiClient.profileApi.getBadges(auth)
+        val badgesDto = parseResponse(
+            badgesResponse.isSuccessful,
+            badgesResponse.body(),
+            badgesResponse.errorBody()?.string(),
+            badgesResponse.code()
+        ).badges
+
         currentState.copy(
-            profile = currentState.profile.copy(
-                playerName = dto.username,
-                username = dto.username,
-                email = dto.email,
-                role = dto.role,
-                profilePicUrl = dto.profilePicUrl,
-                editUsername = dto.username,
-                editEmail = dto.email
+            profile = mapProfile(currentState.profile, dto).copy(
+                stats = mapStats(statsDto),
+                badges = badgesDto.map { it.toBadgeUi() }
             ),
-            transientMessage = null
+            transientMessage = if (dto.hasPassword) {
+                null
+            } else {
+                "Anade una contrasena para proteger tu cuenta."
+            }
         )
     }
 
@@ -45,16 +70,18 @@ class ProfileRepository {
 
     suspend fun changePassword(currentState: GameUiState): Result<GameUiState> = runSafely {
         val profile = currentState.profile
-        if (profile.newPassword != profile.confirmPassword) {
-            throw Exception("Las contraseñas no coinciden")
+        val confirmPassword = if (profile.hasPassword) profile.confirmPassword else profile.newPassword
+
+        if (profile.newPassword != confirmPassword) {
+            throw Exception("Las contrasenas no coinciden")
         }
 
         val response = ApiClient.profileApi.changePassword(
             authorization = requireAuth(),
             request = ChangePasswordRequestDto(
-                currentPassword = profile.currentPassword.trim().takeIf { it.isNotBlank() },
+                currentPassword = profile.currentPassword.trim().takeIf { profile.hasPassword && it.isNotBlank() },
                 newPassword = profile.newPassword,
-                confirmPassword = profile.confirmPassword
+                confirmPassword = confirmPassword
             )
         )
 
@@ -64,7 +91,20 @@ class ProfileRepository {
         }
 
         if (!response.isSuccessful) {
-            throw Exception(extractMessage(response.errorBody()?.string()) ?: "No se pudo cambiar la contraseña")
+            val message = extractMessage(response.errorBody()?.string()) ?: "No se pudo cambiar la contrasena"
+            if (!profile.hasPassword && message.contains("actual", ignoreCase = true)) {
+                return@runSafely currentState.copy(
+                    profile = currentState.profile.copy(
+                        hasPassword = true,
+                        currentPassword = "",
+                        newPassword = "",
+                        confirmPassword = "",
+                        isSavingPassword = false
+                    ),
+                    transientMessage = "Tu cuenta ya tiene contrasena. Introduce la actual."
+                )
+            }
+            throw Exception(message)
         }
 
         currentState.copy(
@@ -72,9 +112,23 @@ class ProfileRepository {
                 currentPassword = "",
                 newPassword = "",
                 confirmPassword = "",
+                hasPassword = true,
                 isSavingPassword = false
             ),
-            transientMessage = response.body()?.message ?: "Contraseña actualizada"
+            transientMessage = response.body()?.message ?: "Contrasena actualizada"
+        )
+    }
+
+    suspend fun uploadAvatar(currentState: GameUiState, bytes: ByteArray, mimeType: String): Result<GameUiState> = runSafely {
+        val mediaType = mimeType.toMediaTypeOrNull() ?: "image/jpeg".toMediaTypeOrNull()
+        val body = bytes.toRequestBody(mediaType)
+        val part = MultipartBody.Part.createFormData("avatar", "avatar", body)
+        val response = ApiClient.profileApi.uploadAvatar(requireAuth(), part)
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
+
+        currentState.copy(
+            profile = mapProfile(currentState.profile, dto).copy(isSavingProfile = false),
+            transientMessage = dto.message
         )
     }
 
@@ -84,9 +138,37 @@ class ProfileRepository {
             username = dto.username,
             email = dto.email,
             role = dto.role,
-            profilePicUrl = dto.profilePicUrl,
+            profilePicUrl = dto.profilePicUrl.toAbsoluteProfileUrl(),
+            hasPassword = dto.hasPassword,
             editUsername = dto.username,
             editEmail = dto.email
+        )
+    }
+
+    private fun String?.toAbsoluteProfileUrl(): String? {
+        if (isNullOrBlank()) return null
+        if (startsWith("http://", ignoreCase = true) || startsWith("https://", ignoreCase = true)) return this
+        val base = BuildConfig.BASE_URL.trimEnd('/')
+        return "$base${if (startsWith("/")) this else "/$this"}"
+    }
+
+    private fun mapStats(dto: ProfileStatsDto): ProfileStats {
+        return ProfileStats(
+            ballRoomsPlayed = dto.ballRoomsPlayed,
+            battlesPlayed = dto.battlesPlayed,
+            battlesWon = dto.battlesWon,
+            bestMultiplier = dto.bestMultiplier,
+            averageMultiplier = dto.averageMultiplier,
+            rewardedAdsClaimed = dto.rewardedAdsClaimed,
+            totalMultiplierAccumulated = dto.averageMultiplier * dto.ballRoomsPlayed
+        )
+    }
+
+    private fun BadgeDto.toBadgeUi(): BadgeUi {
+        return BadgeUi(
+            title = title,
+            description = description,
+            unlocked = unlocked
         )
     }
 
@@ -114,7 +196,7 @@ class ProfileRepository {
         return try {
             Result.success(block())
         } catch (e: IOException) {
-            Result.failure(Exception("Error de red: verifica conexión y backend activo."))
+            Result.failure(Exception("Error de red: verifica conexion y backend activo."))
         } catch (e: Exception) {
             Result.failure(e)
         }

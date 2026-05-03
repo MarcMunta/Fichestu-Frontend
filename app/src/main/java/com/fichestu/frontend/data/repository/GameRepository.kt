@@ -18,6 +18,7 @@ import com.fichestu.frontend.data.model.NotificationListResponseDto
 import com.fichestu.frontend.data.model.PickBallRequestDto
 import com.fichestu.frontend.data.model.ProfileStatsDto
 import com.fichestu.frontend.data.model.WalletResponseDto
+import com.fichestu.frontend.data.model.WinnerImpactRequestDto
 import com.fichestu.frontend.data.remote.ApiClient
 import com.fichestu.frontend.game.GameRules
 import com.fichestu.frontend.game.model.BadgeUi
@@ -224,9 +225,7 @@ class GameRepository {
             request = BattleRoundRequestDto(
                 action = selectedAction.name,
                 cardPower = selectedPower,
-                targetUserId = currentState.battle.selectedTargetId?.toIntOrNull(),
-                selectedToken = currentState.market.selectedToken.name,
-                tokenId = currentState.market.selectedToken.toTokenIdNumber()
+                targetUserId = currentState.battle.selectedTargetId?.toIntOrNull()
             )
         )
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
@@ -249,6 +248,22 @@ class GameRepository {
             profile = currentState.profile.copy(stats = nextStats, badges = recomputeBadges(nextStats)),
             transientMessage = dto.message
         ).exitBattleIfUserEliminated()
+    }
+
+    suspend fun applyWinnerImpact(currentState: GameUiState, matchId: Int): Result<GameUiState> = runSafely {
+        val token = currentState.market.selectedToken
+        val response = ApiClient.gameApi.applyWinnerImpact(
+            authorization = requireAuth(),
+            matchId = matchId,
+            request = WinnerImpactRequestDto(token.name)
+        )
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
+        currentState.copy(
+            currentMatchId = dto.matchId,
+            battle = mapBattle(dto.battle),
+            ballRoom = mapBallRoom(dto.ballRoom),
+            transientMessage = dto.message
+        )
     }
 
     suspend fun claimRewarded(currentState: GameUiState): Result<GameUiState> = runSafely {
@@ -294,7 +309,7 @@ class GameRepository {
             battle = currentState?.battle ?: BattleUiState(),
             profile = ProfileUiState(
                 playerName = dto.playerName,
-                badges = recomputeBadges(stats),
+                badges = dto.badges?.map { it.toBadgeUi() } ?: recomputeBadges(stats),
                 stats = stats
             ),
             rewardedAvailable = dto.rewardedCooldownSec == 0,
@@ -364,7 +379,7 @@ class GameRepository {
             winnerName = dto.winnerName,
             winningMultiplier = dto.winningMultiplier,
             selectedAction = dto.selectedAction.toBattleCardType(),
-            impactApplied = dto.phase == "FINISHED",
+            impactApplied = false,
             interstitialAvailable = dto.interstitialAvailable
         )
     }
@@ -509,6 +524,14 @@ class GameRepository {
             BadgeUi("Trader Diario", "Juega 5 salas de bolas.", stats.ballRoomsPlayed >= 5),
             BadgeUi("Maestro Royale", "Mantiene winrate del 50% con 6 batallas.", stats.battlesPlayed >= 6 && winRate >= 0.5),
             BadgeUi("Bonus Hunter", "Reclama 3 rewarded ads.", stats.rewardedAdsClaimed >= 3)
+        )
+    }
+
+    private fun com.fichestu.frontend.data.model.BadgeDto.toBadgeUi(): BadgeUi {
+        return BadgeUi(
+            title = title,
+            description = description,
+            unlocked = unlocked
         )
     }
 

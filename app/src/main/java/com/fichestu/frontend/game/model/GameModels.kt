@@ -6,7 +6,6 @@ enum class MainTab {
     DASHBOARD,
     BALL_ROOM,
     BATTLE,
-    MINIGAMES,
     PROFILE
 }
 
@@ -159,6 +158,7 @@ data class ProfileUiState(
     val currentPassword: String = "",
     val newPassword: String = "",
     val confirmPassword: String = "",
+    val hasPassword: Boolean = true,
     val isSavingProfile: Boolean = false,
     val isSavingPassword: Boolean = false,
     val badges: List<BadgeUi> = emptyList(),

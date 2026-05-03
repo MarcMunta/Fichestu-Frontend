@@ -1,5 +1,8 @@
 package com.fichestu.frontend.ui.game
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -88,6 +91,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -142,16 +146,29 @@ fun ProfileTab(
     onNewPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
     onChangePassword: () -> Unit,
+    onUploadAvatar: (ByteArray, String) -> Unit,
     onLogout: () -> Unit
 ) {
     var editProfileExpanded by remember { mutableStateOf(false) }
-    var changePasswordExpanded by remember { mutableStateOf(false) }
+    var changePasswordExpanded by remember(profile.hasPassword) { mutableStateOf(!profile.hasPassword) }
     var showBadgesDialog by remember { mutableStateOf(false) }
     var showAvatarDialog by remember { mutableStateOf(false) }
     var selectedAvatarIndex by remember { mutableStateOf(-1) }
     var selectedFrameIndex by remember { mutableStateOf(0) }
     var selectedScreenBgIndex by remember { mutableStateOf(0) }
     var screenBgPhotoUri by remember { mutableStateOf<String?>(null) }
+
+    val context = LocalContext.current
+    val avatarPicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        uri ?: return@rememberLauncherForActivityResult
+        val resolver = context.contentResolver
+        val mimeType = resolver.getType(uri) ?: "image/jpeg"
+        resolver.openInputStream(uri)?.use { input ->
+            onUploadAvatar(input.readBytes(), mimeType)
+            selectedAvatarIndex = -1
+            showAvatarDialog = false
+        }
+    }
 
     val screenBg = ScreenBackgrounds.getOrElse(selectedScreenBgIndex) { ScreenBackgrounds.first() }
 
@@ -205,7 +222,7 @@ fun ProfileTab(
                     )
                     BadgesButton(
                         unlockedCount = profile.badges.count { it.unlocked },
-                        totalCount = AllBadgesCatalog.size,
+                        totalCount = profile.badges.size,
                         onClick = { showBadgesDialog = true }
                     )
                     LogoutButton(onClick = onLogout)
@@ -216,7 +233,11 @@ fun ProfileTab(
                     modifier = Modifier.weight(0.58f),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    StatsGrid(stats = profile.stats)
+                        StatsGrid(stats = profile.stats)
+
+                    if (!profile.hasPassword) {
+                        PasswordReminderCard()
+                    }
 
                     ExpandableSection(
                         title = "Editar perfil",
@@ -230,7 +251,7 @@ fun ProfileTab(
                         icon = Icons.Default.Lock,
                         expanded = changePasswordExpanded,
                         onToggle = { changePasswordExpanded = !changePasswordExpanded }
-                    ) { PasswordForm(profile, onCurrentPasswordChange, onNewPasswordChange, onConfirmPasswordChange, onChangePassword) }
+                    ) { PasswordForm2(profile, onCurrentPasswordChange, onNewPasswordChange, onConfirmPasswordChange, onChangePassword) }
 
                     Spacer(Modifier.height(8.dp))
                 }
@@ -254,11 +275,14 @@ fun ProfileTab(
                 item {
                     BadgesButton(
                         unlockedCount = profile.badges.count { it.unlocked },
-                        totalCount = AllBadgesCatalog.size,
+                        totalCount = profile.badges.size,
                         onClick = { showBadgesDialog = true }
                     )
                 }
                 item { StatsGrid(stats = profile.stats) }
+                if (!profile.hasPassword) {
+                    item { PasswordReminderCard() }
+                }
                 item {
                     ExpandableSection(
                         title = "Editar perfil",
@@ -273,7 +297,7 @@ fun ProfileTab(
                         icon = Icons.Default.Lock,
                         expanded = changePasswordExpanded,
                         onToggle = { changePasswordExpanded = !changePasswordExpanded }
-                    ) { PasswordForm(profile, onCurrentPasswordChange, onNewPasswordChange, onConfirmPasswordChange, onChangePassword) }
+                    ) { PasswordForm2(profile, onCurrentPasswordChange, onNewPasswordChange, onConfirmPasswordChange, onChangePassword) }
                 }
                 item { LogoutButton(onClick = onLogout) }
                 item { Spacer(Modifier.height(8.dp)) }
@@ -284,7 +308,7 @@ fun ProfileTab(
     // ── DIALOG DE INSIGNIAS ──────────────────────────────────────────────
     if (showBadgesDialog) {
         BadgesDialog(
-            unlockedTitles = profile.badges.filter { it.unlocked }.map { it.title }.toSet(),
+            badges = profile.badges,
             onDismiss = { showBadgesDialog = false }
         )
     }
@@ -308,7 +332,7 @@ fun ProfileTab(
                 screenBgPhotoUri = null
             },
             onUploadAvatarFromGallery = {
-                showAvatarDialog = false
+                avatarPicker.launch("image/*")
             },
             onUploadScreenBgFromGallery = {
                 // Hook visual — cuando enganches el ActivityResult, asigna la URI aquí.
@@ -401,6 +425,104 @@ private fun PasswordForm(
 // ══════════════════════════════════════════════════════════════════════════
 // HERO CARD
 // ══════════════════════════════════════════════════════════════════════════
+@Composable
+private fun PasswordReminderCard() {
+    val shape = RoundedCornerShape(14.dp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(shape)
+            .background(GoldDark.copy(alpha = 0.24f))
+            .border(1.dp, Gold.copy(alpha = 0.65f), shape)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Icon(Icons.Default.Lock, null, tint = Gold, modifier = Modifier.size(22.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Protege tu cuenta",
+                style = MaterialTheme.typography.titleSmall.copy(
+                    color = Gold,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            )
+            Text(
+                text = "Has entrado con Google. Crea una contrasena local para poder iniciar sesion tambien con email.",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = TextSecondary,
+                    lineHeight = 16.sp
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun PasswordForm2(
+    profile: ProfileUiState,
+    onCurrentPasswordChange: (String) -> Unit,
+    onNewPasswordChange: (String) -> Unit,
+    onConfirmPasswordChange: (String) -> Unit,
+    onChangePassword: () -> Unit
+) {
+    if (profile.hasPassword) {
+        ProfileTextField(
+            value = profile.currentPassword,
+            label = "Contrasena actual",
+            leading = Icons.Default.Lock,
+            keyboardType = KeyboardType.Password,
+            isPassword = true,
+            onValueChange = onCurrentPasswordChange
+        )
+        Spacer(Modifier.height(10.dp))
+    } else {
+        Text(
+            text = "Aun no tienes contrasena local. Escribe una nueva y la guardaremos en tu cuenta.",
+            style = MaterialTheme.typography.bodySmall.copy(
+                color = TextSecondary,
+                lineHeight = 16.sp
+            )
+        )
+        Spacer(Modifier.height(10.dp))
+    }
+
+    ProfileTextField(
+        value = profile.newPassword,
+        label = if (profile.hasPassword) "Nueva contrasena" else "Crear contrasena",
+        leading = Icons.Default.Lock,
+        keyboardType = KeyboardType.Password,
+        isPassword = true,
+        onValueChange = onNewPasswordChange
+    )
+
+    if (profile.hasPassword) {
+        Spacer(Modifier.height(10.dp))
+        ProfileTextField(
+            value = profile.confirmPassword,
+            label = "Repite contrasena",
+            leading = Icons.Default.Lock,
+            keyboardType = KeyboardType.Password,
+            isPassword = true,
+            onValueChange = onConfirmPasswordChange
+        )
+    }
+
+    Spacer(Modifier.height(14.dp))
+    ArcadePrimaryButton(
+        text = if (profile.isSavingPassword) {
+            "GUARDANDO..."
+        } else if (profile.hasPassword) {
+            "ACTUALIZAR CONTRASENA"
+        } else {
+            "CREAR CONTRASENA"
+        },
+        enabled = !profile.isSavingPassword,
+        onClick = onChangePassword,
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
 @Composable
 private fun ProfileHeroCard(
     profile: ProfileUiState,
@@ -894,18 +1016,11 @@ private data class CatalogBadge(
 )
 
 private val AllBadgesCatalog: List<CatalogBadge> = listOf(
-    CatalogBadge("Primera partida", "Juega tu primera batalla", Icons.Default.Casino, BadgeRarity.COMMON),
-    CatalogBadge("Primera victoria", "Gana tu primera batalla", Icons.Default.EmojiEvents, BadgeRarity.COMMON),
-    CatalogBadge("Bienvenido", "Crea tu cuenta en Fichestu", Icons.Default.Person, BadgeRarity.COMMON),
-    CatalogBadge("Multiplicador x3", "Consigue x3 en una bola", Icons.Default.Bolt, BadgeRarity.RARE),
-    CatalogBadge("Veterano", "Juega 100 partidas", Icons.Default.MilitaryTech, BadgeRarity.RARE),
-    CatalogBadge("Defensor", "Bloquea 25 ataques con escudo", Icons.Default.Shield, BadgeRarity.RARE),
-    CatalogBadge("Racha de fuego", "Gana 5 batallas seguidas", Icons.Default.LocalFireDepartment, BadgeRarity.EPIC),
-    CatalogBadge("Gran apostador", "Acumula 10000 fichas", Icons.Default.WorkspacePremium, BadgeRarity.EPIC),
-    CatalogBadge("Multiplicador x5", "Consigue x5 en una bola", Icons.Default.Bolt, BadgeRarity.EPIC),
-    CatalogBadge("Superviviente", "Termina batalla con 1 HP", Icons.Default.Favorite, BadgeRarity.EPIC),
-    CatalogBadge("Leyenda viva", "Gana 50 batallas", Icons.Default.Star, BadgeRarity.LEGENDARY),
-    CatalogBadge("Rey del Casino", "Top 1 del ranking semanal", Icons.Default.MilitaryTech, BadgeRarity.LEGENDARY)
+    CatalogBadge("Primer Knockout", "Gana tu primera batalla.", Icons.Default.EmojiEvents, BadgeRarity.COMMON),
+    CatalogBadge("Sangre Fria", "Consigue multiplicador x3 o superior.", Icons.Default.Bolt, BadgeRarity.RARE),
+    CatalogBadge("Trader Diario", "Juega 5 salas de bolas.", Icons.Default.Casino, BadgeRarity.RARE),
+    CatalogBadge("Maestro Royale", "Mantiene winrate del 50% con 6 batallas.", Icons.Default.MilitaryTech, BadgeRarity.EPIC),
+    CatalogBadge("Bonus Hunter", "Reclama 3 rewarded ads.", Icons.Default.WorkspacePremium, BadgeRarity.LEGENDARY)
 )
 
 private fun rarityAccent(r: BadgeRarity): Color = when (r) {
@@ -922,8 +1037,20 @@ private fun rarityLabel(r: BadgeRarity): String = when (r) {
     BadgeRarity.LEGENDARY -> "LEGENDARIA"
 }
 
+private fun BadgeUi.toCatalogBadge(): CatalogBadge {
+    val visual = AllBadgesCatalog.firstOrNull { it.title == title }
+    return CatalogBadge(
+        title = title,
+        description = description,
+        icon = visual?.icon ?: Icons.Default.MilitaryTech,
+        rarity = visual?.rarity ?: BadgeRarity.COMMON
+    )
+}
+
 @Composable
-private fun BadgesDialog(unlockedTitles: Set<String>, onDismiss: () -> Unit) {
+private fun BadgesDialog(badges: List<BadgeUi>, onDismiss: () -> Unit) {
+    val unlockedCount = badges.count { it.unlocked }
+    val totalCount = badges.size
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
@@ -940,7 +1067,7 @@ private fun BadgesDialog(unlockedTitles: Set<String>, onDismiss: () -> Unit) {
         ) {
             val isWide = maxWidth >= 720.dp
             val dialogWidth = if (isWide) 760.dp else maxWidth - 24.dp
-            val dialogMaxHeight = maxHeight - 32.dp
+            val dialogMaxHeight = maxHeight - 64.dp
             val shape = RoundedCornerShape(20.dp)
 
             AnimatedVisibility(
@@ -990,7 +1117,12 @@ private fun BadgesDialog(unlockedTitles: Set<String>, onDismiss: () -> Unit) {
                         }
                     }
 
-                    Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp)
+                            .padding(bottom = 40.dp)
+                    ) {
                         // Header
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -1017,7 +1149,7 @@ private fun BadgesDialog(unlockedTitles: Set<String>, onDismiss: () -> Unit) {
                                     outlineColor = DeepBlue
                                 )
                                 Text(
-                                    text = "${unlockedTitles.size} de ${AllBadgesCatalog.size} desbloqueadas",
+                                    text = "$unlockedCount de $totalCount desbloqueadas",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = TextSecondary, letterSpacing = 0.4.sp
                                     )
@@ -1055,12 +1187,12 @@ private fun BadgesDialog(unlockedTitles: Set<String>, onDismiss: () -> Unit) {
                             columns = GridCells.Fixed(columns),
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            modifier = Modifier.fillMaxWidth().heightIn(max = dialogMaxHeight - 140.dp)
+                            modifier = Modifier.fillMaxWidth().heightIn(max = if (isWide) 360.dp else dialogMaxHeight - 190.dp)
                         ) {
-                            items(AllBadgesCatalog) { badge ->
+                            items(badges) { badge ->
                                 CatalogBadgeCard(
-                                    badge = badge,
-                                    unlocked = unlockedTitles.contains(badge.title)
+                                    badge = badge.toCatalogBadge(),
+                                    unlocked = badge.unlocked
                                 )
                             }
                         }
@@ -1598,7 +1730,7 @@ private fun AvatarPickerDialog(
         ) {
             val isWide = maxWidth >= 720.dp
             val dialogWidth = if (isWide) 720.dp else maxWidth - 24.dp
-            val dialogMaxHeight = maxHeight - 32.dp
+            val dialogMaxHeight = maxHeight - 96.dp
             val shape = RoundedCornerShape(20.dp)
 
             Box(
@@ -1636,7 +1768,12 @@ private fun AvatarPickerDialog(
                     }
                 }
 
-                Column(modifier = Modifier.fillMaxWidth().padding(24.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = dialogMaxHeight)
+                        .padding(horizontal = 24.dp, vertical = 20.dp)
+                ) {
                     // Header
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1713,11 +1850,14 @@ private fun AvatarPickerDialog(
                     Spacer(Modifier.height(10.dp))
 
                     val columns = if (isWide) 4 else 3
+                    val avatarRows = (PresetAvatars.size + columns - 1) / columns
+                    val tileHeight = if (isWide) 104.dp else 120.dp
+                    val avatarGridHeight = tileHeight * avatarRows + 12.dp * ((avatarRows - 1).coerceAtLeast(0))
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(columns),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp)
+                        modifier = Modifier.fillMaxWidth().height(avatarGridHeight)
                     ) {
                         items(PresetAvatars.size) { idx ->
                             PresetAvatarTile(
@@ -1728,8 +1868,9 @@ private fun AvatarPickerDialog(
                         }
                     }
 
-                    Spacer(Modifier.height(18.dp))
+                    Spacer(Modifier.height(24.dp))
 
+                    if (false) {
                     Text(
                         text = "MARCO DEL AVATAR",
                         style = MaterialTheme.typography.labelMedium.copy(
@@ -1789,6 +1930,7 @@ private fun AvatarPickerDialog(
                                 onClick = { onPickScreenBg(idx) }
                             )
                         }
+                    }
                     }
                 }
             }
@@ -1882,7 +2024,7 @@ private fun PresetAvatarTile(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 140.dp)
+            .heightIn(min = 104.dp)
             .clip(shape)
             .background(
                 if (selected) {
@@ -1907,20 +2049,20 @@ private fun PresetAvatarTile(
                 shape = shape
             )
             .clickable { onClick() }
-            .padding(12.dp)
+            .padding(10.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
-                modifier = Modifier.size(80.dp),
+                modifier = Modifier.size(58.dp),
                 contentAlignment = Alignment.Center
             ) {
                 if (selected) {
                     Box(
                         modifier = Modifier
-                            .size(80.dp)
+                            .size(58.dp)
                             .clip(CircleShape)
                             .background(
                                 Brush.radialGradient(
@@ -1931,7 +2073,7 @@ private fun PresetAvatarTile(
                 }
                 Box(
                     modifier = Modifier
-                        .size(72.dp)
+                        .size(54.dp)
                         .clip(CircleShape)
                         .background(Brush.linearGradient(preset.gradient))
                         .border(
@@ -1946,7 +2088,7 @@ private fun PresetAvatarTile(
                     Text(
                         text = preset.emoji,
                         style = MaterialTheme.typography.headlineLarge.copy(
-                            fontSize = 38.sp,
+                            fontSize = 30.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
                     )
@@ -1955,17 +2097,17 @@ private fun PresetAvatarTile(
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .size(26.dp)
+                            .size(22.dp)
                             .clip(CircleShape)
                             .background(AliveGreen)
                             .border(2.dp, NightBlue, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(Icons.Default.Check, null, tint = NightBlue, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.Check, null, tint = NightBlue, modifier = Modifier.size(14.dp))
                     }
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
             Text(
                 text = preset.name,
                 style = MaterialTheme.typography.labelMedium.copy(

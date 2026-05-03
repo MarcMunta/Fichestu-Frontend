@@ -142,6 +142,7 @@ fun BattleFlow(
     onSelectCard: (Long) -> Unit,
     onSelectTarget: (String) -> Unit,
     onPlayRound: () -> Unit,
+    onSelectToken: (TokenId) -> Unit,
     onResetCycle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -161,9 +162,10 @@ fun BattleFlow(
             onReturnToEntry = onResetCycle,
             modifier = modifier
         )
-        BattlePhase.FINISHED -> VictoryView(
+        BattlePhase.FINISHED -> VictoryChoiceView(
             battle = battle,
             market = market,
+            onSelectToken = onSelectToken,
             onResetCycle = onResetCycle,
             modifier = modifier
         )
@@ -1760,11 +1762,13 @@ fun DefeatView(
 fun VictoryView(
     battle: BattleUiState,
     market: MarketUiState,
+    onSelectToken: (TokenId) -> Unit,
     onResetCycle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val multiplier = battle.winningMultiplier ?: 1.0
-    val isUserWinner = battle.winnerId == GameRules.USER_PLAYER_ID
+    val isUserWinner = battle.winnerId == GameRules.USER_PLAYER_ID || battle.players.any { it.isUser && it.isAlive }
+    val selectedToken = market.selectedToken
 
     Box(modifier = modifier.fillMaxSize()) {
         AmbientBackground(particleCount = 24)
@@ -1884,6 +1888,166 @@ fun VictoryView(
 
             BigPushButtonInternal(
                 text = "NUEVO CICLO >",
+                color = Gold,
+                onClick = onResetCycle,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+fun VictoryChoiceView(
+    battle: BattleUiState,
+    market: MarketUiState,
+    onSelectToken: (TokenId) -> Unit,
+    onResetCycle: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val multiplier = battle.winningMultiplier ?: 1.0
+    val isUserWinner = battle.winnerId == GameRules.USER_PLAYER_ID || battle.players.any { it.isUser && it.isAlive }
+    val selectedToken = market.selectedToken
+    val selectedTokenName = market.tokens.firstOrNull { it.id == selectedToken }?.displayName ?: selectedToken.name
+
+    Box(modifier = modifier.fillMaxSize()) {
+        AmbientBackground(particleCount = 28)
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Eyebrow(text = if (isUserWinner) "LAST CHIP STANDING" else "BATTLE ROYALE", color = Gold)
+            DisplayGold(
+                text = if (isUserWinner) "VICTORIA" else "DERROTA",
+                fontSize = 54,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = if (isUserWinner) {
+                    "Elige la ficha del mercado donde quieres aplicar tu multiplicador."
+                } else {
+                    "${battle.winnerName ?: "Otro"} aplica el multiplicador."
+                },
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = TextSecondary,
+                    textAlign = TextAlign.Center
+                )
+            )
+
+            PremiumPanel(modifier = Modifier.fillMaxWidth(), glow = true) {
+                Row(
+                    modifier = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(76.dp)
+                            .clip(CircleShape)
+                            .background(Brush.radialGradient(listOf(GoldLight, Gold))),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isUserWinner) "WIN" else "KO",
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                color = NightBlue,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 30.sp
+                            )
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Eyebrow(text = "MULTIPLICADOR", color = Gold)
+                        DisplayRed(
+                            text = "x${"%.2f".format(multiplier)}",
+                            fontSize = 46
+                        )
+                        Text(
+                            text = if (isUserWinner) "Objetivo actual: $selectedTokenName" else "Impacto del ganador",
+                            style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
+                        )
+                    }
+                }
+            }
+
+            Eyebrow(
+                text = if (isUserWinner) "ELIGE FICHA OBJETIVO" else "TOKENS DEL MERCADO",
+                color = Gold
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(count = market.tokens.size) { idx ->
+                    val token = market.tokens[idx]
+                    val isTarget = token.id == selectedToken
+                    Column(
+                        modifier = Modifier
+                            .width(if (isTarget) 140.dp else 120.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(
+                                if (isTarget) {
+                                    Brush.verticalGradient(listOf(Gold.copy(alpha = 0.34f), NightBlue))
+                                } else {
+                                    Brush.verticalGradient(listOf(NightBlue, NightBlue))
+                                }
+                            )
+                            .border(
+                                if (isTarget) 2.dp else 1.dp,
+                                if (isTarget) Gold else PureWhite.copy(alpha = 0.08f),
+                                RoundedCornerShape(14.dp)
+                            )
+                            .clickable(enabled = isUserWinner) { onSelectToken(token.id) }
+                            .padding(10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        if (isTarget) {
+                            Eyebrow(text = "OBJETIVO", color = Gold)
+                        }
+                        Text(
+                            text = token.displayName,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = PureWhite,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 12.sp
+                            ),
+                            textAlign = TextAlign.Center
+                        )
+                        Text(
+                            text = "${"%.2f".format(token.currentPrice)} FTC",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Gold,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                        Text(
+                            text = "${if (token.changePercent >= 0) "+" else ""}${"%.1f".format(token.changePercent)}%",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = if (token.changePercent >= 0) AliveGreen else ChipRed,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        )
+                    }
+                }
+            }
+
+            if (isUserWinner) {
+                Text(
+                    text = "Seleccionada: $selectedTokenName",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Gold,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+                )
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            BigPushButtonInternal(
+                text = if (isUserWinner) "APLICAR A ${selectedToken.name} Y NUEVO CICLO >" else "NUEVO CICLO >",
                 color = Gold,
                 onClick = onResetCycle,
                 modifier = Modifier.fillMaxWidth()

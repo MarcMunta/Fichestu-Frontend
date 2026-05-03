@@ -9,6 +9,7 @@ import com.fichestu.frontend.data.model.GenericMessageResponseDto
 import com.fichestu.frontend.data.model.MatchStateResponseDto
 import com.fichestu.frontend.data.model.PickBallRequestDto
 import com.fichestu.frontend.data.model.WalletResponseDto
+import com.fichestu.frontend.data.model.WinnerImpactRequestDto
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -68,6 +69,13 @@ interface GameApi {
         @Header("Authorization") authorization: String,
         @Path("matchId") matchId: Int,
         @Body request: BattleRoundRequestDto
+    ): Response<MatchStateResponseDto>
+
+    @POST("api/game/matches/{matchId}/winner-impact")
+    suspend fun applyWinnerImpact(
+        @Header("Authorization") authorization: String,
+        @Path("matchId") matchId: Int,
+        @Body request: WinnerImpactRequestDto
     ): Response<MatchStateResponseDto>
 
     @POST("api/games/battle/{matchId}/resolve-round")

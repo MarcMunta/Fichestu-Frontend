@@ -38,7 +38,6 @@ class GameViewModel(
     val uiState: StateFlow<GameUiState> = _uiState.asStateFlow()
 
     private var rewardedCooldownJob: Job? = null
-    private var autoBattleJob: Job? = null
     private var autoRevealJob: Job? = null
     private var autoRestartJob: Job? = null
     private var nextBattleCardId = 1L
@@ -116,6 +115,23 @@ class GameViewModel(
             if (result.isFailure) {
                 _uiState.update { state ->
                     state.copy(profile = state.profile.copy(isSavingPassword = false))
+                }
+            }
+        }
+    }
+
+    fun uploadProfileAvatar(bytes: ByteArray, mimeType: String) {
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(profile = state.profile.copy(isSavingProfile = true), transientMessage = null)
+            }
+
+            val snapshot = _uiState.value
+            val result = profileRepository.uploadAvatar(snapshot, bytes, mimeType)
+            applyResult(result)
+            if (result.isFailure) {
+                _uiState.update { state ->
+                    state.copy(profile = state.profile.copy(isSavingProfile = false))
                 }
             }
         }
@@ -693,6 +709,34 @@ class GameViewModel(
         resetBattleAndRoom(autoEnterRoom = false)
     }
 
+    fun applyWinnerImpactAndReset() {
+        viewModelScope.launch {
+            autoRestartJob?.cancel()
+            val snapshot = _uiState.value
+            val matchId = snapshot.currentMatchId
+            val userWon = snapshot.battle.phase == BattlePhase.FINISHED &&
+                (snapshot.battle.winnerId == GameRules.USER_PLAYER_ID || snapshot.battle.players.any { it.isUser && it.isAlive })
+
+            if (matchId != null && userWon && !snapshot.battle.impactApplied) {
+                val result = repository.applyWinnerImpact(snapshot, matchId)
+                result.onSuccess { applied ->
+                    _uiState.value = applied.copy(transientMessage = "Multiplicador aplicado a ${snapshot.market.selectedToken.name}.")
+                    resetBattleAndRoom(autoEnterRoom = false)
+                }
+                result.onFailure { error ->
+                    if (error is SessionExpiredException) {
+                        expireSession(error)
+                    } else {
+                        _uiState.update { it.copy(transientMessage = error.message ?: "No se pudo aplicar el multiplicador") }
+                    }
+                }
+                return@launch
+            }
+
+            resetBattleAndRoom(autoEnterRoom = false)
+        }
+    }
+
     private fun resetBattleAndRoom(autoEnterRoom: Boolean) {
         viewModelScope.launch {
             val snapshot = _uiState.value
@@ -819,28 +863,6 @@ class GameViewModel(
      * - REVEALED: tras 5s, salta automáticamente al tab BATTLE.
      */
     private fun startAutoFlow() {
-        // Watch BallRoom.phase transitions
-        viewModelScope.launch {
-            uiState
-                .map { it.ballRoom.phase }
-                .distinctUntilChanged()
-                .collect { phase ->
-                    autoBattleJob?.cancel()
-
-                    when (phase) {
-                        BallRoomPhase.REVEALED -> {
-                            autoBattleJob = viewModelScope.launch {
-                                delay(6_500)
-                                if (uiState.value.ballRoom.phase == BallRoomPhase.REVEALED) {
-                                    selectTab(MainTab.BATTLE)
-                                }
-                            }
-                        }
-                        else -> Unit
-                    }
-                }
-        }
-
         // Watch canRevealBattle to auto-reveal once everyone has picked
         viewModelScope.launch {
             uiState
@@ -869,14 +891,8 @@ class GameViewModel(
                 .map { it.battle.phase }
                 .distinctUntilChanged()
                 .collect { phase ->
-                    autoRestartJob?.cancel()
                     if (phase == BattlePhase.FINISHED) {
-                        autoRestartJob = viewModelScope.launch {
-                            delay(4_500)
-                            if (uiState.value.battle.phase == BattlePhase.FINISHED) {
-                                resetBattleAndRoom(autoEnterRoom = false)
-                            }
-                        }
+                        autoRestartJob?.cancel()
                     }
                 }
         }
