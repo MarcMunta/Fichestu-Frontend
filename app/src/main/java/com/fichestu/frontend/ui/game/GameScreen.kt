@@ -1418,7 +1418,7 @@ private fun BattlePlayerItem(player: BattlePlayer) {
 }
 
 @Composable
-private fun ProfileTab(
+private fun LegacyProfileTab(
     profile: ProfileUiState,
     onUsernameChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
