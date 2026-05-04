@@ -1,7 +1,18 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localPropertiesFile.inputStream().use { this.load(it) }
+    }
+}
+
+val apiBaseUrl = localProperties.getProperty("API_BASE_URL") ?: "http://10.0.2.2:8080/"
 
 android {
     namespace = "com.fichestu.frontend"
@@ -19,7 +30,7 @@ android {
             useSupportLibrary = true
         }
 
-        buildConfigField("String", "BASE_URL", "\"http://26.226.245.83:8080/\"")
+        buildConfigField("String", "BASE_URL", "\"$apiBaseUrl\"")
     }
 
     signingConfigs {
