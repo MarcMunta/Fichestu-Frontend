@@ -6,6 +6,7 @@ import com.fichestu.frontend.data.model.ProfileResponseDto
 import com.fichestu.frontend.data.model.ProfileStatsDto
 import com.fichestu.frontend.data.model.UpdateProfileRequestDto
 import com.fichestu.frontend.BuildConfig
+import com.fichestu.frontend.data.i18n.AppI18n
 import com.fichestu.frontend.data.remote.ApiClient
 import com.fichestu.frontend.game.model.BadgeUi
 import com.fichestu.frontend.game.model.GameUiState
@@ -47,7 +48,7 @@ class ProfileRepository {
             transientMessage = if (dto.hasPassword) {
                 null
             } else {
-                "Anade una contrasena para proteger tu cuenta."
+                AppI18n.text("add_password")
             }
         )
     }
@@ -64,7 +65,7 @@ class ProfileRepository {
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         currentState.copy(
             profile = mapProfile(currentState.profile, dto).copy(isSavingProfile = false),
-            transientMessage = dto.message
+            transientMessage = AppI18n.message(dto.message) ?: dto.message
         )
     }
 
@@ -73,7 +74,7 @@ class ProfileRepository {
         val confirmPassword = if (profile.hasPassword) profile.confirmPassword else profile.newPassword
 
         if (profile.newPassword != confirmPassword) {
-            throw Exception("Las contrasenas no coinciden")
+            throw Exception(AppI18n.text("passwords_do_not_match"))
         }
 
         val response = ApiClient.profileApi.changePassword(
@@ -101,7 +102,7 @@ class ProfileRepository {
                         confirmPassword = "",
                         isSavingPassword = false
                     ),
-                    transientMessage = "Tu cuenta ya tiene contrasena. Introduce la actual."
+                    transientMessage = AppI18n.text("account_has_password")
                 )
             }
             throw Exception(message)
@@ -115,7 +116,7 @@ class ProfileRepository {
                 hasPassword = true,
                 isSavingPassword = false
             ),
-            transientMessage = response.body()?.message ?: "Contrasena actualizada"
+            transientMessage = AppI18n.message(response.body()?.message) ?: AppI18n.text("password_updated")
         )
     }
 
@@ -128,7 +129,7 @@ class ProfileRepository {
 
         currentState.copy(
             profile = mapProfile(currentState.profile, dto).copy(isSavingProfile = false),
-            transientMessage = dto.message
+            transientMessage = AppI18n.message(dto.message) ?: dto.message
         )
     }
 
@@ -182,7 +183,7 @@ class ProfileRepository {
             throw SessionExpiredException()
         }
         if (success && body != null) return body
-        throw Exception(extractMessage(errorRaw) ?: "Error de servidor")
+        throw Exception(AppI18n.message(extractMessage(errorRaw)) ?: AppI18n.text("server_error"))
     }
 
     private fun extractMessage(rawError: String?): String? {
@@ -196,7 +197,7 @@ class ProfileRepository {
         return try {
             Result.success(block())
         } catch (e: IOException) {
-            Result.failure(Exception("Error de red: verifica conexion y backend activo."))
+            Result.failure(Exception(AppI18n.text("network_error")))
         } catch (e: Exception) {
             Result.failure(e)
         }

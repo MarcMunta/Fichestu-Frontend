@@ -104,6 +104,8 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.text.KeyboardOptions
 import coil.compose.AsyncImage
+import com.fichestu.frontend.data.i18n.AppI18n
+import com.fichestu.frontend.game.model.AppLanguage
 import com.fichestu.frontend.game.model.BadgeUi
 import com.fichestu.frontend.game.model.ProfileStats
 import com.fichestu.frontend.game.model.ProfileUiState
@@ -147,6 +149,8 @@ fun ProfileTab(
     onConfirmPasswordChange: (String) -> Unit,
     onChangePassword: () -> Unit,
     onUploadAvatar: (ByteArray, String) -> Unit,
+    appLanguage: AppLanguage,
+    onLanguageChange: (AppLanguage) -> Unit,
     onLogout: () -> Unit
 ) {
     var editProfileExpanded by remember { mutableStateOf(false) }
@@ -218,14 +222,16 @@ fun ProfileTab(
                         large = true,
                         selectedPresetIndex = selectedAvatarIndex,
                         backgroundIndex = selectedFrameIndex,
+                        language = appLanguage,
                         onChangePicture = { showAvatarDialog = true }
                     )
                     BadgesButton(
                         unlockedCount = profile.badges.count { it.unlocked },
                         totalCount = profile.badges.size,
+                        language = appLanguage,
                         onClick = { showBadgesDialog = true }
                     )
-                    LogoutButton(onClick = onLogout)
+                    LogoutButton(language = appLanguage, onClick = onLogout)
                 }
 
                 // Columna derecha — resto de paneles
@@ -233,25 +239,29 @@ fun ProfileTab(
                     modifier = Modifier.weight(0.58f),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                        StatsGrid(stats = profile.stats)
+                        StatsGrid(stats = profile.stats, language = appLanguage)
+                    LanguageSelector(
+                        selected = appLanguage,
+                        onSelect = onLanguageChange
+                    )
 
                     if (!profile.hasPassword) {
-                        PasswordReminderCard()
+                        PasswordReminderCard(appLanguage)
                     }
 
                     ExpandableSection(
-                        title = "Editar perfil",
+                        title = AppI18n.text("edit_profile", appLanguage),
                         icon = Icons.Default.Edit,
                         expanded = editProfileExpanded,
                         onToggle = { editProfileExpanded = !editProfileExpanded }
-                    ) { ProfileEditForm(profile, onUsernameChange, onEmailChange, onSaveProfile) }
+                    ) { ProfileEditForm(profile, appLanguage, onUsernameChange, onEmailChange, onSaveProfile) }
 
                     ExpandableSection(
-                        title = "Cambiar contraseña",
+                        title = AppI18n.text("change_password", appLanguage),
                         icon = Icons.Default.Lock,
                         expanded = changePasswordExpanded,
                         onToggle = { changePasswordExpanded = !changePasswordExpanded }
-                    ) { PasswordForm2(profile, onCurrentPasswordChange, onNewPasswordChange, onConfirmPasswordChange, onChangePassword) }
+                    ) { PasswordForm2(profile, appLanguage, onCurrentPasswordChange, onNewPasswordChange, onConfirmPasswordChange, onChangePassword) }
 
                     Spacer(Modifier.height(8.dp))
                 }
@@ -269,6 +279,7 @@ fun ProfileTab(
                         large = false,
                         selectedPresetIndex = selectedAvatarIndex,
                         backgroundIndex = selectedFrameIndex,
+                        language = appLanguage,
                         onChangePicture = { showAvatarDialog = true }
                     )
                 }
@@ -276,30 +287,37 @@ fun ProfileTab(
                     BadgesButton(
                         unlockedCount = profile.badges.count { it.unlocked },
                         totalCount = profile.badges.size,
+                        language = appLanguage,
                         onClick = { showBadgesDialog = true }
                     )
                 }
-                item { StatsGrid(stats = profile.stats) }
+                item { StatsGrid(stats = profile.stats, language = appLanguage) }
+                item {
+                    LanguageSelector(
+                        selected = appLanguage,
+                        onSelect = onLanguageChange
+                    )
+                }
                 if (!profile.hasPassword) {
-                    item { PasswordReminderCard() }
+                    item { PasswordReminderCard(appLanguage) }
                 }
                 item {
                     ExpandableSection(
-                        title = "Editar perfil",
+                        title = AppI18n.text("edit_profile", appLanguage),
                         icon = Icons.Default.Edit,
                         expanded = editProfileExpanded,
                         onToggle = { editProfileExpanded = !editProfileExpanded }
-                    ) { ProfileEditForm(profile, onUsernameChange, onEmailChange, onSaveProfile) }
+                    ) { ProfileEditForm(profile, appLanguage, onUsernameChange, onEmailChange, onSaveProfile) }
                 }
                 item {
                     ExpandableSection(
-                        title = "Cambiar contraseña",
+                        title = AppI18n.text("change_password", appLanguage),
                         icon = Icons.Default.Lock,
                         expanded = changePasswordExpanded,
                         onToggle = { changePasswordExpanded = !changePasswordExpanded }
-                    ) { PasswordForm2(profile, onCurrentPasswordChange, onNewPasswordChange, onConfirmPasswordChange, onChangePassword) }
+                    ) { PasswordForm2(profile, appLanguage, onCurrentPasswordChange, onNewPasswordChange, onConfirmPasswordChange, onChangePassword) }
                 }
-                item { LogoutButton(onClick = onLogout) }
+                item { LogoutButton(language = appLanguage, onClick = onLogout) }
                 item { Spacer(Modifier.height(8.dp)) }
             }
         }
@@ -309,6 +327,7 @@ fun ProfileTab(
     if (showBadgesDialog) {
         BadgesDialog(
             badges = profile.badges,
+            language = appLanguage,
             onDismiss = { showBadgesDialog = false }
         )
     }
@@ -321,6 +340,7 @@ fun ProfileTab(
             currentScreenBg = selectedScreenBgIndex,
             hasPhotoBg = !screenBgPhotoUri.isNullOrBlank(),
             currentInitial = profile.username.ifBlank { profile.playerName }.take(1).uppercase(Locale.US),
+            language = appLanguage,
             onPick = { idx ->
                 selectedAvatarIndex = idx
             },
@@ -351,13 +371,14 @@ fun ProfileTab(
 @Composable
 private fun ProfileEditForm(
     profile: ProfileUiState,
+    language: AppLanguage,
     onUsernameChange: (String) -> Unit,
     onEmailChange: (String) -> Unit,
     onSaveProfile: () -> Unit
 ) {
     ProfileTextField(
         value = profile.editUsername,
-        label = "Username",
+        label = AppI18n.text("username", language),
         leading = Icons.Default.Person,
         keyboardType = KeyboardType.Text,
         onValueChange = onUsernameChange
@@ -365,18 +386,89 @@ private fun ProfileEditForm(
     Spacer(Modifier.height(10.dp))
     ProfileTextField(
         value = profile.editEmail,
-        label = "Email",
+        label = AppI18n.text("email", language),
         leading = Icons.Default.Email,
         keyboardType = KeyboardType.Email,
         onValueChange = onEmailChange
     )
     Spacer(Modifier.height(14.dp))
     ArcadePrimaryButton(
-        text = if (profile.isSavingProfile) "GUARDANDO..." else "GUARDAR CAMBIOS",
+        text = if (profile.isSavingProfile) AppI18n.text("saving", language) else AppI18n.text("save_changes", language),
         enabled = !profile.isSavingProfile,
         onClick = onSaveProfile,
         modifier = Modifier.fillMaxWidth()
     )
+}
+
+@Composable
+private fun LanguageSelector(
+    selected: AppLanguage,
+    onSelect: (AppLanguage) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = PanelBlue.copy(alpha = 0.72f)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, CardBorder.copy(alpha = 0.85f), RoundedCornerShape(16.dp))
+                .padding(14.dp)
+        ) {
+        Text(
+            text = AppI18n.text("language", selected),
+            style = MaterialTheme.typography.labelMedium.copy(
+                color = Gold,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 1.6.sp
+            )
+        )
+        Spacer(Modifier.height(10.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AppLanguage.entries.forEach { language ->
+                val isSelected = language == selected
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp)
+                        .clickable { onSelect(language) },
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isSelected) Gold.copy(alpha = 0.28f) else InputBg.copy(alpha = 0.82f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .border(
+                                1.dp,
+                                if (isSelected) Gold else InputBorder.copy(alpha = 0.7f),
+                                RoundedCornerShape(12.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = when (language) {
+                                AppLanguage.ES -> AppI18n.text("spanish", selected)
+                                AppLanguage.CA -> AppI18n.text("catalan", selected)
+                                AppLanguage.EN -> AppI18n.text("english", selected)
+                            },
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                color = if (isSelected) Gold else PureWhite,
+                                fontWeight = FontWeight.ExtraBold,
+                                letterSpacing = 0.7.sp
+                            ),
+                            maxLines = 1,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+        }
+        }
+    }
 }
 
 @Composable
@@ -389,7 +481,7 @@ private fun PasswordForm(
 ) {
     ProfileTextField(
         value = profile.currentPassword,
-        label = "Contraseña actual (si tienes una)",
+        label = AppI18n.text("current_password"),
         leading = Icons.Default.Lock,
         keyboardType = KeyboardType.Password,
         isPassword = true,
@@ -398,7 +490,7 @@ private fun PasswordForm(
     Spacer(Modifier.height(10.dp))
     ProfileTextField(
         value = profile.newPassword,
-        label = "Nueva contraseña",
+        label = AppI18n.text("new_password"),
         leading = Icons.Default.Lock,
         keyboardType = KeyboardType.Password,
         isPassword = true,
@@ -407,7 +499,7 @@ private fun PasswordForm(
     Spacer(Modifier.height(10.dp))
     ProfileTextField(
         value = profile.confirmPassword,
-        label = "Repite contraseña",
+        label = AppI18n.text("repeat_password"),
         leading = Icons.Default.Lock,
         keyboardType = KeyboardType.Password,
         isPassword = true,
@@ -415,7 +507,7 @@ private fun PasswordForm(
     )
     Spacer(Modifier.height(14.dp))
     ArcadePrimaryButton(
-        text = if (profile.isSavingPassword) "ACTUALIZANDO..." else "ACTUALIZAR CONTRASEÑA",
+        text = if (profile.isSavingPassword) AppI18n.text("updating") else AppI18n.text("update_password"),
         enabled = !profile.isSavingPassword,
         onClick = onChangePassword,
         modifier = Modifier.fillMaxWidth()
@@ -426,7 +518,7 @@ private fun PasswordForm(
 // HERO CARD
 // ══════════════════════════════════════════════════════════════════════════
 @Composable
-private fun PasswordReminderCard() {
+private fun PasswordReminderCard(language: AppLanguage) {
     val shape = RoundedCornerShape(14.dp)
     Row(
         modifier = Modifier
@@ -441,14 +533,14 @@ private fun PasswordReminderCard() {
         Icon(Icons.Default.Lock, null, tint = Gold, modifier = Modifier.size(22.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Protege tu cuenta",
+                text = AppI18n.text("protect_account", language),
                 style = MaterialTheme.typography.titleSmall.copy(
                     color = Gold,
                     fontWeight = FontWeight.ExtraBold
                 )
             )
             Text(
-                text = "Has entrado con Google. Crea una contrasena local para poder iniciar sesion tambien con email.",
+                text = AppI18n.text("google_password_hint", language),
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = TextSecondary,
                     lineHeight = 16.sp
@@ -461,6 +553,7 @@ private fun PasswordReminderCard() {
 @Composable
 private fun PasswordForm2(
     profile: ProfileUiState,
+    language: AppLanguage,
     onCurrentPasswordChange: (String) -> Unit,
     onNewPasswordChange: (String) -> Unit,
     onConfirmPasswordChange: (String) -> Unit,
@@ -469,7 +562,7 @@ private fun PasswordForm2(
     if (profile.hasPassword) {
         ProfileTextField(
             value = profile.currentPassword,
-            label = "Contrasena actual",
+            label = AppI18n.text("current_password", language),
             leading = Icons.Default.Lock,
             keyboardType = KeyboardType.Password,
             isPassword = true,
@@ -478,7 +571,7 @@ private fun PasswordForm2(
         Spacer(Modifier.height(10.dp))
     } else {
         Text(
-            text = "Aun no tienes contrasena local. Escribe una nueva y la guardaremos en tu cuenta.",
+            text = AppI18n.text("no_local_password_hint", language),
             style = MaterialTheme.typography.bodySmall.copy(
                 color = TextSecondary,
                 lineHeight = 16.sp
@@ -489,7 +582,7 @@ private fun PasswordForm2(
 
     ProfileTextField(
         value = profile.newPassword,
-        label = if (profile.hasPassword) "Nueva contrasena" else "Crear contrasena",
+        label = if (profile.hasPassword) AppI18n.text("new_password", language) else AppI18n.text("create_password_field", language),
         leading = Icons.Default.Lock,
         keyboardType = KeyboardType.Password,
         isPassword = true,
@@ -500,7 +593,7 @@ private fun PasswordForm2(
         Spacer(Modifier.height(10.dp))
         ProfileTextField(
             value = profile.confirmPassword,
-            label = "Repite contrasena",
+            label = AppI18n.text("repeat_password", language),
             leading = Icons.Default.Lock,
             keyboardType = KeyboardType.Password,
             isPassword = true,
@@ -511,11 +604,11 @@ private fun PasswordForm2(
     Spacer(Modifier.height(14.dp))
     ArcadePrimaryButton(
         text = if (profile.isSavingPassword) {
-            "GUARDANDO..."
+            AppI18n.text("saving", language)
         } else if (profile.hasPassword) {
-            "ACTUALIZAR CONTRASENA"
+            AppI18n.text("update_password", language)
         } else {
-            "CREAR CONTRASENA"
+            AppI18n.text("create_password", language)
         },
         enabled = !profile.isSavingPassword,
         onClick = onChangePassword,
@@ -529,6 +622,7 @@ private fun ProfileHeroCard(
     large: Boolean,
     selectedPresetIndex: Int = -1,
     backgroundIndex: Int = 0,
+    language: AppLanguage,
     onChangePicture: () -> Unit = {}
 ) {
     val shape = RoundedCornerShape(16.dp)
@@ -602,7 +696,7 @@ private fun ProfileHeroCard(
                 ) {
                     Icon(
                         Icons.Default.CameraAlt,
-                        contentDescription = "Cambiar foto",
+                        contentDescription = AppI18n.text("change_photo", language),
                         tint = NightBlue,
                         modifier = Modifier.size(if (large) 22.dp else 18.dp)
                     )
@@ -641,7 +735,7 @@ private fun ProfileHeroCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RoleChip(role = profile.role)
-                VerifiedChip()
+                VerifiedChip(language)
             }
         }
     }
@@ -716,7 +810,7 @@ private fun AvatarWithHalo(
             } else if (!profilePicUrl.isNullOrBlank()) {
                 AsyncImage(
                     model = profilePicUrl,
-                    contentDescription = "Foto de perfil",
+                    contentDescription = AppI18n.text("profile_pic"),
                     modifier = Modifier.fillMaxSize().clip(CircleShape)
                 )
             } else {
@@ -776,7 +870,7 @@ private fun RoleChip(role: String) {
 }
 
 @Composable
-private fun VerifiedChip() {
+private fun VerifiedChip(language: AppLanguage) {
     Surface(
         shape = RoundedCornerShape(50),
         color = ShieldBlue.copy(alpha = 0.18f),
@@ -789,7 +883,7 @@ private fun VerifiedChip() {
         ) {
             Icon(Icons.Default.Verified, null, tint = ShieldBlue, modifier = Modifier.size(14.dp))
             Text(
-                text = "VERIFICADO",
+                text = AppI18n.text("verified", language),
                 style = MaterialTheme.typography.labelSmall.copy(
                     color = ShieldBlue, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.2.sp
                 )
@@ -802,7 +896,7 @@ private fun VerifiedChip() {
 // STATS GRID
 // ══════════════════════════════════════════════════════════════════════════
 @Composable
-private fun StatsGrid(stats: ProfileStats) {
+private fun StatsGrid(stats: ProfileStats, language: AppLanguage) {
     val winRate = if (stats.battlesPlayed == 0) 0
     else ((stats.battlesWon.toFloat() / stats.battlesPlayed) * 100).toInt()
 
@@ -814,7 +908,7 @@ private fun StatsGrid(stats: ProfileStats) {
         ) {
             Icon(Icons.Default.TrendingUp, null, tint = Gold, modifier = Modifier.size(18.dp))
             Text(
-                text = "ESTADÍSTICAS",
+                text = AppI18n.text("stats", language),
                 style = MaterialTheme.typography.titleSmall.copy(
                     color = Gold, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp
                 )
@@ -823,19 +917,19 @@ private fun StatsGrid(stats: ProfileStats) {
         Spacer(Modifier.height(14.dp))
 
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatChip(Modifier.weight(1f), "PARTIDAS", stats.battlesPlayed.toString(), Icons.Default.Casino, Gold)
-            StatChip(Modifier.weight(1f), "VICTORIAS", stats.battlesWon.toString(), Icons.Default.EmojiEvents, AliveGreen)
+            StatChip(Modifier.weight(1f), AppI18n.text("matches", language), stats.battlesPlayed.toString(), Icons.Default.Casino, Gold)
+            StatChip(Modifier.weight(1f), AppI18n.text("wins", language), stats.battlesWon.toString(), Icons.Default.EmojiEvents, AliveGreen)
         }
         Spacer(Modifier.height(10.dp))
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatChip(Modifier.weight(1f), "MEJOR x", "x${"%.2f".format(Locale.US, stats.bestMultiplier)}", Icons.Default.Bolt, ChipRed)
-            StatChip(Modifier.weight(1f), "WIN RATE", "$winRate%", Icons.Default.Shield, ShieldBlue)
+            StatChip(Modifier.weight(1f), AppI18n.text("best_multiplier", language), "x${"%.2f".format(Locale.US, stats.bestMultiplier)}", Icons.Default.Bolt, ChipRed)
+            StatChip(Modifier.weight(1f), AppI18n.text("win_rate", language), "$winRate%", Icons.Default.Shield, ShieldBlue)
         }
 
         if (stats.ballRoomsPlayed > 0) {
             Spacer(Modifier.height(14.dp))
             ProgressRow(
-                label = "Salas de bolas",
+                label = AppI18n.text("ball_rooms", language),
                 value = stats.ballRoomsPlayed,
                 max = (stats.ballRoomsPlayed.coerceAtLeast(10) / 10 + 1) * 10,
                 color = ReflectPurple
@@ -933,7 +1027,7 @@ private fun ProgressRow(label: String, value: Int, max: Int, color: Color) {
 // BADGES BUTTON + DIALOG
 // ══════════════════════════════════════════════════════════════════════════
 @Composable
-private fun BadgesButton(unlockedCount: Int, totalCount: Int, onClick: () -> Unit) {
+private fun BadgesButton(unlockedCount: Int, totalCount: Int, language: AppLanguage, onClick: () -> Unit) {
     val shape = RoundedCornerShape(14.dp)
     Box(
         modifier = Modifier
@@ -975,13 +1069,13 @@ private fun BadgesButton(unlockedCount: Int, totalCount: Int, onClick: () -> Uni
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "INSIGNIAS",
+                    text = AppI18n.text("badges", language).uppercase(Locale.US),
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = Gold, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp
                     )
                 )
                 Text(
-                    text = "$unlockedCount / $totalCount desbloqueadas · Toca para ver todas",
+                    text = "$unlockedCount / $totalCount ${AppI18n.text("badges_unlocked", language)} - ${AppI18n.text("badges_tap", language)}",
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = TextSecondary, fontWeight = FontWeight.Medium
                     )
@@ -995,7 +1089,7 @@ private fun BadgesButton(unlockedCount: Int, totalCount: Int, onClick: () -> Uni
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = "VER →",
+                    text = "${AppI18n.text("see", language)} ->",
                     style = MaterialTheme.typography.labelMedium.copy(
                         color = Gold, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.5.sp
                     )
@@ -1030,11 +1124,29 @@ private fun rarityAccent(r: BadgeRarity): Color = when (r) {
     BadgeRarity.LEGENDARY -> Gold
 }
 
-private fun rarityLabel(r: BadgeRarity): String = when (r) {
-    BadgeRarity.COMMON -> "COMÚN"
-    BadgeRarity.RARE -> "RARA"
-    BadgeRarity.EPIC -> "ÉPICA"
-    BadgeRarity.LEGENDARY -> "LEGENDARIA"
+private fun rarityLabel(r: BadgeRarity, language: AppLanguage): String = when (r) {
+    BadgeRarity.COMMON -> AppI18n.text("rarity_common", language)
+    BadgeRarity.RARE -> AppI18n.text("rarity_rare", language)
+    BadgeRarity.EPIC -> AppI18n.text("rarity_epic", language)
+    BadgeRarity.LEGENDARY -> AppI18n.text("rarity_legendary", language)
+}
+
+private fun badgeTitle(title: String, language: AppLanguage): String = when (title) {
+    "Primer Knockout" -> AppI18n.text("badge_first_knockout_title", language)
+    "Sangre Fria" -> AppI18n.text("badge_cold_blood_title", language)
+    "Trader Diario" -> AppI18n.text("badge_daily_trader_title", language)
+    "Maestro Royale" -> AppI18n.text("badge_royale_master_title", language)
+    "Bonus Hunter" -> AppI18n.text("badge_bonus_hunter_title", language)
+    else -> title
+}
+
+private fun badgeDescription(description: String, language: AppLanguage): String = when (description) {
+    "Gana tu primera batalla." -> AppI18n.text("badge_first_knockout_desc", language)
+    "Consigue multiplicador x3 o superior." -> AppI18n.text("badge_cold_blood_desc", language)
+    "Juega 5 salas de bolas." -> AppI18n.text("badge_daily_trader_desc", language)
+    "Mantiene winrate del 50% con 6 batallas." -> AppI18n.text("badge_royale_master_desc", language)
+    "Reclama 3 rewarded ads." -> AppI18n.text("badge_bonus_hunter_desc", language)
+    else -> description
 }
 
 private fun BadgeUi.toCatalogBadge(): CatalogBadge {
@@ -1048,7 +1160,7 @@ private fun BadgeUi.toCatalogBadge(): CatalogBadge {
 }
 
 @Composable
-private fun BadgesDialog(badges: List<BadgeUi>, onDismiss: () -> Unit) {
+private fun BadgesDialog(badges: List<BadgeUi>, language: AppLanguage, onDismiss: () -> Unit) {
     val unlockedCount = badges.count { it.unlocked }
     val totalCount = badges.size
     Dialog(
@@ -1141,7 +1253,7 @@ private fun BadgesDialog(badges: List<BadgeUi>, onDismiss: () -> Unit) {
                             Spacer(Modifier.width(12.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 BubbleText(
-                                    text = "Insignias",
+                                    text = AppI18n.text("badges", language),
                                     style = MaterialTheme.typography.headlineSmall.copy(
                                         fontWeight = FontWeight.ExtraBold, fontSize = 26.sp
                                     ),
@@ -1149,7 +1261,7 @@ private fun BadgesDialog(badges: List<BadgeUi>, onDismiss: () -> Unit) {
                                     outlineColor = DeepBlue
                                 )
                                 Text(
-                                    text = "$unlockedCount de $totalCount desbloqueadas",
+                                    text = "$unlockedCount / $totalCount ${AppI18n.text("badges_unlocked", language)}",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = TextSecondary, letterSpacing = 0.4.sp
                                     )
@@ -1164,7 +1276,7 @@ private fun BadgesDialog(badges: List<BadgeUi>, onDismiss: () -> Unit) {
                                     .clickable { onDismiss() },
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(Icons.Default.Close, "Cerrar", tint = Gold, modifier = Modifier.size(20.dp))
+                                Icon(Icons.Default.Close, AppI18n.text("close", language), tint = Gold, modifier = Modifier.size(20.dp))
                             }
                         }
 
@@ -1192,7 +1304,8 @@ private fun BadgesDialog(badges: List<BadgeUi>, onDismiss: () -> Unit) {
                             items(badges) { badge ->
                                 CatalogBadgeCard(
                                     badge = badge.toCatalogBadge(),
-                                    unlocked = badge.unlocked
+                                    unlocked = badge.unlocked,
+                                    language = language
                                 )
                             }
                         }
@@ -1204,7 +1317,7 @@ private fun BadgesDialog(badges: List<BadgeUi>, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun CatalogBadgeCard(badge: CatalogBadge, unlocked: Boolean) {
+private fun CatalogBadgeCard(badge: CatalogBadge, unlocked: Boolean, language: AppLanguage) {
     val accent = rarityAccent(badge.rarity)
     val shape = RoundedCornerShape(14.dp)
 
@@ -1293,7 +1406,7 @@ private fun CatalogBadgeCard(badge: CatalogBadge, unlocked: Boolean) {
             Spacer(Modifier.height(10.dp))
 
             Text(
-                text = badge.title,
+                text = badgeTitle(badge.title, language),
                 style = MaterialTheme.typography.titleSmall.copy(
                     color = if (unlocked) PureWhite else TextSecondary,
                     fontWeight = FontWeight.ExtraBold,
@@ -1306,7 +1419,7 @@ private fun CatalogBadgeCard(badge: CatalogBadge, unlocked: Boolean) {
             Spacer(Modifier.height(4.dp))
 
             Text(
-                text = badge.description,
+                text = badgeDescription(badge.description, language),
                 style = MaterialTheme.typography.bodySmall.copy(
                     color = TextSecondary,
                     fontSize = 11.sp,
@@ -1335,7 +1448,7 @@ private fun CatalogBadgeCard(badge: CatalogBadge, unlocked: Boolean) {
                     .padding(horizontal = 10.dp, vertical = 3.dp)
             ) {
                 Text(
-                    text = rarityLabel(badge.rarity),
+                    text = rarityLabel(badge.rarity, language),
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = if (unlocked) accent else TextSecondary,
                         fontWeight = FontWeight.ExtraBold,
@@ -1393,7 +1506,7 @@ private fun ExpandableSection(
             )
             Icon(
                 imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = if (expanded) "Cerrar" else "Abrir",
+                contentDescription = if (expanded) AppI18n.text("close") else AppI18n.text("open"),
                 tint = Gold,
                 modifier = Modifier.size(26.dp)
             )
@@ -1470,7 +1583,7 @@ private fun ProfileTextField(
 // LOGOUT BUTTON
 // ══════════════════════════════════════════════════════════════════════════
 @Composable
-private fun LogoutButton(onClick: () -> Unit) {
+private fun LogoutButton(language: AppLanguage, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
 
     Box(modifier = Modifier.fillMaxWidth().height(60.dp)) {
@@ -1498,7 +1611,7 @@ private fun LogoutButton(onClick: () -> Unit) {
             Icon(Icons.Default.Logout, null, tint = PureWhite, modifier = Modifier.size(20.dp))
             Spacer(Modifier.width(10.dp))
             Text(
-                text = "CERRAR SESIÓN",
+                text = AppI18n.text("logout", language),
                 style = MaterialTheme.typography.labelLarge.copy(
                     color = PureWhite, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp
                 )
@@ -1707,6 +1820,7 @@ private fun AvatarPickerDialog(
     currentScreenBg: Int,
     hasPhotoBg: Boolean,
     currentInitial: String,
+    language: AppLanguage,
     onPick: (Int) -> Unit,
     onPickFrame: (Int) -> Unit,
     onPickScreenBg: (Int) -> Unit,
@@ -1792,7 +1906,7 @@ private fun AvatarPickerDialog(
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             BubbleText(
-                                text = "Cambiar foto",
+                                text = AppI18n.text("change_photo", language),
                                 style = MaterialTheme.typography.headlineSmall.copy(
                                     fontWeight = FontWeight.ExtraBold, fontSize = 26.sp
                                 ),
@@ -1800,7 +1914,7 @@ private fun AvatarPickerDialog(
                                 outlineColor = DeepBlue
                             )
                             Text(
-                                text = "Elige un avatar o sube uno desde tu galería",
+                                text = AppI18n.text("choose_avatar", language),
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = TextSecondary, letterSpacing = 0.4.sp
                                 )
@@ -1815,7 +1929,7 @@ private fun AvatarPickerDialog(
                                 .clickable { onDismiss() },
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Close, "Cerrar", tint = Gold, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Close, AppI18n.text("close", language), tint = Gold, modifier = Modifier.size(20.dp))
                         }
                     }
 
@@ -1834,15 +1948,16 @@ private fun AvatarPickerDialog(
 
                     // Botón subir foto de avatar
                     UploadFromGalleryRow(
-                        title = "Subir foto de avatar",
-                        subtitle = "Elige una foto de tu galería",
+                        title = AppI18n.text("upload_avatar", language),
+                        subtitle = AppI18n.text("choose_gallery_photo", language),
+                        buttonText = AppI18n.text("open", language),
                         onClick = onUploadAvatarFromGallery
                     )
 
                     Spacer(Modifier.height(14.dp))
 
                     Text(
-                        text = "AVATARES PRESET",
+                        text = AppI18n.text("preset_avatars", language),
                         style = MaterialTheme.typography.labelMedium.copy(
                             color = Gold, fontWeight = FontWeight.ExtraBold, letterSpacing = 2.sp
                         )
@@ -1940,8 +2055,9 @@ private fun AvatarPickerDialog(
 
 @Composable
 private fun UploadFromGalleryRow(
-    title: String = "Subir desde galería",
-    subtitle: String = "Elige una foto de tu dispositivo",
+    title: String = AppI18n.text("upload_avatar"),
+    subtitle: String = AppI18n.text("choose_gallery_photo"),
+    buttonText: String = AppI18n.text("open"),
     onClick: () -> Unit
 ) {
     val shape = RoundedCornerShape(14.dp)
@@ -2004,7 +2120,7 @@ private fun UploadFromGalleryRow(
                     .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = "ABRIR",
+                    text = buttonText,
                     style = MaterialTheme.typography.labelMedium.copy(
                         color = ShieldBlue, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.5.sp
                     )

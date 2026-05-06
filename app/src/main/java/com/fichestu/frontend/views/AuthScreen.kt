@@ -72,6 +72,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import com.fichestu.frontend.data.i18n.AppI18n
 import com.fichestu.frontend.data.viewmodels.AuthUiState
 import com.fichestu.frontend.data.viewmodels.AuthViewModel
 import com.fichestu.frontend.ui.theme.AuthScaffold
@@ -166,7 +167,7 @@ private fun AuthFormContent(
                 }
 
                 if (state.message.isNotBlank()) {
-                    StatusMessage(state.message)
+                StatusMessage(AppI18n.message(state.message) ?: state.message)
                 }
             }
         }
@@ -223,7 +224,7 @@ private fun LoginForm(
 
     // Separador visual para Google
     Text(
-        text = "— O —",
+        text = AppI18n.text("or_separator"),
         modifier = Modifier.fillMaxWidth(),
         textAlign = TextAlign.Center,
         color = TextSecondary.copy(alpha = 0.5f),
@@ -238,7 +239,7 @@ private fun LoginForm(
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, Gold.copy(alpha = 0.3f))
     ) {
-        Text("CONTINUAR CON GOOGLE", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        Text(AppI18n.text("continue_google"), fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     }
 }
 
@@ -353,7 +354,7 @@ private fun AuthenticatedScreen(token: String, onLogout: () -> Unit) {
 
             // Opcional: Mostrar un mensaje de éxito pequeño
             Text(
-                text = "Has iniciado sesión correctamente",
+                text = AppI18n.text("login_success"),
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary
             )

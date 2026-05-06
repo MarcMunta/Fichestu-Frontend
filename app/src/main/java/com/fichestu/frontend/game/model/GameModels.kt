@@ -9,6 +9,18 @@ enum class MainTab {
     PROFILE
 }
 
+enum class AppLanguage(val code: String, val label: String) {
+    ES("es", "Espanol"),
+    CA("ca", "Catala"),
+    EN("en", "English");
+
+    companion object {
+        fun fromCode(code: String?): AppLanguage {
+            return entries.firstOrNull { it.code == code } ?: ES
+        }
+    }
+}
+
 enum class TokenId {
     ROJA,
     AZUL,
@@ -175,6 +187,7 @@ data class NotificationUi(
 )
 
 data class GameUiState(
+    val appLanguage: AppLanguage = AppLanguage.ES,
     val currentMatchId: Int? = null,
     val activeTab: MainTab = MainTab.DASHBOARD,
     val market: MarketUiState = MarketUiState(),

@@ -1,6 +1,7 @@
 package com.fichestu.frontend.data.remote
 
 import com.fichestu.frontend.BuildConfig
+import com.fichestu.frontend.data.repository.SessionStore
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -15,6 +16,12 @@ object ApiClient {
         }
 
         val client = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val request = chain.request().newBuilder()
+                    .header("Accept-Language", SessionStore.languageCode())
+                    .build()
+                chain.proceed(request)
+            }
             .addInterceptor(logging)
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)

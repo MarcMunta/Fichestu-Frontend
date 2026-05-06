@@ -2,10 +2,13 @@ package com.fichestu.frontend.ui.game
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.fichestu.frontend.data.i18n.AppI18n
 import com.fichestu.frontend.data.repository.GameRepository
 import com.fichestu.frontend.data.repository.ProfileRepository
+import com.fichestu.frontend.data.repository.SessionStore
 import com.fichestu.frontend.data.repository.SessionExpiredException
 import com.fichestu.frontend.game.GameRules
+import com.fichestu.frontend.game.model.AppLanguage
 import com.fichestu.frontend.game.model.BadgeUi
 import com.fichestu.frontend.game.model.BallRoomPhase
 import com.fichestu.frontend.game.model.BattleHandCard
@@ -50,7 +53,7 @@ class GameViewModel(
     }
 
     fun initializePlayer(name: String) {
-        val safe = name.trim().ifBlank { "Jugador" }
+        val safe = name.trim().ifBlank { AppI18n.text("player_default") }
         _uiState.update { state ->
             state.copy(profile = state.profile.copy(playerName = safe))
         }
@@ -137,10 +140,24 @@ class GameViewModel(
         }
     }
 
+    fun changeLanguage(language: AppLanguage) {
+        SessionStore.setLanguage(language)
+        _uiState.update { state ->
+            state.copy(
+                appLanguage = language,
+                transientMessage = "${AppI18n.text("language", language)}: ${language.label}",
+                ballRoom = state.ballRoom.copy(
+                    statusMessage = AppI18n.message(state.ballRoom.statusMessage, language)
+                        ?: state.ballRoom.statusMessage
+                )
+            )
+        }
+    }
+
     fun selectTab(tab: MainTab) {
         _uiState.update { state ->
             if (state.battle.phase == BattlePhase.DEFEATED && tab != MainTab.BATTLE) {
-                state.copy(transientMessage = "Pulsa volver a la entrada para salir de la pantalla de derrota.")
+                state.copy(transientMessage = AppI18n.text("back_to_entry"))
             } else {
                 state.copy(activeTab = tab)
             }
@@ -188,7 +205,7 @@ class GameViewModel(
         viewModelScope.launch {
             val snapshot = _uiState.value
             if (snapshot.ballRoom.phase == BallRoomPhase.MATCHMAKING) {
-                _uiState.update { it.copy(transientMessage = "Ya estas buscando partida.") }
+            _uiState.update { it.copy(transientMessage = AppI18n.text("already_searching")) }
                 return@launch
             }
             snapshot.currentMatchId?.let { matchId ->
@@ -198,7 +215,7 @@ class GameViewModel(
                         currentMatchId = null,
                         ballRoom = BallRoomUiState(
                             phase = BallRoomPhase.WAITING_ENTRY,
-                            statusMessage = "Preparando nueva sala..."
+                            statusMessage = AppI18n.text("preparing_room")
                         ),
                         battle = BattleUiState(phase = BattlePhase.LOCKED)
                     )
@@ -214,7 +231,7 @@ class GameViewModel(
             val snapshot = _uiState.value
             val matchId = snapshot.currentMatchId
             if (matchId == null) {
-                _uiState.update { it.copy(transientMessage = "No hay matchmaking activo.") }
+            _uiState.update { it.copy(transientMessage = AppI18n.text("no_matchmaking")) }
                 return@launch
             }
 
@@ -261,10 +278,10 @@ class GameViewModel(
                 state.copy(
                     ballRoom = state.ballRoom.copy(
                         phase = BallRoomPhase.PICKING,
-                        statusMessage = "Elige una bola.",
+                        statusMessage = AppI18n.text("pick_ball_message"),
                         pendingSelectedBallId = null
                     ),
-                    transientMessage = "Sala lista. Elige tu bola."
+                    transientMessage = AppI18n.text("room_ready_pick_ball")
                 )
             }
         }
@@ -275,7 +292,7 @@ class GameViewModel(
         val option = snapshot.ballRoom.balls.firstOrNull { it.id == ballId }
         val alreadyPickedByUser = snapshot.ballRoom.players.any { it.isUser && it.selectedBallId == ballId }
         if (option == null || (option.isPicked && !alreadyPickedByUser)) {
-            _uiState.update { it.copy(transientMessage = "Esa bola ya fue tomada") }
+            _uiState.update { it.copy(transientMessage = AppI18n.text("ball_taken")) }
             return
         }
         _uiState.update { state ->
@@ -288,12 +305,12 @@ class GameViewModel(
             val snapshot = _uiState.value
             val matchId = snapshot.currentMatchId
             if (matchId == null) {
-                _uiState.update { it.copy(transientMessage = "No hay sala activa") }
+                _uiState.update { it.copy(transientMessage = AppI18n.text("no_active_room")) }
                 return@launch
             }
             val ballId = snapshot.ballRoom.pendingSelectedBallId
             if (ballId == null) {
-                _uiState.update { it.copy(transientMessage = "Elige una bola primero") }
+                _uiState.update { it.copy(transientMessage = AppI18n.text("pick_ball_first")) }
                 return@launch
             }
 
@@ -308,7 +325,7 @@ class GameViewModel(
             val selectedBallId = snapshot.ballRoom.pendingSelectedBallId
 
             if (selectedBallId == null) {
-                _uiState.update { it.copy(transientMessage = "Elige una bola primero") }
+                _uiState.update { it.copy(transientMessage = AppI18n.text("pick_ball_first")) }
                 return@launch
             }
 
@@ -347,7 +364,7 @@ class GameViewModel(
 
             val matchId = snapshot.currentMatchId
             if (matchId == null) {
-                _uiState.update { it.copy(transientMessage = "No hay sala activa") }
+            _uiState.update { it.copy(transientMessage = AppI18n.text("no_active_room")) }
                 return@launch
             }
 
@@ -365,7 +382,7 @@ class GameViewModel(
                     ?.id
 
             if (selectedBallId == null) {
-                _uiState.update { it.copy(transientMessage = "No quedan bolas libres") }
+                _uiState.update { it.copy(transientMessage = AppI18n.text("no_free_balls")) }
                 return@launch
             }
 
@@ -373,7 +390,7 @@ class GameViewModel(
                 val pickResult = repository.pickBall(snapshot, matchId, selectedBallId)
                 pickResult.onSuccess { pickedState ->
                     _uiState.value = pickedState.copy(
-                        transientMessage = "Tiempo agotado. Bola #$selectedBallId asignada."
+                            transientMessage = "${AppI18n.text("time_expired_ball_assigned")} #$selectedBallId"
                     )
                     snapshot = pickedState
                 }
@@ -382,7 +399,7 @@ class GameViewModel(
                         _uiState.update { it.copy(isSessionExpired = true) }
                     } else {
                         _uiState.update {
-                            it.copy(transientMessage = error.message ?: "No se pudo asignar bola automaticamente")
+                    it.copy(transientMessage = AppI18n.message(error.message) ?: AppI18n.text("auto_ball_error"))
                         }
                     }
                     return@launch
@@ -399,7 +416,7 @@ class GameViewModel(
             val snapshot = _uiState.value
             val matchId = snapshot.currentMatchId
             if (matchId == null) {
-                _uiState.update { it.copy(transientMessage = "No hay sala activa") }
+            _uiState.update { it.copy(transientMessage = AppI18n.text("no_active_room")) }
                 return@launch
             }
 
@@ -470,17 +487,17 @@ class GameViewModel(
                     balls = revealedBalls,
                     canRevealBattle = true,
                     pendingSelectedBallId = null,
-                    statusMessage = "Multiplicador revelado."
+                    statusMessage = AppI18n.text("multiplier_revealed")
                 ),
                 battle = BattleUiState(
                     phase = BattlePhase.READY,
                     players = battlePlayers,
                     round = 1,
-                    log = listOf("Battle Royale listo."),
+                    log = listOf(AppI18n.text("battle_ready")),
                     hand = drawBattleHand(),
                     selectedTargetId = battlePlayers.firstOrNull { !it.isUser && it.isAlive }?.id
                 ),
-                transientMessage = "Te ha tocado x${"%.2f".format(multiplier)}."
+                transientMessage = "${AppI18n.text("multiplier")}: x${"%.2f".format(multiplier)}"
             )
         }
     }
@@ -527,7 +544,7 @@ class GameViewModel(
                 if (snapshot.battle.hand.isNotEmpty()) {
                     resolveLocalBattleRound()
                 } else {
-                    _uiState.update { it.copy(transientMessage = "No hay battle activa") }
+                    _uiState.update { it.copy(transientMessage = AppI18n.text("no_active_battle")) }
                 }
                 return@launch
             }
@@ -541,10 +558,10 @@ class GameViewModel(
         _uiState.update { state ->
             val battle = ensureBattleHand(state.battle)
             if (battle.players.none { it.isUser && it.isAlive }) {
-                return@update state.copy(transientMessage = "Ya no estás vivo.")
+                return@update state.copy(transientMessage = AppI18n.text("not_alive"))
             }
             val card = battle.hand.firstOrNull { it.id == battle.selectedCardId } ?: battle.hand.firstOrNull()
-                ?: return@update state.copy(transientMessage = "No tienes cartas.")
+                ?: return@update state.copy(transientMessage = AppI18n.text("no_cards"))
             val aliveOpponents = battle.players.filter { !it.isUser && it.isAlive }
             val targetId = if (card.type == BattleCardType.ATTACK) {
                 battle.selectedTargetId?.takeIf { id -> aliveOpponents.any { it.id == id } }
@@ -560,12 +577,12 @@ class GameViewModel(
                 when {
                     player.isUser && card.type == BattleCardType.SHIELD -> {
                         userShield = true
-                        roundLog += "Usas DEFENSA: reduces daño enemigo."
+                        roundLog += "${AppI18n.text("defense")}: bloqueas ataques enemigos."
                         player.copy(shieldActive = true, reboundActive = false)
                     }
                     player.isUser && card.type == BattleCardType.REBOUND -> {
                         userRebound = true
-                        roundLog += "Usas REBOTE: devuelves parte del daño."
+                        roundLog += "${AppI18n.text("rebound")}: devuelves daño enemigo."
                         player.copy(reboundActive = true, shieldActive = false)
                     }
                     targetId != null && player.id == targetId -> {
@@ -606,7 +623,7 @@ class GameViewModel(
                 roundLog += "Bots te atacan: $reducedIncoming daño."
             }
             if (userRebound && botAttackers.isNotEmpty()) {
-                roundLog += "Rebote devuelve $rebounded daño."
+                roundLog += "${AppI18n.text("rebound_returns")} $rebounded ${AppI18n.text("damage")}."
             }
 
             val alivePlayers = afterBots.filter { it.isAlive }
@@ -624,7 +641,7 @@ class GameViewModel(
                     activeTab = MainTab.BATTLE,
                     ballRoom = BallRoomUiState(
                         phase = BallRoomPhase.WAITING_ENTRY,
-                        statusMessage = "Paga 10 FTC para entrar en la sala."
+                    statusMessage = AppI18n.text("pay_entry")
                     ),
                     battle = battle.copy(
                         phase = BattlePhase.DEFEATED,
@@ -633,9 +650,9 @@ class GameViewModel(
                         hand = emptyList(),
                         selectedCardId = null,
                         selectedTargetId = null,
-                        log = battle.log + roundLog + "Has quedado en posicion #$placement."
+                    log = battle.log + roundLog + "Has quedado en posicion #$placement."
                     ),
-                    transientMessage = "Eliminado. Pulsa para volver a la entrada."
+                    transientMessage = AppI18n.text("eliminated_back")
                 )
             }
 
@@ -654,7 +671,7 @@ class GameViewModel(
                     selectedTargetId = nextTarget,
                     impactApplied = winner != null
                 ),
-                transientMessage = "Carta usada. Robas una nueva."
+                transientMessage = AppI18n.text("card_used")
             )
         }
     }
@@ -720,14 +737,14 @@ class GameViewModel(
             if (matchId != null && userWon && !snapshot.battle.impactApplied) {
                 val result = repository.applyWinnerImpact(snapshot, matchId)
                 result.onSuccess { applied ->
-                    _uiState.value = applied.copy(transientMessage = "Multiplicador aplicado a ${snapshot.market.selectedToken.name}.")
+        _uiState.value = applied.copy(transientMessage = "${AppI18n.text("multiplier")} ${AppI18n.text("selected")}: ${snapshot.market.selectedToken.name}.")
                     resetBattleAndRoom(autoEnterRoom = false)
                 }
                 result.onFailure { error ->
                     if (error is SessionExpiredException) {
                         expireSession(error)
                     } else {
-                        _uiState.update { it.copy(transientMessage = error.message ?: "No se pudo aplicar el multiplicador") }
+            _uiState.update { it.copy(transientMessage = AppI18n.message(error.message) ?: AppI18n.text("multiplier_apply_error")) }
                     }
                 }
                 return@launch
@@ -750,17 +767,17 @@ class GameViewModel(
                     currentMatchId = null,
                     ballRoom = BallRoomUiState(
                         phase = BallRoomPhase.WAITING_ENTRY,
-                            statusMessage = "Paga 10 FTC para entrar en la sala."
+                            statusMessage = AppI18n.text("pay_entry")
                     ),
                     battle = BattleUiState(
                         phase = BattlePhase.LOCKED,
-                        log = listOf("Nuevo ciclo listo. Vuelve al sorteo de bolas.")
+                        log = listOf(AppI18n.text("new_cycle_ready"))
                     ),
                     activeTab = MainTab.BALL_ROOM,
                     transientMessage = if (autoEnterRoom) {
-                        "Partida finalizada. Abriendo nueva sala..."
+                        AppI18n.text("match_finished_new_room")
                     } else {
-                        "Battle cerrada. Preparado para una nueva sala."
+                        AppI18n.text("battle_closed_ready")
                     }
                 )
             }
@@ -775,7 +792,7 @@ class GameViewModel(
     fun claimRewardedAd() {
         val current = _uiState.value
         if (!current.rewardedAvailable || current.rewardedCooldownSec > 0) {
-            _uiState.update { it.copy(transientMessage = "Rewarded no disponible todavia.") }
+            _uiState.update { it.copy(transientMessage = AppI18n.text("rewarded_not_available")) }
             return
         }
 
@@ -823,7 +840,7 @@ class GameViewModel(
 
     private fun bootstrap() {
         viewModelScope.launch {
-            _uiState.update { it.copy(transientMessage = "Cargando estado...") }
+            _uiState.update { it.copy(transientMessage = AppI18n.text("loading_state")) }
             val result = repository.bootstrap(_uiState.value)
             applyResult(result)
             if (result.isSuccess) {
@@ -850,7 +867,7 @@ class GameViewModel(
                     return@onFailure
                 }
                 _uiState.update { state ->
-                    state.copy(transientMessage = error.message ?: "No se pudo cargar el perfil")
+            state.copy(transientMessage = AppI18n.message(error.message) ?: AppI18n.text("profile_load_error"))
                 }
             }
         }
@@ -999,7 +1016,7 @@ class GameViewModel(
                             transientMessage = error.message
                         )
                     } else {
-                        current.copy(transientMessage = error.message ?: "Error de conexión")
+            current.copy(transientMessage = AppI18n.message(error.message) ?: AppI18n.text("connection_error"))
                     }
                 }
             )
@@ -1019,7 +1036,7 @@ class GameViewModel(
                         .copy(battle = mergeBattleHand(success.battle, current.battle))
                     next.copy(
                         battle = consumeBattleCardAfterBackendRound(next.battle, current.battle),
-                        transientMessage = "Carta usada. Robas una nueva."
+                transientMessage = AppI18n.text("card_used")
                     )
                 },
                 onFailure = { error ->
@@ -1029,7 +1046,7 @@ class GameViewModel(
                             transientMessage = error.message
                         )
                     } else {
-                        current.copy(transientMessage = error.message ?: "Error de conexiÃ³n")
+            current.copy(transientMessage = AppI18n.message(error.message) ?: AppI18n.text("connection_error"))
                     }
                 }
             )
@@ -1079,7 +1096,7 @@ class GameViewModel(
             return next.copy(
                 ballRoom = current.ballRoom.copy(
                     selectionDeadlineEpochMs = deadline,
-                    statusMessage = "Preparando seleccion de bolas..."
+                    statusMessage = AppI18n.text("preparing_ball_selection")
                 ),
                 battle = current.battle,
                 activeTab = current.activeTab
@@ -1124,15 +1141,17 @@ class GameViewModel(
 
     private fun initialState(): GameUiState {
         val stats = ProfileStats()
+        val language = SessionStore.language()
         return GameUiState(
+            appLanguage = language,
             activeTab = MainTab.DASHBOARD,
             ballRoom = BallRoomUiState(
                 phase = BallRoomPhase.WAITING_ENTRY,
-                statusMessage = "Paga 10 FTC para entrar en la sala."
+                statusMessage = AppI18n.text("pay_entry", language)
             ),
             battle = BattleUiState(
                 phase = BattlePhase.LOCKED,
-                log = listOf("Completa primero el sorteo de bolas.")
+                log = listOf(AppI18n.text("complete_ball_first"))
             ),
             profile = com.fichestu.frontend.game.model.ProfileUiState(
                 playerName = "Jugador",
