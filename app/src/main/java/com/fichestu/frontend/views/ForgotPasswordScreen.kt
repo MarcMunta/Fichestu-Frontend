@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import com.fichestu.frontend.R
+import com.fichestu.frontend.data.i18n.AppI18n
 import com.fichestu.frontend.data.repository.AuthRepository
 import com.fichestu.frontend.ui.theme.AuthScaffold
 import com.fichestu.frontend.ui.theme.CasinoOutlinedTextField
@@ -73,7 +74,7 @@ fun ForgotPasswordScreen(onBack: () -> Unit) {
 
         feedback?.let { message ->
             Text(
-                text = message,
+                text = AppI18n.message(message) ?: message,
                 color = if (isError) MaterialTheme.colorScheme.error else Gold,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -103,7 +104,7 @@ fun ForgotPasswordScreen(onBack: () -> Unit) {
                                     currentStep = ForgotStep.VERIFY
                                 }
                                 .onFailure { error ->
-                                    feedback = error.message ?: "No se pudo enviar el codigo"
+                                    feedback = AppI18n.message(error.message) ?: AppI18n.text("send_code_error")
                                     isError = true
                                 }
                             isLoading = false
@@ -135,7 +136,7 @@ fun ForgotPasswordScreen(onBack: () -> Unit) {
                                     currentStep = ForgotStep.DONE
                                 }
                                 .onFailure { error ->
-                                    feedback = error.message ?: "No se pudo actualizar la contrasena"
+                                    feedback = AppI18n.message(error.message) ?: AppI18n.text("password_update_error")
                                     isError = true
                                 }
                             isLoading = false

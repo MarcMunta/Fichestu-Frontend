@@ -2,11 +2,13 @@ package com.fichestu.frontend.data.repository
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.fichestu.frontend.game.model.AppLanguage
 
 object SessionStore {
     private const val PREFS_NAME = "fichestu_session"
     private const val KEY_TOKEN = "token"
     private const val KEY_DISPLAY_NAME = "display_name"
+    private const val KEY_LANGUAGE = "language"
 
     @Volatile
     private var prefs: SharedPreferences? = null
@@ -17,12 +19,16 @@ object SessionStore {
     @Volatile
     private var displayName: String = "Jugador"
 
+    @Volatile
+    private var language: AppLanguage = AppLanguage.ES
+
     fun init(context: Context) {
         if (prefs != null) return
         prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         prefs?.edit()?.remove(KEY_TOKEN)?.apply()
         token = null
         displayName = prefs?.getString(KEY_DISPLAY_NAME, "Jugador") ?: "Jugador"
+        language = AppLanguage.fromCode(prefs?.getString(KEY_LANGUAGE, AppLanguage.ES.code))
     }
 
     fun setAuth(token: String?, displayName: String) {
@@ -37,7 +43,10 @@ object SessionStore {
     fun clear() {
         token = null
         displayName = "Jugador"
-        prefs?.edit()?.clear()?.apply()
+        prefs?.edit()
+            ?.remove(KEY_TOKEN)
+            ?.remove(KEY_DISPLAY_NAME)
+            ?.apply()
     }
 
     fun authHeaderOrNull(): String? {
@@ -47,4 +56,15 @@ object SessionStore {
     }
 
     fun displayName(): String = displayName
+
+    fun language(): AppLanguage = language
+
+    fun languageCode(): String = language.code
+
+    fun setLanguage(next: AppLanguage) {
+        language = next
+        prefs?.edit()
+            ?.putString(KEY_LANGUAGE, next.code)
+            ?.apply()
+    }
 }

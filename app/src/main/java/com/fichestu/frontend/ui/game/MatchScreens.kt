@@ -55,6 +55,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fichestu.frontend.data.i18n.AppI18n
 import com.fichestu.frontend.game.GameRules
 import com.fichestu.frontend.game.engine.GameEngine
 import com.fichestu.frontend.game.model.BallOption
@@ -68,6 +69,7 @@ import com.fichestu.frontend.game.model.BattlePlayer
 import com.fichestu.frontend.game.model.BattleUiState
 import com.fichestu.frontend.game.model.MarketUiState
 import com.fichestu.frontend.game.model.TokenId
+import com.fichestu.frontend.game.model.AppLanguage
 import com.fichestu.frontend.ui.theme.AliveGreen
 import com.fichestu.frontend.ui.theme.ChipRed
 import com.fichestu.frontend.ui.theme.ChipRedDark
@@ -86,6 +88,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.random.Random
 
+private fun t(key: String, language: AppLanguage): String = AppI18n.text(key, language)
+
 /* ============================================================
    FICHESTU - Match flow screens (Lobby -> Bolas -> Reveal -> Cards -> Victoria)
    Wired to GameViewModel state. Backend-ready: solo lee de UiState.
@@ -95,6 +99,7 @@ import kotlin.random.Random
 fun BallRoomFlow(
     ballRoom: BallRoomUiState,
     cashBalance: Double,
+    language: AppLanguage,
     isInRoom: Boolean,
     onEnterRoom: () -> Unit,
     onCancelMatchmaking: () -> Unit,
@@ -109,6 +114,7 @@ fun BallRoomFlow(
         BallRoomPhase.WAITING_ENTRY, BallRoomPhase.MATCHMAKING -> LobbyView(
             ballRoom = ballRoom,
             cashBalance = cashBalance,
+            language = language,
             statusMessage = ballRoom.statusMessage,
             isInRoom = isInRoom,
             onEnterRoom = onEnterRoom,
@@ -120,6 +126,7 @@ fun BallRoomFlow(
             // Auto-reveal cuando hay 10 jugadores con bola elegida
             BallsPoolView(
                 ballRoom = ballRoom,
+                language = language,
                 onPickBall = onPickBall,
                 onConfirm = onFinishSelection,
                 onTimeout = onSelectionTimeout,
@@ -128,6 +135,7 @@ fun BallRoomFlow(
         }
         BallRoomPhase.REVEALED, BallRoomPhase.READY_FOR_BATTLE -> RevealView(
             ballRoom = ballRoom,
+            language = language,
             onContinueToBattle = onOpenBattle,
             modifier = modifier
         )
@@ -138,6 +146,7 @@ fun BallRoomFlow(
 fun BattleFlow(
     battle: BattleUiState,
     market: MarketUiState,
+    language: AppLanguage,
     onSelectAction: (BattleCardType) -> Unit,
     onSelectCard: (Long) -> Unit,
     onSelectTarget: (String) -> Unit,
@@ -147,10 +156,11 @@ fun BattleFlow(
     modifier: Modifier = Modifier
 ) {
     when (battle.phase) {
-        BattlePhase.LOCKED -> LockedView(modifier = modifier)
+        BattlePhase.LOCKED -> LockedView(language = language, modifier = modifier)
         BattlePhase.READY, BattlePhase.IN_PROGRESS -> ArenaView(
             battle = battle,
             selectedTokenId = market.selectedToken,
+            language = language,
             onSelectAction = onSelectAction,
             onSelectCard = onSelectCard,
             onSelectTarget = onSelectTarget,
@@ -159,12 +169,14 @@ fun BattleFlow(
         )
         BattlePhase.DEFEATED -> DefeatView(
             battle = battle,
+            language = language,
             onReturnToEntry = onResetCycle,
             modifier = modifier
         )
         BattlePhase.FINISHED -> VictoryChoiceView(
             battle = battle,
             market = market,
+            language = language,
             onSelectToken = onSelectToken,
             onResetCycle = onResetCycle,
             modifier = modifier
@@ -173,7 +185,7 @@ fun BattleFlow(
 }
 
 @Composable
-private fun LockedView(modifier: Modifier = Modifier) {
+private fun LockedView(language: AppLanguage, modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize()) {
         AmbientBackground(particleCount = 10)
         Column(
@@ -183,16 +195,16 @@ private fun LockedView(modifier: Modifier = Modifier) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            DisplayWhite(text = "LOCK", fontSize = 54, textAlign = TextAlign.Center)
+            DisplayWhite(text = t("locked", language), fontSize = 54, textAlign = TextAlign.Center)
             Spacer(Modifier.height(8.dp))
             DisplayGold(
-                text = "BATTLE BLOQUEADO",
+                text = t("battle_locked", language),
                 fontSize = 28,
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "Completa el sorteo de bolas para desbloquear esta fase.",
+                text = t("battle_locked_hint", language),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = TextSecondary,
                     textAlign = TextAlign.Center
@@ -228,6 +240,7 @@ private fun initialsFor(nickname: String): String =
 fun LobbyView(
     ballRoom: BallRoomUiState,
     cashBalance: Double,
+    language: AppLanguage,
     statusMessage: String,
     isInRoom: Boolean = false,
     onEnterRoom: () -> Unit,
@@ -282,22 +295,23 @@ fun LobbyView(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             DisplayGold(
-                text = "SALA DE PARTIDA",
+                text = t("room_title", language),
                 fontSize = 34,
                 textAlign = TextAlign.Center
             )
             Text(
-                    text = "Entrada: ${GameRules.BALL_ENTRY_COST.toInt()} FTC",
+                    text = "${t("entry", language)}: ${GameRules.BALL_ENTRY_COST.toInt()} FTC",
                 style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
             )
 
             CountdownRing(
                 value = countdown,
                 max = maxCountdown,
+                language = language,
                 label = when {
-                    !hasActiveLobbyMatch -> "PAGA PARA ENTRAR"
-                    countdown == 0 -> "LISTO"
-                    else -> "BUSCANDO"
+                    !hasActiveLobbyMatch -> t("pay_to_enter", language)
+                    countdown == 0 -> t("ready", language)
+                    else -> t("searching", language)
                 },
                 centerText = when {
                     !hasActiveLobbyMatch -> "${GameRules.BALL_ENTRY_COST.toInt()} FTC"
@@ -306,8 +320,8 @@ fun LobbyView(
                 },
                 helperText = when {
                     !hasActiveLobbyMatch -> null
-                    countdown == 0 -> "PREPARANDO"
-                    else -> "CANCELAR"
+                    countdown == 0 -> t("preparing", language)
+                    else -> t("cancel", language)
                 },
                 enabled = hasActiveLobbyMatch || cashBalance >= GameRules.BALL_ENTRY_COST,
                 onClick = if (hasActiveLobbyMatch) onCancelMatchmaking else onEnterRoom
@@ -321,10 +335,11 @@ fun LobbyView(
                             val idx = row * 5 + col
                             val player = players.getOrNull(idx)
                             PlayerSlot(
-                                initials = if (idx == 0) "TÚ" else "P${idx + 1}",
+                                initials = if (idx == 0) t("you", language).take(2).uppercase() else "P${idx + 1}",
                                 color = PLAYER_PALETTE[idx],
                                 ready = player != null || (hasActiveLobbyMatch && idx == 0),
                                 isYou = player?.isUser == true || (hasActiveLobbyMatch && idx == 0),
+                                language = language,
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -334,6 +349,7 @@ fun LobbyView(
 
             HowToPlayTogglePanel(
                 expanded = rulesExpanded,
+                language = language,
                 onToggle = { rulesExpanded = !rulesExpanded },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -358,7 +374,7 @@ fun LobbyView(
                         }
                         Spacer(Modifier.width(10.dp))
                         Text(
-                            text = "CÓMO SE JUEGA",
+                            text = t("how_to_play", language),
                             style = MaterialTheme.typography.titleMedium.copy(
                                 color = PureWhite,
                                 fontWeight = FontWeight.ExtraBold
@@ -366,11 +382,11 @@ fun LobbyView(
                         )
                     }
                     Spacer(Modifier.height(8.dp))
-                    RuleNumLine(1, "Elige 1 bola entre ${GameRules.BALL_COUNT}. Cada bola esconde un multiplicador.")
-                    RuleNumLine(2, "Duelo de cartas. Ultimo en pie gana.")
-                    RuleNumLine(3, "El ganador aplica su multiplicador a un token del mercado.")
-                    RuleNumLine(4, "Matchmaking dura 15s o termina antes si entran 10 jugadores.")
-                    RuleNumLine(5, "Puedes cancelar mientras busca partida; se devuelve la entrada.")
+                    RuleNumLine(1, t("rules_ball_2", language))
+                    RuleNumLine(2, t("battle_subtitle", language))
+                    RuleNumLine(3, t("rules_ball_3", language))
+                    RuleNumLine(4, t("matchmaking_rule", language))
+                    RuleNumLine(5, t("rules_ball_1", language))
                 }
             }
 
@@ -378,9 +394,9 @@ fun LobbyView(
 
             Text(
                 text = if (hasActiveLobbyMatch) {
-                    "Esperando jugadores: $displayedPlayerCount/10."
+                    "${t("waiting_players_full", language)}: $displayedPlayerCount/10."
                 } else {
-                    statusMessage
+                    AppI18n.message(statusMessage, language) ?: statusMessage
                 },
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = TextSecondary,
@@ -389,7 +405,7 @@ fun LobbyView(
                 modifier = Modifier.fillMaxWidth()
             )
             Text(
-                    text = "Saldo: ${"%.2f".format(cashBalance)} FTC",
+                    text = "${t("balance", language)}: ${"%.2f".format(cashBalance)} FTC",
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = Gold,
                     fontWeight = FontWeight.ExtraBold
@@ -398,14 +414,14 @@ fun LobbyView(
 
             if (hasActiveLobbyMatch) {
                 BigPushButtonInternal(
-                    text = "CANCELAR MATCHMAKING Y DEVOLVER ENTRADA",
+                    text = t("cancel_matchmaking", language),
                     color = ChipRed,
                     onClick = onCancelMatchmaking,
                     modifier = Modifier.fillMaxWidth()
                 )
             } else if (cashBalance < GameRules.BALL_ENTRY_COST) {
                 Text(
-                    text = "Saldo insuficiente para entrar.",
+                    text = t("not_enough_entry", language),
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = ChipRed,
                         fontWeight = FontWeight.Bold
@@ -419,6 +435,7 @@ fun LobbyView(
 @Composable
 private fun HowToPlayTogglePanel(
     expanded: Boolean,
+    language: AppLanguage,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -447,7 +464,7 @@ private fun HowToPlayTogglePanel(
                     }
                     Spacer(Modifier.width(10.dp))
                     Text(
-                        text = "COMO SE JUEGA",
+                        text = t("how_to_play", language),
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = PureWhite,
                             fontWeight = FontWeight.ExtraBold
@@ -455,7 +472,7 @@ private fun HowToPlayTogglePanel(
                     )
                 }
                 Text(
-                    text = if (expanded) "OCULTAR" else "VER",
+                    text = if (expanded) t("hide", language) else t("view", language),
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = Gold,
                         fontWeight = FontWeight.ExtraBold
@@ -465,12 +482,12 @@ private fun HowToPlayTogglePanel(
 
             Spacer(Modifier.height(6.dp))
             if (expanded) {
-                RuleNumLine(1, "Pulsa el boton circular y paga ${GameRules.BALL_ENTRY_COST.toInt()} FTC. Puedes cancelar durante el matchmaking y recuperar la entrada.")
-                RuleNumLine(2, "Elige 1 bola entre ${GameRules.BALL_COUNT}. Cada bola esconde un multiplicador.")
-                RuleNumLine(3, "Juega Battle Royale. El ganador aplica su multiplicador a un token del mercado.")
+                RuleNumLine(1, t("rules_ball_1", language))
+                RuleNumLine(2, t("rules_ball_2", language))
+                RuleNumLine(3, t("rules_ball_3", language))
             } else {
                 Text(
-                    text = "Pulsa para abrir reglas completas.",
+                    text = t("open_rules", language),
                     style = MaterialTheme.typography.bodySmall.copy(
                         color = TextSecondary,
                         lineHeight = 15.sp
@@ -520,6 +537,7 @@ private fun RuleNumLine(num: Int, text: String) {
 private fun CountdownRing(
     value: Int,
     max: Int,
+    language: AppLanguage,
     label: String,
     centerText: String,
     helperText: String? = null,
@@ -573,7 +591,7 @@ private fun CountdownRing(
             }
             if (!enabled && !centerText.endsWith("s")) {
                 Text(
-                    text = "SIN SALDO",
+                    text = t("without_balance", language),
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = ChipRed,
                         fontWeight = FontWeight.ExtraBold
@@ -590,6 +608,7 @@ private fun PlayerSlot(
     color: Color,
     ready: Boolean,
     isYou: Boolean,
+    language: AppLanguage,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -635,7 +654,7 @@ private fun PlayerSlot(
             )
         }
         Text(
-            text = if (ready) "READY" else "WAIT",
+            text = if (ready) t("ready_short", language) else t("wait_short", language),
             style = MaterialTheme.typography.labelSmall.copy(
                 color = if (ready) AliveGreen else TextSecondary,
                 fontWeight = FontWeight.ExtraBold,
@@ -653,6 +672,7 @@ private fun PlayerSlot(
 @Composable
 fun BallsPoolView(
     ballRoom: BallRoomUiState,
+    language: AppLanguage,
     onPickBall: (Int) -> Unit,
     onConfirm: () -> Unit,
     onTimeout: () -> Unit,
@@ -702,21 +722,21 @@ fun BallsPoolView(
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    DisplayGold(text = "ELIGE TU BOLA", fontSize = 34)
+                    DisplayGold(text = t("choose_ball", language), fontSize = 34)
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "Toca una bola libre y confirma tu eleccion antes de que termine el tiempo.",
+                        text = t("choose_ball_hint", language),
                         style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                     )
                     Text(
-                        text = ballRoom.statusMessage,
+            text = AppI18n.message(ballRoom.statusMessage, language) ?: ballRoom.statusMessage,
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = PureWhite.copy(alpha = 0.72f),
                             fontWeight = FontWeight.SemiBold
                         )
                     )
                 }
-                BallsHud(timer = timer, ballsLeft = ballsLeft)
+                BallsHud(timer = timer, ballsLeft = ballsLeft, language = language)
             }
 
             BoxWithConstraints(
@@ -760,9 +780,9 @@ fun BallsPoolView(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                BallPreview(ball = userPick, modifier = Modifier.weight(0.9f))
+                BallPreview(ball = userPick, language = language, modifier = Modifier.weight(0.9f))
                 BigPushButtonInternal(
-                    text = confirmBallButtonText(userPick, hasCommittedPick),
+                    text = confirmBallButtonText(userPick, hasCommittedPick, language),
                     color = Gold,
                     enabled = userPick != null,
                     onClick = onConfirm,
@@ -788,14 +808,14 @@ private fun rememberBallPickCountdown(phase: BallRoomPhase): Int {
     return remaining
 }
 
-private fun confirmBallButtonText(ball: BallOption?, hasCommittedPick: Boolean): String = when {
-    hasCommittedPick && ball != null -> "CONTINUAR CON BOLA #${ball.id}"
-    ball != null -> "SELECCIONAR BOLA #${ball.id}"
-    else -> "SELECCIONAR BOLA"
+private fun confirmBallButtonText(ball: BallOption?, hasCommittedPick: Boolean, language: AppLanguage): String = when {
+    hasCommittedPick && ball != null -> "${t("continue_ball", language)} #${ball.id}"
+    ball != null -> "${t("select_ball", language)} #${ball.id}"
+    else -> t("select_ball", language)
 }
 
 @Composable
-private fun BallsHud(timer: Int, ballsLeft: Int) {
+private fun BallsHud(timer: Int, ballsLeft: Int, language: AppLanguage) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Column(
             modifier = Modifier
@@ -805,7 +825,7 @@ private fun BallsHud(timer: Int, ballsLeft: Int) {
                 .padding(horizontal = 14.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Eyebrow(text = "TIEMPO")
+            Eyebrow(text = t("time", language))
             Text(
                 text = "${timer}s",
                 style = MaterialTheme.typography.headlineSmall.copy(
@@ -822,7 +842,7 @@ private fun BallsHud(timer: Int, ballsLeft: Int) {
                 .padding(horizontal = 14.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Eyebrow(text = "LIBRES")
+            Eyebrow(text = t("free", language))
             Text(
                 text = "$ballsLeft/${GameRules.BALL_COUNT}",
                 style = MaterialTheme.typography.headlineSmall.copy(
@@ -922,7 +942,7 @@ private fun BallNode(
 }
 
 @Composable
-private fun BallPreview(ball: BallOption?, modifier: Modifier = Modifier) {
+private fun BallPreview(ball: BallOption?, language: AppLanguage, modifier: Modifier = Modifier) {
     if (ball == null) {
         Box(
             modifier = modifier
@@ -934,7 +954,7 @@ private fun BallPreview(ball: BallOption?, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.CenterStart
         ) {
             Text(
-                text = "Tu elección: -",
+                text = "${t("your_choice", language)}: -",
                 style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
             )
         }
@@ -971,7 +991,7 @@ private fun BallPreview(ball: BallOption?, modifier: Modifier = Modifier) {
             )
         }
         Column {
-            Eyebrow(text = "TU ELECCIÓN")
+            Eyebrow(text = t("your_choice", language))
             Text(
                 text = "#${ball.id}",
                 style = MaterialTheme.typography.headlineSmall.copy(
@@ -990,6 +1010,7 @@ private fun BallPreview(ball: BallOption?, modifier: Modifier = Modifier) {
 @Composable
 fun RevealView(
     ballRoom: BallRoomUiState,
+    language: AppLanguage,
     onContinueToBattle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1007,7 +1028,7 @@ fun RevealView(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceEvenly
         ) {
-            DisplayGold(text = "TU BOLA", fontSize = 36, textAlign = TextAlign.Center)
+            DisplayGold(text = t("your_ball", language), fontSize = 36, textAlign = TextAlign.Center)
 
             // Big revealed ball
             Box(
@@ -1047,14 +1068,14 @@ fun RevealView(
             }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Eyebrow(text = "MULTIPLICADOR")
+                Eyebrow(text = t("multiplier", language))
                 DisplayRed(
                     text = "x${"%.2f".format(mult)}",
                     fontSize = 96,
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = if (mult >= 5.0) "¡Suerte de campeón!" else "A pelearlo en el Battle Royale",
+                    text = if (mult >= 5.0) t("lucky_champion", language) else t("fight_battle", language),
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = Gold,
                         fontWeight = FontWeight.Bold
@@ -1063,7 +1084,7 @@ fun RevealView(
             }
 
             BigPushButtonInternal(
-                text = "IR A BATTLE ROYALE >",
+                text = t("go_battle", language),
                 color = ChipRed,
                 onClick = onContinueToBattle,
                 modifier = Modifier.fillMaxWidth()
@@ -1080,6 +1101,7 @@ fun RevealView(
 fun ArenaView(
     battle: BattleUiState,
     selectedTokenId: TokenId,
+    language: AppLanguage,
     onSelectAction: (BattleCardType) -> Unit,
     onSelectCard: (Long) -> Unit,
     onSelectTarget: (String) -> Unit,
@@ -1102,13 +1124,13 @@ fun ArenaView(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    DisplayRed(text = "BATTLE ROYALE", fontSize = 28)
+                    DisplayRed(text = t("battle_title", language), fontSize = 28)
                     Text(
-                        text = "Última ficha en pie se queda con la corona.",
+                        text = t("battle_subtitle", language),
                         style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                     )
                 }
-                TurnPill(yours = battle.phase != BattlePhase.FINISHED, round = battle.round)
+                TurnPill(yours = battle.phase != BattlePhase.FINISHED, round = battle.round, language = language)
             }
 
             Spacer(Modifier.height(8.dp))
@@ -1161,6 +1183,7 @@ fun ArenaView(
                         if (you != null) {
                             YouNode(
                                 player = you,
+                                language = language,
                                 modifier = Modifier
                                     .align(Alignment.BottomCenter)
                                     .padding(bottom = 14.dp)
@@ -1169,10 +1192,11 @@ fun ArenaView(
                     }
 
                     if (logExpanded) {
-                        BattleLogSidePanel(
-                            log = battle.log,
-                            expanded = true,
-                            onToggle = { logExpanded = false },
+                    BattleLogSidePanel(
+                        log = battle.log,
+                        expanded = true,
+                        language = language,
+                        onToggle = { logExpanded = false },
                             modifier = Modifier
                                 .fillMaxHeight()
                                 .weight(1f)
@@ -1184,6 +1208,7 @@ fun ArenaView(
                     BattleLogButton(
                         onClick = { logExpanded = true },
                         latest = battle.log.lastOrNull().orEmpty(),
+                        language = language,
                         modifier = Modifier
                             .align(Alignment.TopEnd)
                             .padding(8.dp)
@@ -1192,19 +1217,20 @@ fun ArenaView(
             }
 
             Text(
-                text = "Token objetivo: ${selectedTokenId.name}",
+                text = "${t("target_token", language)}: ${selectedTokenId.name}",
                 style = MaterialTheme.typography.labelMedium.copy(color = Gold)
             )
             Spacer(Modifier.height(4.dp))
 
             // Hand strip (5 random cards)
-            Eyebrow(text = "TU MANO", color = Gold)
+            Eyebrow(text = t("your_hand", language), color = Gold)
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 battle.hand.take(5).forEach { card ->
                     HandCard(
                         card = card,
                         selected = card.id == battle.selectedCardId,
+                        language = language,
                         onClick = {
                             onSelectAction(card.type)
                             onSelectCard(card.id)
@@ -1215,7 +1241,7 @@ fun ArenaView(
             }
             Spacer(Modifier.height(8.dp))
             BigPushButtonInternal(
-                text = if (battle.phase == BattlePhase.FINISHED) "FINALIZADO" else "JUGAR RONDA",
+                text = if (battle.phase == BattlePhase.FINISHED) t("finished", language) else t("play_round", language),
                 color = ChipRed,
                 enabled = battle.phase != BattlePhase.FINISHED,
                 onClick = onPlayRound,
@@ -1231,6 +1257,7 @@ fun ArenaView(
 private fun BattleLogButton(
     onClick: () -> Unit,
     latest: String,
+    language: AppLanguage,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -1243,14 +1270,14 @@ private fun BattleLogButton(
             .padding(8.dp)
     ) {
         Text(
-            text = "LOG",
+            text = t("log", language),
             style = MaterialTheme.typography.labelSmall.copy(
                 color = Gold,
                 fontWeight = FontWeight.ExtraBold
             )
         )
         Text(
-            text = "VER",
+            text = t("view", language),
             style = MaterialTheme.typography.labelSmall.copy(
                 color = PureWhite,
                 fontWeight = FontWeight.ExtraBold
@@ -1274,6 +1301,7 @@ private fun BattleLogButton(
 private fun BattleLogSidePanel(
     log: List<String>,
     expanded: Boolean,
+    language: AppLanguage,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1303,9 +1331,9 @@ private fun BattleLogSidePanel(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Eyebrow(text = "BATTLE LOG")
+                Eyebrow(text = t("battle_log", language))
                 Text(
-                    text = "OCULTAR",
+                    text = t("hide", language),
                     modifier = Modifier.clickable(onClick = onToggle),
                     style = MaterialTheme.typography.labelSmall.copy(
                         color = Gold,
@@ -1322,8 +1350,9 @@ private fun BattleLogSidePanel(
             ) {
                 log.forEach { line ->
                     val isRoundHeader = line.matches(Regex("Ronda \\d+.*"))
+                    val translatedLine = AppI18n.message(line, language) ?: line
                     Text(
-                        text = line,
+                        text = translatedLine,
                         style = if (isRoundHeader) {
                             MaterialTheme.typography.labelMedium.copy(
                                 color = Gold,
@@ -1344,7 +1373,7 @@ private fun BattleLogSidePanel(
             }
         } else {
             Text(
-                text = "LOG",
+                text = t("log", language),
                 style = MaterialTheme.typography.labelSmall.copy(
                     color = Gold,
                     fontWeight = FontWeight.ExtraBold
@@ -1352,7 +1381,7 @@ private fun BattleLogSidePanel(
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "VER",
+                text = t("view", language),
                 style = MaterialTheme.typography.labelSmall.copy(
                     color = PureWhite,
                     fontWeight = FontWeight.ExtraBold
@@ -1400,7 +1429,7 @@ private fun ArenaFloor() {
 }
 
 @Composable
-private fun TurnPill(yours: Boolean, round: Int) {
+private fun TurnPill(yours: Boolean, round: Int, language: AppLanguage) {
     Surface(
         shape = RoundedCornerShape(50),
         color = if (yours) Gold.copy(alpha = 0.18f) else NightBlue.copy(alpha = 0.7f),
@@ -1421,7 +1450,7 @@ private fun TurnPill(yours: Boolean, round: Int) {
                     .background(if (yours) Gold else TextSecondary)
             )
             Text(
-                text = "RONDA $round",
+                text = "${t("round", language)} $round",
                 style = MaterialTheme.typography.labelMedium.copy(
                     color = if (yours) PureWhite else TextSecondary,
                     fontWeight = FontWeight.ExtraBold
@@ -1506,7 +1535,7 @@ private fun OpponentNode(
 }
 
 @Composable
-private fun YouNode(player: BattlePlayer, modifier: Modifier = Modifier) {
+private fun YouNode(player: BattlePlayer, language: AppLanguage, modifier: Modifier = Modifier) {
     val pct = (player.hp.toFloat() / GameRules.BATTLE_INITIAL_HP).coerceIn(0f, 1f)
 
     Column(
@@ -1530,7 +1559,7 @@ private fun YouNode(player: BattlePlayer, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "TÚ",
+                text = t("you", language).uppercase(),
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = PureWhite,
                     fontWeight = FontWeight.ExtraBold
@@ -1566,14 +1595,15 @@ private fun YouNode(player: BattlePlayer, modifier: Modifier = Modifier) {
 private fun HandCard(
     card: BattleHandCard,
     selected: Boolean,
+    language: AppLanguage,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     data class CardSkin(val top: Color, val bot: Color, val label: String, val icon: String)
     val skin = when (card.type) {
-        BattleCardType.ATTACK -> CardSkin(ChipRed, ChipRedDark, "ATAQUE", "ATK")
-        BattleCardType.SHIELD -> CardSkin(ShieldBlue, Color(0xFF2A78A8), "DEFENSA", "DEF")
-        BattleCardType.REBOUND -> CardSkin(ReflectPurple, Color(0xFF5C3DAB), "REBOTE", "R")
+        BattleCardType.ATTACK -> CardSkin(ChipRed, ChipRedDark, t("attack", language), "ATK")
+        BattleCardType.SHIELD -> CardSkin(ShieldBlue, Color(0xFF2A78A8), t("defense", language), "DEF")
+        BattleCardType.REBOUND -> CardSkin(ReflectPurple, Color(0xFF5C3DAB), t("rebound", language), "R")
     }
 
     Box(
@@ -1632,10 +1662,11 @@ private fun HandCard(
 @Composable
 fun DefeatView(
     battle: BattleUiState,
+    language: AppLanguage,
     onReturnToEntry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val placement = battle.placement?.let { "#$it" } ?: "Sin posicion"
+    val placement = battle.placement?.let { "#$it" } ?: "-"
     val lastRoundIndex = battle.log.indexOfLast { it.matches(Regex("Ronda \\d+.*")) }
     val lastEvents = if (lastRoundIndex >= 0) {
         battle.log.drop(lastRoundIndex)
@@ -1653,16 +1684,16 @@ fun DefeatView(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Eyebrow(text = "BATTLE ROYALE", color = ChipRed)
+            Eyebrow(text = t("battle_title", language), color = ChipRed)
             Spacer(Modifier.height(6.dp))
             DisplayRed(
-                text = "ELIMINADO",
+                text = t("eliminated_title", language),
                 fontSize = 42,
                 textAlign = TextAlign.Center
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Has perdido la partida. Revisa tu posicion y vuelve a la entrada cuando estes listo.",
+                text = t("defeat_description", language),
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = TextSecondary,
                     textAlign = TextAlign.Center
@@ -1686,7 +1717,7 @@ fun DefeatView(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "KO",
+                            text = t("ko", language),
                             style = MaterialTheme.typography.headlineLarge.copy(
                                 color = PureWhite,
                                 fontWeight = FontWeight.ExtraBold,
@@ -1698,7 +1729,7 @@ fun DefeatView(
                     Spacer(Modifier.width(18.dp))
 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Eyebrow(text = "POSICION FINAL", color = Gold)
+                        Eyebrow(text = t("final_position", language), color = Gold)
                         DisplayGold(
                             text = placement,
                             fontSize = 46,
@@ -1717,17 +1748,18 @@ fun DefeatView(
                         .padding(10.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Eyebrow(text = "ULTIMOS EVENTOS", color = Gold)
+                    Eyebrow(text = t("latest_events", language), color = Gold)
                     if (lastEvents.isEmpty()) {
                         Text(
-                            text = "No hay eventos registrados.",
+                            text = t("no_events", language),
                             style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                         )
                     } else {
                         lastEvents.forEach { event ->
                             val isRoundHeader = event.matches(Regex("Ronda \\d+.*"))
+                            val translatedEvent = AppI18n.message(event, language) ?: event
                             Text(
-                                text = if (isRoundHeader) event else "- $event",
+                                text = if (isRoundHeader) translatedEvent else "- $translatedEvent",
                                 style = if (isRoundHeader) {
                                     MaterialTheme.typography.labelMedium.copy(
                                         color = Gold,
@@ -1745,7 +1777,7 @@ fun DefeatView(
             Spacer(Modifier.height(8.dp))
 
             BigPushButtonInternal(
-                text = "VOLVER A LA ENTRADA",
+                text = t("return_entry", language),
                 color = Gold,
                 onClick = onReturnToEntry,
                 modifier = Modifier.fillMaxWidth()
@@ -1764,6 +1796,7 @@ fun VictoryView(
     market: MarketUiState,
     onSelectToken: (TokenId) -> Unit,
     onResetCycle: () -> Unit,
+    language: AppLanguage = com.fichestu.frontend.data.repository.SessionStore.language(),
     modifier: Modifier = Modifier
 ) {
     val multiplier = battle.winningMultiplier ?: 1.0
@@ -1781,19 +1814,19 @@ fun VictoryView(
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Eyebrow(
-                text = "LAST CHIP STANDING",
+                text = t("last_chip", language),
                 color = Gold
             )
             DisplayGold(
-                text = if (isUserWinner) "¡VICTORIA!" else "DERROTA",
+                text = if (isUserWinner) t("victory", language) else t("defeat", language),
                 fontSize = 56,
                 textAlign = TextAlign.Center
             )
             Text(
                 text = if (isUserWinner)
-                    "Tu multiplicador se aplica al token seleccionado."
+                    t("choose_target_token", language)
                 else
-                    "${battle.winnerName ?: "Otro"} aplica el multiplicador.",
+                    "${battle.winnerName ?: "Bot"} ${t("winner_applies", language)}",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = TextSecondary,
                     textAlign = TextAlign.Center
@@ -1815,12 +1848,12 @@ fun VictoryView(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "WIN",
+                            text = t("win", language),
                             style = MaterialTheme.typography.headlineMedium.copy(fontSize = 32.sp)
                         )
                     }
                     Column(modifier = Modifier.weight(1f)) {
-                        Eyebrow(text = "MULTIPLICADOR")
+                        Eyebrow(text = t("multiplier", language))
                         DisplayRed(
                             text = "x${"%.2f".format(multiplier)}",
                             fontSize = 48
@@ -1830,7 +1863,7 @@ fun VictoryView(
             }
 
             // Token list (read-only - engine ya aplicó el impacto al ganador)
-            Eyebrow(text = "TOKENS DEL MERCADO", color = Gold)
+            Eyebrow(text = t("market_tokens", language), color = Gold)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(count = market.tokens.size) { idx ->
                     val token = market.tokens[idx]
@@ -1887,7 +1920,7 @@ fun VictoryView(
             Spacer(Modifier.weight(1f))
 
             BigPushButtonInternal(
-                text = "NUEVO CICLO >",
+                text = t("new_cycle", language),
                 color = Gold,
                 onClick = onResetCycle,
                 modifier = Modifier.fillMaxWidth()
@@ -1900,6 +1933,7 @@ fun VictoryView(
 fun VictoryChoiceView(
     battle: BattleUiState,
     market: MarketUiState,
+    language: AppLanguage,
     onSelectToken: (TokenId) -> Unit,
     onResetCycle: () -> Unit,
     modifier: Modifier = Modifier
@@ -1919,17 +1953,17 @@ fun VictoryChoiceView(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Eyebrow(text = if (isUserWinner) "LAST CHIP STANDING" else "BATTLE ROYALE", color = Gold)
+            Eyebrow(text = if (isUserWinner) t("last_chip", language) else t("battle_title", language), color = Gold)
             DisplayGold(
-                text = if (isUserWinner) "VICTORIA" else "DERROTA",
+                text = if (isUserWinner) t("victory", language) else t("defeat", language),
                 fontSize = 54,
                 textAlign = TextAlign.Center
             )
             Text(
                 text = if (isUserWinner) {
-                    "Elige la ficha del mercado donde quieres aplicar tu multiplicador."
+                    t("choose_target_token", language)
                 } else {
-                    "${battle.winnerName ?: "Otro"} aplica el multiplicador."
+                    "${battle.winnerName ?: "Bot"} ${t("winner_applies", language)}"
                 },
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = TextSecondary,
@@ -1951,7 +1985,7 @@ fun VictoryChoiceView(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (isUserWinner) "WIN" else "KO",
+                            text = if (isUserWinner) t("win", language) else t("ko", language),
                             style = MaterialTheme.typography.headlineMedium.copy(
                                 color = NightBlue,
                                 fontWeight = FontWeight.ExtraBold,
@@ -1960,13 +1994,13 @@ fun VictoryChoiceView(
                         )
                     }
                     Column(modifier = Modifier.weight(1f)) {
-                        Eyebrow(text = "MULTIPLICADOR", color = Gold)
+                        Eyebrow(text = t("multiplier", language), color = Gold)
                         DisplayRed(
                             text = "x${"%.2f".format(multiplier)}",
                             fontSize = 46
                         )
                         Text(
-                            text = if (isUserWinner) "Objetivo actual: $selectedTokenName" else "Impacto del ganador",
+                            text = if (isUserWinner) "${t("current_target", language)}: $selectedTokenName" else t("winner_impact", language),
                             style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                         )
                     }
@@ -1974,7 +2008,7 @@ fun VictoryChoiceView(
             }
 
             Eyebrow(
-                text = if (isUserWinner) "ELIGE FICHA OBJETIVO" else "TOKENS DEL MERCADO",
+                text = if (isUserWinner) t("choose_target", language) else t("market_tokens", language),
                 color = Gold
             )
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -2003,7 +2037,7 @@ fun VictoryChoiceView(
                         verticalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         if (isTarget) {
-                            Eyebrow(text = "OBJETIVO", color = Gold)
+                            Eyebrow(text = t("objective", language), color = Gold)
                         }
                         Text(
                             text = token.displayName,
@@ -2035,7 +2069,7 @@ fun VictoryChoiceView(
 
             if (isUserWinner) {
                 Text(
-                    text = "Seleccionada: $selectedTokenName",
+                    text = "${t("selected", language)}: $selectedTokenName",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = Gold,
                         fontWeight = FontWeight.Bold,
@@ -2047,7 +2081,7 @@ fun VictoryChoiceView(
             Spacer(Modifier.weight(1f))
 
             BigPushButtonInternal(
-                text = if (isUserWinner) "APLICAR A ${selectedToken.name} Y NUEVO CICLO >" else "NUEVO CICLO >",
+                text = if (isUserWinner) t("apply_new_cycle", language) else t("new_cycle", language),
                 color = Gold,
                 onClick = onResetCycle,
                 modifier = Modifier.fillMaxWidth()

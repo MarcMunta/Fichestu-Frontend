@@ -70,7 +70,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -83,7 +82,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import com.fichestu.frontend.R
+import com.fichestu.frontend.data.i18n.AppI18n
+import com.fichestu.frontend.game.model.AppLanguage
 import com.fichestu.frontend.game.GameRules
 import com.fichestu.frontend.game.engine.GameEngine
 import com.fichestu.frontend.game.model.BallOption
@@ -180,6 +180,7 @@ fun FichestuGameScreen(
                 totalBalance = uiState.market.totalBalance,
                 notificationCount = uiState.unreadNotificationCount,
                 notificationsOpen = notificationTrayOpen,
+                language = uiState.appLanguage,
                 onToggleNotifications = {
                     val willOpen = !notificationTrayOpen
                     notificationTrayOpen = willOpen
@@ -209,6 +210,7 @@ fun FichestuGameScreen(
                             market = uiState.market,
                             rewardedAvailable = uiState.rewardedAvailable,
                             rewardedCooldownSec = uiState.rewardedCooldownSec,
+                            language = uiState.appLanguage,
                             onSelectToken = viewModel::selectToken,
                             onBuy = viewModel::buySelectedToken,
                             onSell = viewModel::sellSelectedToken,
@@ -223,6 +225,7 @@ fun FichestuGameScreen(
                                 BallRoomFlow(
                                     ballRoom = uiState.ballRoom,
                                     cashBalance = uiState.market.cashBalance,
+                                    language = uiState.appLanguage,
                                     isInRoom = uiState.currentMatchId != null ||
                                         uiState.ballRoom.players.any { it.isUser },
                                     onEnterRoom = viewModel::enterBallRoom,
@@ -237,6 +240,7 @@ fun FichestuGameScreen(
                                 BattleFlow(
                                     battle = uiState.battle,
                                     market = uiState.market,
+                                    language = uiState.appLanguage,
                                     onSelectAction = viewModel::chooseBattleAction,
                                     onSelectCard = viewModel::chooseBattleCard,
                                     onSelectTarget = viewModel::chooseBattleTarget,
@@ -257,6 +261,8 @@ fun FichestuGameScreen(
                             onConfirmPasswordChange = viewModel::updateConfirmPassword,
                             onChangePassword = viewModel::changePassword,
                             onUploadAvatar = viewModel::uploadProfileAvatar,
+                            appLanguage = uiState.appLanguage,
+                            onLanguageChange = viewModel::changeLanguage,
                             onLogout = { viewModel.abandonActiveMatchForExit(onLogout) }
                         )
                     }
@@ -265,6 +271,7 @@ fun FichestuGameScreen(
 
             BottomGameNav(
                 activeTab = visibleTab,
+                language = uiState.appLanguage,
                 onSelect = viewModel::selectTab
             )
         }
@@ -278,7 +285,8 @@ fun FichestuGameScreen(
             exit = fadeOut(tween(180))
         ) {
             NotificationToast(
-                text = uiState.transientMessage.orEmpty(),
+                text = AppI18n.message(uiState.transientMessage, uiState.appLanguage)
+                    ?: uiState.transientMessage.orEmpty(),
                 modifier = Modifier
                     .heightIn(min = 42.dp)
             )
@@ -294,6 +302,7 @@ fun FichestuGameScreen(
         ) {
             NotificationTray(
                 notifications = uiState.notifications,
+                language = uiState.appLanguage,
                 onClear = {
                     viewModel.clearNotifications()
                     notificationTrayOpen = false
@@ -310,6 +319,7 @@ private fun GameTopBar(
     totalBalance: Double,
     notificationCount: Int,
     notificationsOpen: Boolean,
+    language: AppLanguage,
     onToggleNotifications: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -330,7 +340,7 @@ private fun GameTopBar(
                 if (!profilePicUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = profilePicUrl,
-                        contentDescription = "Foto de perfil",
+                        contentDescription = AppI18n.text("change_photo", language),
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
@@ -352,7 +362,7 @@ private fun GameTopBar(
                     outlineColor = DeepBlue
                 )
                 Text(
-                    text = "Saldo total: ${formatCurrency(totalBalance)}",
+                    text = "${AppI18n.text("balance_total", language)}: ${formatCurrency(totalBalance)}",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = Gold,
                         fontWeight = FontWeight.SemiBold
@@ -390,7 +400,7 @@ private fun GameTopBar(
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
-                        text = "SALIR",
+                        text = AppI18n.text("exit", language),
                         maxLines = 1,
                         style = MaterialTheme.typography.labelLarge.copy(
                             color = PureWhite,
@@ -513,6 +523,7 @@ private fun NotificationToast(
 @Composable
 private fun NotificationTray(
     notifications: List<NotificationUi>,
+    language: AppLanguage,
     onClear: () -> Unit
 ) {
     Surface(
@@ -543,7 +554,7 @@ private fun NotificationTray(
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = "Notificaciones",
+                        text = AppI18n.text("notifications", language),
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = PureWhite,
                             fontWeight = FontWeight.ExtraBold
@@ -553,7 +564,7 @@ private fun NotificationTray(
 
                 if (notifications.isNotEmpty()) {
                     Text(
-                        text = "LIMPIAR",
+                        text = AppI18n.text("clear", language),
                         modifier = Modifier.clickable(onClick = onClear),
                         style = MaterialTheme.typography.labelSmall.copy(
                             color = Gold,
@@ -566,7 +577,7 @@ private fun NotificationTray(
 
             if (notifications.isEmpty()) {
                 Text(
-                    text = "Sin notificaciones por ahora.",
+                    text = AppI18n.text("no_notifications", language),
                     style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
                 )
             } else {
@@ -626,6 +637,7 @@ private fun DashboardTab(
     market: MarketUiState,
     rewardedAvailable: Boolean,
     rewardedCooldownSec: Int,
+    language: AppLanguage,
     onSelectToken: (TokenId) -> Unit,
     onBuy: () -> Unit,
     onSell: () -> Unit,
@@ -641,7 +653,7 @@ private fun DashboardTab(
     ) {
         item {
             BubbleText(
-                text = "Mercado de Fichas",
+                text = AppI18n.text("market_title", language),
                 style = MaterialTheme.typography.displaySmall.copy(fontSize = 30.sp),
                 fillColor = Gold,
                 outlineColor = DeepBlue
@@ -659,11 +671,13 @@ private fun DashboardTab(
                         SelectedTokenPanel(
                             token = selected,
                             resetCountdown = market.resetCountdownLabel,
+                            language = language,
                             modifier = Modifier.weight(1.5f)
                         )
                         TokenSidePanel(
                             tokens = market.tokens,
                             selectedId = market.selectedToken,
+                            language = language,
                             onSelectToken = onSelectToken,
                             modifier = Modifier.weight(1f)
                         )
@@ -673,11 +687,13 @@ private fun DashboardTab(
                         SelectedTokenPanel(
                             token = selected,
                             resetCountdown = market.resetCountdownLabel,
+                            language = language,
                             modifier = Modifier.fillMaxWidth()
                         )
                         TokenSidePanel(
                             tokens = market.tokens,
                             selectedId = market.selectedToken,
+                            language = language,
                             onSelectToken = onSelectToken,
                             modifier = Modifier.fillMaxWidth()
                         )
@@ -689,7 +705,7 @@ private fun DashboardTab(
         item {
             ArcadePanel {
                 Text(
-                    text = "Acciones Rápidas",
+                    text = AppI18n.text("quick_actions", language),
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = PureWhite,
                         fontWeight = FontWeight.Bold
@@ -698,12 +714,12 @@ private fun DashboardTab(
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     ArcadePrimaryButton(
-                        text = "BUY 1",
+                        text = AppI18n.text("buy_1", language),
                         modifier = Modifier.weight(1f),
                         onClick = onBuy
                     )
                     ArcadeSecondaryButton(
-                        text = "SELL 1",
+                        text = AppI18n.text("sell_1", language),
                         modifier = Modifier.weight(1f),
                         onClick = onSell
                     )
@@ -720,7 +736,7 @@ private fun DashboardTab(
                 )
                 Spacer(Modifier.height(10.dp))
                 ArcadeSecondaryButton(
-                    text = "Jugar pagando 10 FTC",
+                    text = AppI18n.text("play_paying_10", language),
                     onClick = onOpenBallRoom
                 )
             }
@@ -729,17 +745,17 @@ private fun DashboardTab(
         item {
             ArcadePanel {
                 Text(
-                    text = "Reglas Críticas del Mercado",
+                    text = AppI18n.text("market_rules", language),
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = Gold,
                         fontWeight = FontWeight.Bold
                     )
                 )
                 Spacer(Modifier.height(8.dp))
-                RuleLine("Cron diario 00:00 vende todas tus fichas a saldo.")
-                RuleLine("Tras reset diario, cada precio base cae entre 5 y 500 FTC.")
-                RuleLine("El ganador del Battle aplica su multiplicador al token seleccionado.")
-                RuleLine("Sala de bolas: 10 jugadores y 50 bolas únicas.")
+                RuleLine(AppI18n.text("market_rule_1", language))
+                RuleLine(AppI18n.text("market_rule_2", language))
+                RuleLine(AppI18n.text("market_rule_3", language))
+                RuleLine(AppI18n.text("market_rule_4", language))
             }
         }
     }
@@ -749,6 +765,7 @@ private fun DashboardTab(
 private fun SelectedTokenPanel(
     token: MarketToken,
     resetCountdown: String,
+    language: AppLanguage,
     modifier: Modifier = Modifier
 ) {
     val positive = token.changePercent >= 0
@@ -791,7 +808,7 @@ private fun SelectedTokenPanel(
                 )
             }
             StatusTicker(
-                text = "Reset: $resetCountdown",
+                text = "${AppI18n.text("reset", language)}: $resetCountdown",
                 modifier = Modifier.width(148.dp)
             )
         }
@@ -816,14 +833,14 @@ private fun SelectedTokenPanel(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "Holdings: ${token.holdings}",
+                text = "${AppI18n.text("holdings", language)}: ${token.holdings}",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = PureWhite,
                     fontWeight = FontWeight.SemiBold
                 )
             )
             Text(
-                text = "Valor: ${formatCurrency(token.portfolioValue)}",
+                text = "${AppI18n.text("value", language)}: ${formatCurrency(token.portfolioValue)}",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = Gold,
                     fontWeight = FontWeight.Bold
@@ -837,12 +854,13 @@ private fun SelectedTokenPanel(
 private fun TokenSidePanel(
     tokens: List<MarketToken>,
     selectedId: TokenId,
+    language: AppLanguage,
     onSelectToken: (TokenId) -> Unit,
     modifier: Modifier = Modifier
 ) {
     ArcadePanel(modifier = modifier) {
         Text(
-            text = "Panel Lateral",
+            text = AppI18n.text("side_panel", language),
             style = MaterialTheme.typography.titleMedium.copy(
                 color = Gold,
                 fontWeight = FontWeight.Bold
@@ -937,7 +955,7 @@ private fun BallRoomTab(
     ) {
         item {
             BubbleText(
-                text = "Sorteo de Bolas",
+                text = AppI18n.text("ball_draw"),
                 style = MaterialTheme.typography.displaySmall.copy(fontSize = 30.sp),
                 fillColor = Gold,
                 outlineColor = DeepBlue
@@ -947,7 +965,7 @@ private fun BallRoomTab(
         item {
             ArcadePanel {
                 Text(
-                    text = "Entrada: ${GameRules.BALL_ENTRY_COST.toInt()} FTC | Sala: ${GameRules.ROOM_SIZE} jugadores | Bolas: ${GameRules.BALL_COUNT}",
+                    text = "${AppI18n.text("entry")}: ${GameRules.BALL_ENTRY_COST.toInt()} FTC | ${AppI18n.text("room")}: ${GameRules.ROOM_SIZE} ${AppI18n.text("players").lowercase()} | ${AppI18n.text("balls")}: ${GameRules.BALL_COUNT}",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = PureWhite,
                         fontWeight = FontWeight.SemiBold
@@ -955,7 +973,7 @@ private fun BallRoomTab(
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "Multiplicadores ocultos entre x${GameRules.MULTIPLIER_MIN} y x${GameRules.MULTIPLIER_MAX.toInt()}.",
+                    text = "${AppI18n.text("hidden_multipliers")} ${AppI18n.text("between")} x${GameRules.MULTIPLIER_MIN} y x${GameRules.MULTIPLIER_MAX.toInt()}.",
                     style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                 )
                 Spacer(Modifier.height(6.dp))
@@ -967,7 +985,7 @@ private fun BallRoomTab(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = "Saldo actual: ${formatCurrency(cashBalance)}",
+                    text = "${AppI18n.text("current_balance")}: ${formatCurrency(cashBalance)}",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = Gold,
                         fontWeight = FontWeight.Bold
@@ -979,7 +997,7 @@ private fun BallRoomTab(
         if (ballRoom.phase == BallRoomPhase.WAITING_ENTRY) {
             item {
                 ArcadePrimaryButton(
-                    text = "PAGAR ENTRADA Y ABRIR SALA",
+                    text = AppI18n.text("pay_open_room"),
                     onClick = onEnterRoom
                 )
             }
@@ -987,7 +1005,7 @@ private fun BallRoomTab(
             item {
                 ArcadePanel {
                     Text(
-                        text = "Jugadores",
+                        text = AppI18n.text("players"),
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = Gold,
                             fontWeight = FontWeight.Bold
@@ -1010,7 +1028,7 @@ private fun BallRoomTab(
             item {
                 ArcadePanel {
                     Text(
-                        text = "Elige tu bola",
+                        text = AppI18n.text("choose_ball"),
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = PureWhite,
                             fontWeight = FontWeight.Bold
@@ -1028,7 +1046,7 @@ private fun BallRoomTab(
             if (ballRoom.phase == BallRoomPhase.PICKING && ballRoom.canRevealBattle) {
                 item {
                     ArcadePrimaryButton(
-                        text = "REVELAR MULTIPLICADORES",
+                        text = AppI18n.text("reveal_multipliers"),
                         onClick = onRevealMultipliers
                     )
                 }
@@ -1037,7 +1055,7 @@ private fun BallRoomTab(
             if (ballRoom.phase == BallRoomPhase.REVEALED) {
                 item {
                     ArcadePrimaryButton(
-                        text = "IR A BATTLE ROYALE",
+                        text = AppI18n.text("go_battle"),
                         onClick = onOpenBattle
                     )
                 }
@@ -1127,7 +1145,7 @@ private fun PlayerBallStatusItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (isUser) "$nickname (Tu)" else nickname,
+                text = if (isUser) "$nickname (${AppI18n.text("you_suffix")})" else nickname,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = PureWhite,
                     fontWeight = FontWeight.SemiBold
@@ -1136,8 +1154,8 @@ private fun PlayerBallStatusItem(
 
             val status = when {
                 multiplier != null -> "x${"%.2f".format(Locale.US, multiplier)}"
-                ballId != null -> "Bola $ballId"
-                else -> "Sin bola"
+                ballId != null -> "${AppI18n.text("ball")} $ballId"
+                else -> AppI18n.text("no_ball")
             }
             Text(
                 text = status,
@@ -1165,7 +1183,7 @@ private fun BattleTab(
     ) {
         item {
             BubbleText(
-                text = "Battle Royale",
+                text = AppI18n.text("battle_title"),
                 style = MaterialTheme.typography.displaySmall.copy(fontSize = 30.sp),
                 fillColor = Gold,
                 outlineColor = DeepBlue
@@ -1176,7 +1194,7 @@ private fun BattleTab(
             ArcadePanel {
                 val alive = battle.players.count { it.isAlive }
                 Text(
-                    text = "Ronda ${battle.round} | Vivos: $alive | Token objetivo: ${selectedTokenId.name}",
+                    text = "${AppI18n.text("round")} ${battle.round} | ${AppI18n.text("alive")}: $alive | ${AppI18n.text("target_token")}: ${selectedTokenId.name}",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = PureWhite,
                         fontWeight = FontWeight.SemiBold
@@ -1185,12 +1203,12 @@ private fun BattleTab(
                 Spacer(Modifier.height(8.dp))
                 if (battle.phase == BattlePhase.LOCKED) {
                     Text(
-                        text = "Completa antes el sorteo de bolas para desbloquear esta fase.",
+                        text = AppI18n.text("battle_locked_hint"),
                         style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
                     )
                 } else {
                     Text(
-                        text = "HP inicial obligatorio: ${GameRules.BATTLE_INITIAL_HP}. Ataques entre ${GameRules.BATTLE_ATTACK_MIN} y ${GameRules.BATTLE_ATTACK_MAX}.",
+                        text = "${AppI18n.text("initial_hp_rule")}: ${GameRules.BATTLE_INITIAL_HP}. ${AppI18n.text("attacks_between")} ${GameRules.BATTLE_ATTACK_MIN} y ${GameRules.BATTLE_ATTACK_MAX}.",
                         style = MaterialTheme.typography.bodySmall.copy(color = TextSecondary)
                     )
                 }
@@ -1201,7 +1219,7 @@ private fun BattleTab(
             item {
                 ArcadePanel {
                     Text(
-                        text = "Elige tu carta",
+                        text = AppI18n.text("choose_card"),
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = Gold,
                             fontWeight = FontWeight.Bold
@@ -1210,19 +1228,19 @@ private fun BattleTab(
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ActionCardButton(
-                            label = "ATAQUE",
+                            label = AppI18n.text("attack"),
                             selected = battle.selectedAction == BattleCardType.ATTACK,
                             modifier = Modifier.weight(1f),
                             onClick = { onSelectAction(BattleCardType.ATTACK) }
                         )
                         ActionCardButton(
-                            label = "ESCUDO",
+                            label = AppI18n.text("defense"),
                             selected = battle.selectedAction == BattleCardType.SHIELD,
                             modifier = Modifier.weight(1f),
                             onClick = { onSelectAction(BattleCardType.SHIELD) }
                         )
                         ActionCardButton(
-                            label = "REBOTE",
+                            label = AppI18n.text("rebound"),
                             selected = battle.selectedAction == BattleCardType.REBOUND,
                             modifier = Modifier.weight(1f),
                             onClick = { onSelectAction(BattleCardType.REBOUND) }
@@ -1230,7 +1248,7 @@ private fun BattleTab(
                     }
                     Spacer(Modifier.height(10.dp))
                     ArcadePrimaryButton(
-                        text = if (battle.phase == BattlePhase.FINISHED) "BATTLE FINALIZADO" else "JUGAR RONDA",
+                        text = if (battle.phase == BattlePhase.FINISHED) AppI18n.text("battle_finished") else AppI18n.text("play_round"),
                         enabled = battle.phase != BattlePhase.FINISHED,
                         onClick = onPlayRound
                     )
@@ -1241,7 +1259,7 @@ private fun BattleTab(
                 item {
                     ArcadePanel {
                         Text(
-                            text = "Interstitial listo: aqui puedes lanzar anuncio entre rondas.",
+                            text = AppI18n.text("interstitial_ready"),
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = Gold,
                                 fontWeight = FontWeight.SemiBold
@@ -1254,7 +1272,7 @@ private fun BattleTab(
             item {
                 ArcadePanel {
                     Text(
-                        text = "Estado de jugadores",
+                        text = AppI18n.text("player_status"),
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = PureWhite,
                             fontWeight = FontWeight.Bold
@@ -1272,7 +1290,7 @@ private fun BattleTab(
             item {
                 ArcadePanel {
                     Text(
-                        text = "Log del combate",
+                        text = AppI18n.text("combat_log"),
                         style = MaterialTheme.typography.titleMedium.copy(
                             color = Gold,
                             fontWeight = FontWeight.Bold
@@ -1296,7 +1314,7 @@ private fun BattleTab(
             item {
                 ArcadePanel {
                     BubbleText(
-                        text = battle.winnerName?.let { "Winner: $it" } ?: "Sin ganador",
+                        text = battle.winnerName?.let { "${AppI18n.text("winner")}: $it" } ?: AppI18n.text("no_winner"),
                         style = MaterialTheme.typography.headlineMedium,
                         fillColor = Gold,
                         outlineColor = DeepBlue
@@ -1304,15 +1322,15 @@ private fun BattleTab(
                     Spacer(Modifier.height(8.dp))
                     Text(
                         text = if (battle.winningMultiplier != null) {
-                            "Impacto aplicado al mercado con x${"%.2f".format(Locale.US, battle.winningMultiplier)}."
+                            "${AppI18n.text("market_impact_applied")} con x${"%.2f".format(Locale.US, battle.winningMultiplier)}."
                         } else {
-                            "No se aplico impacto por empate total."
+                            AppI18n.text("no_market_impact")
                         },
                         style = MaterialTheme.typography.bodyMedium.copy(color = PureWhite)
                     )
                     Spacer(Modifier.height(10.dp))
                     ArcadeSecondaryButton(
-                        text = "NUEVO CICLO",
+                        text = AppI18n.text("new_cycle"),
                         onClick = onResetCycle
                     )
                 }
@@ -1373,7 +1391,7 @@ private fun BattlePlayerItem(player: BattlePlayer) {
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = if (player.isUser) "${player.nickname} (Tu)" else player.nickname,
+                    text = if (player.isUser) "${player.nickname} (${AppI18n.text("you_suffix")})" else player.nickname,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = PureWhite,
                         fontWeight = FontWeight.SemiBold
@@ -1407,7 +1425,7 @@ private fun BattlePlayerItem(player: BattlePlayer) {
 
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "Multiplicador: x${"%.2f".format(Locale.US, player.multiplier)}",
+                text = "${AppI18n.text("multiplier")}: x${"%.2f".format(Locale.US, player.multiplier)}",
                 style = MaterialTheme.typography.labelSmall.copy(
                     color = TextSecondary,
                     fontWeight = FontWeight.SemiBold
@@ -1436,7 +1454,7 @@ private fun LegacyProfileTab(
     ) {
         item {
             BubbleText(
-                text = "Perfil",
+                text = AppI18n.text("nav_profile"),
                 style = MaterialTheme.typography.displaySmall.copy(fontSize = 30.sp),
                 fillColor = Gold,
                 outlineColor = DeepBlue
@@ -1453,7 +1471,7 @@ private fun LegacyProfileTab(
                     if (!profile.profilePicUrl.isNullOrBlank()) {
                         AsyncImage(
                             model = profile.profilePicUrl,
-                            contentDescription = "Foto de perfil",
+                            contentDescription = AppI18n.text("profile_pic"),
                             modifier = Modifier
                                 .size(76.dp)
                                 .clip(CircleShape)
@@ -1491,7 +1509,7 @@ private fun LegacyProfileTab(
                             )
                         )
                         Text(
-                            text = "Rol: ${profile.role}",
+                            text = "${AppI18n.text("role")}: ${profile.role}",
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = Gold,
                                 fontWeight = FontWeight.Bold
@@ -1505,7 +1523,7 @@ private fun LegacyProfileTab(
         item {
             ArcadePanel {
                 Text(
-                    text = "Editar perfil",
+                    text = AppI18n.text("edit_profile"),
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = Gold,
                         fontWeight = FontWeight.Bold
@@ -1514,7 +1532,7 @@ private fun LegacyProfileTab(
                 Spacer(Modifier.height(8.dp))
                 ArcadeTextField(
                     value = profile.editUsername,
-                    label = "Username",
+                    label = AppI18n.text("username"),
                     leading = Icons.Default.Person,
                     keyboardType = KeyboardType.Text,
                     onValueChange = onUsernameChange
@@ -1522,14 +1540,14 @@ private fun LegacyProfileTab(
                 Spacer(Modifier.height(8.dp))
                 ArcadeTextField(
                     value = profile.editEmail,
-                    label = "Email",
+                    label = AppI18n.text("email"),
                     leading = Icons.Default.Email,
                     keyboardType = KeyboardType.Email,
                     onValueChange = onEmailChange
                 )
                 Spacer(Modifier.height(10.dp))
                 ArcadePrimaryButton(
-                    text = if (profile.isSavingProfile) "GUARDANDO..." else "GUARDAR CAMBIOS",
+                    text = if (profile.isSavingProfile) AppI18n.text("saving") else AppI18n.text("save_changes"),
                     enabled = !profile.isSavingProfile,
                     onClick = onSaveProfile
                 )
@@ -1539,7 +1557,7 @@ private fun LegacyProfileTab(
         item {
             ArcadePanel {
                 Text(
-                    text = "Cambiar contraseña",
+                    text = AppI18n.text("change_password"),
                     style = MaterialTheme.typography.titleMedium.copy(
                         color = Gold,
                         fontWeight = FontWeight.Bold
@@ -1548,7 +1566,7 @@ private fun LegacyProfileTab(
                 Spacer(Modifier.height(8.dp))
                 ArcadeTextField(
                     value = profile.currentPassword,
-                    label = "Contraseña actual (si tienes una)",
+                    label = AppI18n.text("current_password"),
                     leading = Icons.Default.Lock,
                     keyboardType = KeyboardType.Password,
                     isPassword = true,
@@ -1557,7 +1575,7 @@ private fun LegacyProfileTab(
                 Spacer(Modifier.height(8.dp))
                 ArcadeTextField(
                     value = profile.newPassword,
-                    label = "Nueva contraseña",
+                    label = AppI18n.text("new_password"),
                     leading = Icons.Default.Lock,
                     keyboardType = KeyboardType.Password,
                     isPassword = true,
@@ -1566,7 +1584,7 @@ private fun LegacyProfileTab(
                 Spacer(Modifier.height(8.dp))
                 ArcadeTextField(
                     value = profile.confirmPassword,
-                    label = "Repite contraseña",
+                    label = AppI18n.text("repeat_password"),
                     leading = Icons.Default.Lock,
                     keyboardType = KeyboardType.Password,
                     isPassword = true,
@@ -1574,7 +1592,7 @@ private fun LegacyProfileTab(
                 )
                 Spacer(Modifier.height(10.dp))
                 ArcadePrimaryButton(
-                    text = if (profile.isSavingPassword) "ACTUALIZANDO..." else "ACTUALIZAR CONTRASEÑA",
+                    text = if (profile.isSavingPassword) AppI18n.text("updating") else AppI18n.text("update_password"),
                     enabled = !profile.isSavingPassword,
                     onClick = onChangePassword
                 )
@@ -1583,7 +1601,7 @@ private fun LegacyProfileTab(
 
         item {
             ArcadeSecondaryButton(
-                text = "CERRAR SESIÓN",
+                text = AppI18n.text("logout"),
                 onClick = onLogout
             )
         }
@@ -1635,12 +1653,13 @@ private fun RuleLine(text: String) {
 @Composable
 private fun BottomGameNav(
     activeTab: MainTab,
+    language: AppLanguage,
     onSelect: (MainTab) -> Unit
 ) {
     val items = listOf(
-        BottomItem(MainTab.DASHBOARD, stringResource(R.string.nav_market), Icons.Default.Home),
-        BottomItem(MainTab.BALL_ROOM, stringResource(R.string.nav_balls), Icons.Default.Casino),
-        BottomItem(MainTab.PROFILE, stringResource(R.string.nav_profile), Icons.Default.Person)
+        BottomItem(MainTab.DASHBOARD, AppI18n.text("nav_market", language), Icons.Default.Home),
+        BottomItem(MainTab.BALL_ROOM, AppI18n.text("nav_balls", language), Icons.Default.Casino),
+        BottomItem(MainTab.PROFILE, AppI18n.text("nav_profile", language), Icons.Default.Person)
     )
 
     ArcadePanel(contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)) {

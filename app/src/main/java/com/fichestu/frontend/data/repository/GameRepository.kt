@@ -1,5 +1,6 @@
 package com.fichestu.frontend.data.repository
 
+import com.fichestu.frontend.data.i18n.AppI18n
 import com.fichestu.frontend.data.model.BallOptionDto
 import com.fichestu.frontend.data.model.BallPlayerDto
 import com.fichestu.frontend.data.model.BallRoomDto
@@ -545,7 +546,7 @@ class GameRepository {
             throw SessionExpiredException()
         }
         if (success && body != null) return body
-        throw Exception(extractMessage(errorRaw) ?: "Error de servidor")
+        throw Exception(AppI18n.message(extractMessage(errorRaw)) ?: AppI18n.text("server_error"))
     }
 
     private fun extractMessage(rawError: String?): String? {
