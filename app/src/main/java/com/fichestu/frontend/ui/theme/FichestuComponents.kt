@@ -268,7 +268,7 @@ fun ChipAuthTabs(
             onClick  = { onSelect(AuthTab.LOGIN) }
         )
         ChipTabItem(
-            label    = "REGISTRO",
+            label    = "REGISTER",
             isActive = selected == AuthTab.REGISTER,
             enabled  = enabled,
             modifier = Modifier.weight(1f),

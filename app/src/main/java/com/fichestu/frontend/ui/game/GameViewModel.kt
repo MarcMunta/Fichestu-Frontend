@@ -152,6 +152,27 @@ class GameViewModel(
                 )
             )
         }
+        viewModelScope.launch {
+            val result = profileRepository.saveLanguage(_uiState.value, language)
+            result.onSuccess { nextState ->
+                _uiState.update { current ->
+                    current.copy(
+                        appLanguage = nextState.appLanguage,
+                        profile = nextState.profile,
+                        transientMessage = nextState.transientMessage
+                    )
+                }
+            }
+            result.onFailure { error ->
+                if (error is SessionExpiredException) {
+                    expireSession(error)
+                    return@onFailure
+                }
+                _uiState.update { state ->
+                    state.copy(transientMessage = AppI18n.message(error.message, state.appLanguage) ?: error.message)
+                }
+            }
+        }
     }
 
     fun selectTab(tab: MainTab) {
@@ -650,7 +671,7 @@ class GameViewModel(
                         hand = emptyList(),
                         selectedCardId = null,
                         selectedTargetId = null,
-                    log = battle.log + roundLog + "Has quedado en posicion #$placement."
+                    log = battle.log + roundLog + "Has quedado en posición #$placement."
                     ),
                     transientMessage = AppI18n.text("eliminated_back")
                 )
@@ -856,6 +877,7 @@ class GameViewModel(
             result.onSuccess { nextState ->
                 _uiState.update { current ->
                     current.copy(
+                        appLanguage = nextState.appLanguage,
                         profile = nextState.profile,
                         transientMessage = nextState.transientMessage
                     )

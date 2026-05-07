@@ -373,12 +373,13 @@ private fun GameTopBar(
             NotificationBell(
                 count = notificationCount,
                 isOpen = notificationsOpen,
+                language = language,
                 onClick = onToggleNotifications
             )
 
             Surface(
                 modifier = Modifier
-                    .width(106.dp)
+                    .width(124.dp)
                     .height(52.dp)
                     .clickable(onClick = onLogout),
                 shape = RoundedCornerShape(8.dp),
@@ -417,6 +418,7 @@ private fun GameTopBar(
 private fun NotificationBell(
     count: Int,
     isOpen: Boolean,
+    language: AppLanguage,
     onClick: () -> Unit
 ) {
     Box {
@@ -439,7 +441,7 @@ private fun NotificationBell(
             ) {
                 Icon(
                     imageVector = Icons.Default.Notifications,
-                    contentDescription = "Notificaciones",
+                    contentDescription = AppI18n.text("notifications", language),
                     tint = if (isOpen) Gold else PureWhite,
                     modifier = Modifier.size(23.dp)
                 )
@@ -586,6 +588,8 @@ private fun NotificationTray(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(notifications, key = { it.id }) { notification ->
+                        val title = AppI18n.message(notification.title, language) ?: notification.title
+                        val message = AppI18n.message(notification.message, language) ?: notification.message
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(14.dp),
@@ -601,7 +605,7 @@ private fun NotificationTray(
                                     .padding(10.dp)
                             ) {
                                 Text(
-                                    text = notification.title,
+                                    text = title,
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         color = PureWhite,
                                         fontWeight = FontWeight.ExtraBold
@@ -609,7 +613,7 @@ private fun NotificationTray(
                                 )
                                 Spacer(Modifier.height(3.dp))
                                 Text(
-                                    text = notification.message,
+                                    text = message,
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = TextSecondary,
                                         lineHeight = 16.sp
@@ -978,7 +982,7 @@ private fun BallRoomTab(
                 )
                 Spacer(Modifier.height(6.dp))
                 StatusTicker(
-                    text = ballRoom.statusMessage,
+                    text = AppI18n.message(ballRoom.statusMessage) ?: ballRoom.statusMessage,
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 42.dp)

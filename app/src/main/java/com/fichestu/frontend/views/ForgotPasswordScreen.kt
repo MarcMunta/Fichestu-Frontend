@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import com.fichestu.frontend.R
 import com.fichestu.frontend.data.i18n.AppI18n
 import com.fichestu.frontend.data.repository.AuthRepository
+import com.fichestu.frontend.game.model.AppLanguage
 import com.fichestu.frontend.ui.theme.AuthScaffold
 import com.fichestu.frontend.ui.theme.CasinoOutlinedTextField
 import com.fichestu.frontend.ui.theme.Gold
@@ -74,7 +75,7 @@ fun ForgotPasswordScreen(onBack: () -> Unit) {
 
         feedback?.let { message ->
             Text(
-                text = AppI18n.message(message) ?: message,
+                text = AppI18n.message(message, AppLanguage.EN) ?: message,
                 color = if (isError) MaterialTheme.colorScheme.error else Gold,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(bottom = 12.dp)
@@ -104,7 +105,8 @@ fun ForgotPasswordScreen(onBack: () -> Unit) {
                                     currentStep = ForgotStep.VERIFY
                                 }
                                 .onFailure { error ->
-                                    feedback = AppI18n.message(error.message) ?: AppI18n.text("send_code_error")
+                                    feedback = AppI18n.message(error.message, AppLanguage.EN)
+                                        ?: AppI18n.text("send_code_error", AppLanguage.EN)
                                     isError = true
                                 }
                             isLoading = false
@@ -136,7 +138,8 @@ fun ForgotPasswordScreen(onBack: () -> Unit) {
                                     currentStep = ForgotStep.DONE
                                 }
                                 .onFailure { error ->
-                                    feedback = AppI18n.message(error.message) ?: AppI18n.text("password_update_error")
+                                    feedback = AppI18n.message(error.message, AppLanguage.EN)
+                                        ?: AppI18n.text("password_update_error", AppLanguage.EN)
                                     isError = true
                                 }
                             isLoading = false

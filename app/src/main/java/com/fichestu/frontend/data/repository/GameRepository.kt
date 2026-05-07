@@ -90,7 +90,7 @@ class GameRepository {
             nextBallRoom.copy(phase = BallRoomPhase.PICKING)
         } else if (shouldHoldMatchmakingUntilLocalDeadline) {
             currentState.ballRoom.copy(
-                statusMessage = "Preparando seleccion de bolas..."
+                statusMessage = "Preparando selección de bolas..."
             )
         } else {
             nextBallRoom
@@ -425,7 +425,7 @@ class GameRepository {
                 hand = emptyList(),
                 selectedCardId = null,
                 selectedTargetId = null,
-                log = battle.log + "Has quedado en posicion #$placement."
+                log = battle.log + "Has quedado en posición #$placement."
             ),
             transientMessage = "Eliminado. Pulsa para volver a la entrada."
         )
@@ -434,8 +434,8 @@ class GameRepository {
     private fun NotificationDto.toNotificationUi(): NotificationUi {
         return NotificationUi(
             id = id,
-            title = title,
-            message = message,
+            title = AppI18n.message(title) ?: title,
+            message = AppI18n.message(message) ?: message,
             type = type,
             read = read,
             createdAt = createdAt

@@ -17,8 +17,14 @@ object ApiClient {
 
         val client = OkHttpClient.Builder()
             .addInterceptor { chain ->
+                val path = chain.request().url.encodedPath
+                val language = if (path.startsWith("/api/auth")) {
+                    "en"
+                } else {
+                    SessionStore.languageCode()
+                }
                 val request = chain.request().newBuilder()
-                    .header("Accept-Language", SessionStore.languageCode())
+                    .header("Accept-Language", language)
                     .build()
                 chain.proceed(request)
             }

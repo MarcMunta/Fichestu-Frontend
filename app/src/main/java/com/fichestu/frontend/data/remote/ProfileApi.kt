@@ -5,6 +5,7 @@ import com.fichestu.frontend.data.model.GenericResponseDto
 import com.fichestu.frontend.data.model.ProfileBadgesResponseDto
 import com.fichestu.frontend.data.model.ProfileResponseDto
 import com.fichestu.frontend.data.model.ProfileStatsResponseDto
+import com.fichestu.frontend.data.model.UpdateLanguageRequestDto
 import com.fichestu.frontend.data.model.UpdateProfileRequestDto
 import retrofit2.Response
 import retrofit2.http.Body
@@ -36,6 +37,12 @@ interface ProfileApi {
     suspend fun updateProfile(
         @Header("Authorization") authorization: String,
         @Body request: UpdateProfileRequestDto
+    ): Response<ProfileResponseDto>
+
+    @PUT("api/profile/language")
+    suspend fun updateLanguage(
+        @Header("Authorization") authorization: String,
+        @Body request: UpdateLanguageRequestDto
     ): Response<ProfileResponseDto>
 
     @POST("api/profile/change-password")

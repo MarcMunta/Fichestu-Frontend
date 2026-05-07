@@ -7,7 +7,8 @@ data class ProfileResponseDto(
     val email: String,
     val role: String,
     val profilePicUrl: String?,
-    val hasPassword: Boolean = true
+    val hasPassword: Boolean = true,
+    val preferredLanguage: String? = null
 )
 
 data class ProfileBadgesResponseDto(
@@ -25,6 +26,10 @@ data class ProfileStatsResponseDto(
 data class UpdateProfileRequestDto(
     val username: String,
     val email: String
+)
+
+data class UpdateLanguageRequestDto(
+    val language: String
 )
 
 data class ChangePasswordRequestDto(

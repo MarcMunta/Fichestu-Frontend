@@ -10,8 +10,8 @@ enum class MainTab {
 }
 
 enum class AppLanguage(val code: String, val label: String) {
-    ES("es", "Espanol"),
-    CA("ca", "Catala"),
+    ES("es", "Español"),
+    CA("ca", "Català"),
     EN("en", "English");
 
     companion object {

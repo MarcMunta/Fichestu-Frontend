@@ -163,18 +163,18 @@ class GameEngine(
 
     fun pickUserBall(ballRoom: BallRoomUiState, ballId: Int): Pair<BallRoomUiState, String> {
         if (ballRoom.phase != BallRoomPhase.PICKING) {
-            return ballRoom to "La sala no esta en fase de seleccion."
+            return ballRoom to "La sala no está en fase de selección."
         }
 
         val userPlayer = ballRoom.players.firstOrNull { it.id == GameRules.USER_PLAYER_ID }
-            ?: return ballRoom to "No se encontro al jugador."
+            ?: return ballRoom to "No se encontró al jugador."
 
         if (userPlayer.selectedBallId != null) {
             return ballRoom to "Ya has elegido una bola."
         }
 
         val selectedBall = ballRoom.balls.firstOrNull { it.id == ballId }
-            ?: return ballRoom to "Bola invalida."
+            ?: return ballRoom to "Bola inválida."
 
         if (selectedBall.isPicked) {
             return ballRoom to "Esa bola ya fue tomada."
@@ -206,7 +206,7 @@ class GameEngine(
 
     fun revealMultipliers(ballRoom: BallRoomUiState): Pair<BallRoomUiState, String> {
         if (!ballRoom.players.all { it.selectedBallId != null }) {
-            return ballRoom to "Aun faltan jugadores por elegir bola."
+            return ballRoom to "Aún faltan jugadores por elegir bola."
         }
 
         val multiplierMap = ballRoom.balls.associateBy({ it.id }, { it.multiplier })
