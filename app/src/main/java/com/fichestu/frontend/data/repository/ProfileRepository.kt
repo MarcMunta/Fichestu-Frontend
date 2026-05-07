@@ -4,10 +4,12 @@ import com.fichestu.frontend.data.model.BadgeDto
 import com.fichestu.frontend.data.model.ChangePasswordRequestDto
 import com.fichestu.frontend.data.model.ProfileResponseDto
 import com.fichestu.frontend.data.model.ProfileStatsDto
+import com.fichestu.frontend.data.model.UpdateLanguageRequestDto
 import com.fichestu.frontend.data.model.UpdateProfileRequestDto
 import com.fichestu.frontend.BuildConfig
 import com.fichestu.frontend.data.i18n.AppI18n
 import com.fichestu.frontend.data.remote.ApiClient
+import com.fichestu.frontend.game.model.AppLanguage
 import com.fichestu.frontend.game.model.BadgeUi
 import com.fichestu.frontend.game.model.GameUiState
 import com.fichestu.frontend.game.model.ProfileStats
@@ -39,8 +41,11 @@ class ProfileRepository {
             badgesResponse.errorBody()?.string(),
             badgesResponse.code()
         ).badges
+        val profileLanguage = AppLanguage.fromCode(dto.preferredLanguage)
+        SessionStore.setLanguage(profileLanguage)
 
         currentState.copy(
+            appLanguage = profileLanguage,
             profile = mapProfile(currentState.profile, dto).copy(
                 stats = mapStats(statsDto),
                 badges = badgesDto.map { it.toBadgeUi() }
@@ -48,7 +53,7 @@ class ProfileRepository {
             transientMessage = if (dto.hasPassword) {
                 null
             } else {
-                AppI18n.text("add_password")
+                AppI18n.text("add_password", profileLanguage)
             }
         )
     }
@@ -66,6 +71,22 @@ class ProfileRepository {
         currentState.copy(
             profile = mapProfile(currentState.profile, dto).copy(isSavingProfile = false),
             transientMessage = AppI18n.message(dto.message) ?: dto.message
+        )
+    }
+
+    suspend fun saveLanguage(currentState: GameUiState, language: AppLanguage): Result<GameUiState> = runSafely {
+        val response = ApiClient.profileApi.updateLanguage(
+            authorization = requireAuth(),
+            request = UpdateLanguageRequestDto(language = language.code)
+        )
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
+        val profileLanguage = AppLanguage.fromCode(dto.preferredLanguage)
+        SessionStore.setLanguage(profileLanguage)
+
+        currentState.copy(
+            appLanguage = profileLanguage,
+            profile = mapProfile(currentState.profile, dto),
+            transientMessage = AppI18n.message(dto.message, profileLanguage) ?: dto.message
         )
     }
 
@@ -92,7 +113,7 @@ class ProfileRepository {
         }
 
         if (!response.isSuccessful) {
-            val message = extractMessage(response.errorBody()?.string()) ?: "No se pudo cambiar la contrasena"
+            val message = extractMessage(response.errorBody()?.string()) ?: "No se pudo cambiar la contraseña"
             if (!profile.hasPassword && message.contains("actual", ignoreCase = true)) {
                 return@runSafely currentState.copy(
                     profile = currentState.profile.copy(

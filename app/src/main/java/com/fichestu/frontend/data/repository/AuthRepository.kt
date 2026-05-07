@@ -10,7 +10,9 @@ import com.fichestu.frontend.data.model.PasswordResetConfirmRequest
 import com.fichestu.frontend.data.model.PasswordResetRequest
 import com.fichestu.frontend.data.model.RegisterRequest
 import com.fichestu.frontend.data.model.SessionResponse
+import com.fichestu.frontend.data.i18n.AppI18n
 import com.fichestu.frontend.data.remote.ApiClient
+import com.fichestu.frontend.game.model.AppLanguage
 import com.google.gson.Gson
 import java.io.IOException
 import retrofit2.Response
@@ -22,7 +24,7 @@ class AuthRepository {
             val response = ApiClient.authApi.login(
                 LoginRequest(email = email, password = password)
             )
-            val result = parseResponse(response, "Login correcto")
+            val result = parseResponse(response, "Login successful")
             SessionStore.setAuth(result.token, email.substringBefore('@'))
             result
         }
@@ -33,7 +35,7 @@ class AuthRepository {
             val response = ApiClient.authApi.register(
                 RegisterRequest(username = username, email = email, password = password)
             )
-            parseResponse(response, "Registro completado")
+            parseResponse(response, "Registration complete")
         }
     }
 
@@ -42,7 +44,7 @@ class AuthRepository {
             val response = ApiClient.authApi.loginWithGoogle(
                 GoogleLoginRequest(idToken = idToken)
             )
-            val result = parseResponse(response, "Login con Google correcto")
+            val result = parseResponse(response, "Google login successful")
             SessionStore.setAuth(result.token, SessionStore.displayName())
             result
         }
@@ -51,15 +53,15 @@ class AuthRepository {
     suspend fun validateSession(): Result<SessionResponse> {
         return try {
             val auth = SessionStore.authHeaderOrNull()
-                ?: return Result.failure(Exception("Sesion no iniciada"))
+                ?: return Result.failure(Exception("Session not started"))
             val response = ApiClient.userApi.me(auth)
             if (response.isSuccessful && response.body() != null) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception("No se pudo validar la sesion (${response.code()})"))
+                Result.failure(Exception("Could not validate session (${response.code()})"))
             }
         } catch (error: IOException) {
-            Result.failure(Exception("Error de red: verifica conexion o servidor."))
+            Result.failure(Exception("Network error: check connection or server."))
         } catch (error: Exception) {
             Result.failure(error)
         }
@@ -70,7 +72,7 @@ class AuthRepository {
             val response = ApiClient.authApi.requestPasswordReset(
                 PasswordResetRequest(email = email)
             )
-            parseMessageResponse(response, "Revisa tu correo para continuar")
+            parseMessageResponse(response, "Check your email to continue")
         }
     }
 
@@ -89,7 +91,7 @@ class AuthRepository {
                     confirmPassword = confirmPassword
                 )
             )
-            parseMessageResponse(response, "Contrasena actualizada correctamente")
+            parseMessageResponse(response, "Password updated successfully")
         }
     }
 
@@ -110,10 +112,10 @@ class AuthRepository {
             Gson().fromJson(rawError, ApiErrorResponse::class.java)
         }.getOrNull()
         val finalError = when {
-            !apiError?.message.isNullOrBlank() -> apiError?.message
-            response.code() == 409 -> "El usuario o email ya esta registrado"
-            response.code() == 401 -> "Credenciales incorrectas"
-            else -> "Error en el servidor (${response.code()})"
+            !apiError?.message.isNullOrBlank() -> AppI18n.message(apiError?.message, AppLanguage.EN) ?: apiError?.message
+            response.code() == 409 -> "User or email is already registered"
+            response.code() == 401 -> "Wrong credentials"
+            else -> "Server error (${response.code()})"
         }
 
         throw Exception(finalError)
@@ -132,9 +134,9 @@ class AuthRepository {
             Gson().fromJson(rawError, ApiErrorResponse::class.java)
         }.getOrNull()
         val finalError = when {
-            !apiError?.message.isNullOrBlank() -> apiError?.message
-            response.code() == 400 -> "Datos invalidos"
-            else -> "Error en el servidor (${response.code()})"
+            !apiError?.message.isNullOrBlank() -> AppI18n.message(apiError?.message, AppLanguage.EN) ?: apiError?.message
+            response.code() == 400 -> "Invalid data"
+            else -> "Server error (${response.code()})"
         }
 
         throw Exception(finalError)
@@ -144,7 +146,7 @@ class AuthRepository {
         return try {
             Result.success(block())
         } catch (error: IOException) {
-            Result.failure(Exception("Error de red: verifica conexion o servidor."))
+            Result.failure(Exception("Network error: check connection or server."))
         } catch (error: Exception) {
             Result.failure(error)
         }
@@ -154,7 +156,7 @@ class AuthRepository {
         return try {
             Result.success(block())
         } catch (error: IOException) {
-            Result.failure(Exception("Error de red: verifica conexion o servidor."))
+            Result.failure(Exception("Network error: check connection or server."))
         } catch (error: Exception) {
             Result.failure(error)
         }

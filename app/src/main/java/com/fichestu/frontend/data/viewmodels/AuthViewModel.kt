@@ -60,7 +60,7 @@ class AuthViewModel(
                 token = "",
                 password = "",
                 displayName = "",
-                message = "Sesion cerrada"
+                message = "Session closed"
             )
         }
     }
@@ -68,7 +68,7 @@ class AuthViewModel(
     private fun restoreSession() {
         val existing = SessionStore.authHeaderOrNull() ?: return
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, message = "Validando sesion...") }
+            _uiState.update { it.copy(isLoading = true, message = "Validating session...") }
             val result = repository.validateSession()
             _uiState.update { current ->
                 result.fold(
@@ -79,7 +79,7 @@ class AuthViewModel(
                             isLoading = false,
                             isAuthenticated = true,
                             displayName = displayName,
-                            message = session.message ?: "Sesion restaurada"
+                            message = session.message ?: "Session restored"
                         )
                     },
                     onFailure = {
@@ -117,7 +117,7 @@ class AuthViewModel(
                     onFailure = { error ->
                         current.copy(
                             isLoading = false,
-                            message = error.message ?: "Error al conectar con Google"
+                            message = error.message ?: "Error connecting to Google"
                         )
                     }
                 )
@@ -168,14 +168,14 @@ class AuthViewModel(
                                 isLoading = false,
                                 isLoginMode = true,
                                 password = "",
-                                message = "${authResult.message}. Ya puedes iniciar sesión"
+                                message = "${authResult.message}. You can sign in now"
                             )
                         }
                     },
                     onFailure = { error ->
                         current.copy(
                             isLoading = false,
-                            message = error.message ?: "Error de conexión"
+                            message = error.message ?: "Connection error"
                         )
                     }
                 )
@@ -185,18 +185,18 @@ class AuthViewModel(
 
     private fun isValidInput(state: AuthUiState): Boolean {
         if (!state.isLoginMode && state.username.isBlank()) {
-            _uiState.update { it.copy(message = "El usuario es obligatorio") }
+            _uiState.update { it.copy(message = "Username is required") }
             return false
         }
 
         val emailMatches = Patterns.EMAIL_ADDRESS.matcher(state.email.trim()).matches()
         if (state.email.isBlank() || !emailMatches) {
-            _uiState.update { it.copy(message = "Introduce un email válido") }
+            _uiState.update { it.copy(message = "Enter a valid email") }
             return false
         }
 
         if (state.password.isBlank()) {
-            _uiState.update { it.copy(message = "La contraseña es obligatoria") }
+            _uiState.update { it.copy(message = "Password is required") }
             return false
         }
 
@@ -216,7 +216,7 @@ class AuthViewModel(
                 if (char.isLowerCase()) char.titlecase() else char.toString()
             }
         } else {
-            "Jugador"
+            "Player"
         }
     }
 }

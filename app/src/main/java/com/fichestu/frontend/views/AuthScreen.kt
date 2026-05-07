@@ -75,6 +75,7 @@ import androidx.navigation.NavHostController
 import com.fichestu.frontend.data.i18n.AppI18n
 import com.fichestu.frontend.data.viewmodels.AuthUiState
 import com.fichestu.frontend.data.viewmodels.AuthViewModel
+import com.fichestu.frontend.game.model.AppLanguage
 import com.fichestu.frontend.ui.theme.AuthScaffold
 import kotlinx.coroutines.delay
 import com.fichestu.frontend.ui.theme.AuthTab
@@ -167,7 +168,7 @@ private fun AuthFormContent(
                 }
 
                 if (state.message.isNotBlank()) {
-                StatusMessage(AppI18n.message(state.message) ?: state.message)
+                    StatusMessage(AppI18n.message(state.message, AppLanguage.EN) ?: state.message)
                 }
             }
         }
@@ -224,7 +225,7 @@ private fun LoginForm(
 
     // Separador visual para Google
     Text(
-        text = AppI18n.text("or_separator"),
+        text = AppI18n.text("or_separator", AppLanguage.EN),
         modifier = Modifier.fillMaxWidth(),
         textAlign = TextAlign.Center,
         color = TextSecondary.copy(alpha = 0.5f),
@@ -239,7 +240,7 @@ private fun LoginForm(
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, Gold.copy(alpha = 0.3f))
     ) {
-        Text(AppI18n.text("continue_google"), fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        Text(AppI18n.text("continue_google", AppLanguage.EN), fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
     }
 }
 
@@ -354,7 +355,7 @@ private fun AuthenticatedScreen(token: String, onLogout: () -> Unit) {
 
             // Opcional: Mostrar un mensaje de éxito pequeño
             Text(
-                text = AppI18n.text("login_success"),
+                text = AppI18n.text("login_success", AppLanguage.EN),
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary
             )

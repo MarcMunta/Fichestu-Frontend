@@ -6,12 +6,12 @@ import com.fichestu.frontend.game.model.AppLanguage
 object AppI18n {
     private val translations: Map<String, Map<AppLanguage, String>> = mapOf(
         "language" to tr("Idioma", "Idioma", "Language"),
-        "spanish" to tr("Espanol", "Castella", "Spanish"),
-        "catalan" to tr("Catalan", "Catala", "Catalan"),
-        "english" to tr("Ingles", "Angles", "English"),
+        "spanish" to tr("Español", "Castellà", "Spanish"),
+        "catalan" to tr("Catalán", "Català", "Catalan"),
+        "english" to tr("Inglés", "Anglès", "English"),
         "balance_total" to tr("Saldo total", "Saldo total", "Total balance"),
         "exit" to tr("SALIR", "SORTIR", "EXIT"),
-        "logout" to tr("CERRAR SESION", "TANCAR SESSIO", "LOG OUT"),
+        "logout" to tr("CERRAR SESIÓN", "TANCAR SESSIÓ", "LOG OUT"),
         "notifications" to tr("Notificaciones", "Notificacions", "Notifications"),
         "clear" to tr("LIMPIAR", "NETEJAR", "CLEAR"),
         "no_notifications" to tr("Sin notificaciones por ahora.", "Sense notificacions de moment.", "No notifications yet."),
@@ -19,15 +19,15 @@ object AppI18n {
         "nav_balls" to tr("Bolas", "Boles", "Balls"),
         "nav_profile" to tr("Perfil", "Perfil", "Profile"),
         "market_title" to tr("Mercado de Fichas", "Mercat de Fitxes", "Token Market"),
-        "quick_actions" to tr("Acciones Rapidas", "Accions Rapides", "Quick Actions"),
+        "quick_actions" to tr("Acciones Rápidas", "Accions Ràpides", "Quick Actions"),
         "buy_1" to tr("COMPRAR 1", "COMPRAR 1", "BUY 1"),
         "sell_1" to tr("VENDER 1", "VENDRE 1", "SELL 1"),
         "play_paying_10" to tr("Jugar pagando 10 FTC", "Jugar pagant 10 FTC", "Play paying 10 FTC"),
-        "market_rules" to tr("Reglas Criticas del Mercado", "Regles Critiques del Mercat", "Critical Market Rules"),
+        "market_rules" to tr("Reglas Críticas del Mercado", "Regles Crítiques del Mercat", "Critical Market Rules"),
         "market_rule_1" to tr("Cron diario 00:00 vende todas tus fichas a saldo.", "El cron diari 00:00 ven totes les teves fitxes a saldo.", "Daily cron at 00:00 sells all your holdings to balance."),
-        "market_rule_2" to tr("Tras reset diario, cada precio base cae entre 5 y 500 FTC.", "Despres del reset diari, cada preu base cau entre 5 i 500 FTC.", "After the daily reset, each base price falls between 5 and 500 FTC."),
+        "market_rule_2" to tr("Tras reset diario, cada precio base cae entre 5 y 500 FTC.", "Després del reset diari, cada preu base cau entre 5 i 500 FTC.", "After the daily reset, each base price falls between 5 and 500 FTC."),
         "market_rule_3" to tr("El ganador del Battle aplica su multiplicador al token seleccionado.", "El guanyador del Battle aplica el multiplicador al token seleccionat.", "The Battle winner applies their multiplier to the selected token."),
-        "market_rule_4" to tr("Sala de bolas: 10 jugadores y 50 bolas unicas.", "Sala de boles: 10 jugadors i 50 boles uniques.", "Ball room: 10 players and 50 unique balls."),
+        "market_rule_4" to tr("Sala de bolas: 10 jugadores y 50 bolas únicas.", "Sala de boles: 10 jugadors i 50 boles úniques.", "Ball room: 10 players and 50 unique balls."),
         "reset" to tr("Reset", "Reset", "Reset"),
         "holdings" to tr("Holdings", "Holdings", "Holdings"),
         "value" to tr("Valor", "Valor", "Value"),
@@ -38,39 +38,39 @@ object AppI18n {
         "ready" to tr("LISTO", "LLest", "READY"),
         "searching" to tr("BUSCANDO", "BUSCANT", "SEARCHING"),
         "preparing" to tr("PREPARANDO", "PREPARANT", "PREPARING"),
-        "cancel" to tr("CANCELAR", "CANCEL.LAR", "CANCEL"),
+        "cancel" to tr("CANCELAR", "CANCEL·LAR", "CANCEL"),
         "without_balance" to tr("SIN SALDO", "SENSE SALDO", "NO BALANCE"),
         "ready_short" to tr("READY", "LLest", "READY"),
         "wait_short" to tr("WAIT", "Espera", "WAIT"),
-        "how_to_play" to tr("COMO SE JUEGA", "COM ES JUGA", "HOW TO PLAY"),
+        "how_to_play" to tr("CÓMO SE JUEGA", "COM ES JUGA", "HOW TO PLAY"),
         "hide" to tr("OCULTAR", "AMAGAR", "HIDE"),
-        "rules_ball_1" to tr("Pulsa el boton circular y paga 10 FTC. Puedes cancelar durante el matchmaking y recuperar la entrada.", "Prem el boto circular i paga 10 FTC. Pots cancel.lar durant el matchmaking i recuperar l'entrada.", "Press the circular button and pay 10 FTC. You can cancel during matchmaking and recover the entry."),
+        "rules_ball_1" to tr("Pulsa el botón circular y paga 10 FTC. Puedes cancelar durante el matchmaking y recuperar la entrada.", "Prem el botó circular i paga 10 FTC. Pots cancel·lar durant el matchmaking i recuperar l'entrada.", "Press the circular button and pay 10 FTC. You can cancel during matchmaking and recover the entry."),
         "rules_ball_2" to tr("Elige 1 bola entre 50. Cada bola esconde un multiplicador.", "Tria 1 bola entre 50. Cada bola amaga un multiplicador.", "Choose 1 ball out of 50. Each ball hides a multiplier."),
         "rules_ball_3" to tr("Juega Battle Royale. El ganador aplica su multiplicador a un token del mercado.", "Juga Battle Royale. El guanyador aplica el multiplicador a un token del mercat.", "Play Battle Royale. The winner applies their multiplier to a market token."),
         "open_rules" to tr("Pulsa para abrir reglas completas.", "Prem per obrir les regles completes.", "Press to open full rules."),
         "waiting_players" to tr("Esperando jugadores", "Esperant jugadors", "Waiting for players"),
         "balance" to tr("Saldo", "Saldo", "Balance"),
-        "cancel_matchmaking" to tr("CANCELAR MATCHMAKING Y DEVOLVER ENTRADA", "CANCEL.LAR MATCHMAKING I TORNAR L'ENTRADA", "CANCEL MATCHMAKING AND REFUND ENTRY"),
+        "cancel_matchmaking" to tr("CANCELAR MATCHMAKING Y DEVOLVER ENTRADA", "CANCEL·LAR MATCHMAKING I TORNAR L'ENTRADA", "CANCEL MATCHMAKING AND REFUND ENTRY"),
         "not_enough_entry" to tr("Saldo insuficiente para entrar.", "Saldo insuficient per entrar.", "Not enough balance to enter."),
         "choose_ball" to tr("ELIGE TU BOLA", "TRIA LA TEVA BOLA", "CHOOSE YOUR BALL"),
-        "choose_ball_hint" to tr("Toca una bola libre y confirma tu eleccion antes de que termine el tiempo.", "Toca una bola lliure i confirma l'eleccio abans que acabi el temps.", "Tap a free ball and confirm your choice before time runs out."),
+        "choose_ball_hint" to tr("Toca una bola libre y confirma tu elección antes de que termine el tiempo.", "Toca una bola lliure i confirma l'elecció abans que acabi el temps.", "Tap a free ball and confirm your choice before time runs out."),
         "time" to tr("TIEMPO", "TEMPS", "TIME"),
         "free" to tr("LIBRES", "LLIURES", "FREE"),
-        "your_choice" to tr("TU ELECCION", "LA TEVA ELECCIO", "YOUR CHOICE"),
+        "your_choice" to tr("TU ELECCIÓN", "LA TEVA ELECCIÓ", "YOUR CHOICE"),
         "select_ball" to tr("SELECCIONAR BOLA", "SELECCIONAR BOLA", "SELECT BALL"),
         "continue_ball" to tr("CONTINUAR CON BOLA", "CONTINUAR AMB BOLA", "CONTINUE WITH BALL"),
         "your_ball" to tr("TU BOLA", "LA TEVA BOLA", "YOUR BALL"),
         "multiplier" to tr("MULTIPLICADOR", "MULTIPLICADOR", "MULTIPLIER"),
-        "lucky_champion" to tr("Suerte de campeon!", "Sort de campio!", "Champion luck!"),
+        "lucky_champion" to tr("¡Suerte de campeón!", "Sort de campió!", "Champion luck!"),
         "fight_battle" to tr("A pelearlo en el Battle Royale", "A lluitar-ho al Battle Royale", "Fight for it in Battle Royale"),
         "go_battle" to tr("IR A BATTLE ROYALE >", "ANAR A BATTLE ROYALE >", "GO TO BATTLE ROYALE >"),
         "battle_locked" to tr("BATTLE BLOQUEADO", "BATTLE BLOQUEJAT", "BATTLE LOCKED"),
         "locked" to tr("BLOQUEADO", "BLOQUEJAT", "LOCKED"),
         "battle_locked_hint" to tr("Completa el sorteo de bolas para desbloquear esta fase.", "Completa el sorteig de boles per desbloquejar aquesta fase.", "Complete the ball draw to unlock this phase."),
         "battle_title" to tr("BATTLE ROYALE", "BATTLE ROYALE", "BATTLE ROYALE"),
-        "battle_subtitle" to tr("Ultima ficha en pie se queda con la corona.", "L'ultima fitxa dreta es queda la corona.", "Last chip standing takes the crown."),
+        "battle_subtitle" to tr("Última ficha en pie se queda con la corona.", "L'última fitxa dreta es queda la corona.", "Last chip standing takes the crown."),
         "target_token" to tr("Token objetivo", "Token objectiu", "Target token"),
-        "your_hand" to tr("TU MANO", "LA TEVA MA", "YOUR HAND"),
+        "your_hand" to tr("TU MANO", "LA TEVA MÀ", "YOUR HAND"),
         "choose_card" to tr("Elige tu carta", "Tria la teva carta", "Choose your card"),
         "play_round" to tr("JUGAR RONDA", "JUGAR RONDA", "PLAY ROUND"),
         "finished" to tr("FINALIZADO", "FINALITZAT", "FINISHED"),
@@ -82,8 +82,8 @@ object AppI18n {
         "attack" to tr("ATAQUE", "ATAC", "ATTACK"),
         "defense" to tr("DEFENSA", "DEFENSA", "DEFENSE"),
         "rebound" to tr("REBOTE", "REBOTS", "REBOUND"),
-        "you" to tr("TU", "TU", "YOU"),
-        "you_suffix" to tr("Tu", "Tu", "You"),
+        "you" to tr("TÚ", "TU", "YOU"),
+        "you_suffix" to tr("Tú", "Tu", "You"),
         "ball" to tr("Bola", "Bola", "Ball"),
         "no_ball" to tr("Sin bola", "Sense bola", "No ball"),
         "hidden_multipliers" to tr("Multiplicadores ocultos", "Multiplicadors ocults", "Hidden multipliers"),
@@ -113,12 +113,12 @@ object AppI18n {
         "ko" to tr("KO", "KO", "KO"),
         "win" to tr("WIN", "WIN", "WIN"),
         "eliminated_title" to tr("ELIMINADO", "ELIMINAT", "ELIMINATED"),
-        "defeat_description" to tr("Has perdido la partida. Revisa tu posicion y vuelve a la entrada cuando estes listo.", "Has perdut la partida. Revisa la teva posicio i torna a l'entrada quan estiguis llest.", "You lost the match. Check your placement and return to entry when ready."),
-        "final_position" to tr("POSICION FINAL", "POSICIO FINAL", "FINAL POSITION"),
-        "latest_events" to tr("ULTIMOS EVENTOS", "ULTIMS ESDEVENIMENTS", "LATEST EVENTS"),
+        "defeat_description" to tr("Has perdido la partida. Revisa tu posición y vuelve a la entrada cuando estés listo.", "Has perdut la partida. Revisa la teva posició i torna a l'entrada quan estiguis llest.", "You lost the match. Check your placement and return to entry when ready."),
+        "final_position" to tr("POSICIÓN FINAL", "POSICIÓ FINAL", "FINAL POSITION"),
+        "latest_events" to tr("ÚLTIMOS EVENTOS", "ÚLTIMS ESDEVENIMENTS", "LATEST EVENTS"),
         "no_events" to tr("No hay eventos registrados.", "No hi ha esdeveniments registrats.", "No events recorded."),
         "return_entry" to tr("VOLVER A LA ENTRADA", "TORNAR A L'ENTRADA", "RETURN TO ENTRY"),
-        "last_chip" to tr("LAST CHIP STANDING", "ULTIMA FITXA DRETA", "LAST CHIP STANDING"),
+        "last_chip" to tr("LAST CHIP STANDING", "ÚLTIMA FITXA DRETA", "LAST CHIP STANDING"),
         "victory" to tr("VICTORIA", "VICTORIA", "VICTORY"),
         "defeat" to tr("DERROTA", "DERROTA", "DEFEAT"),
         "choose_target_token" to tr("Elige la ficha del mercado donde quieres aplicar tu multiplicador.", "Tria la fitxa del mercat on vols aplicar el multiplicador.", "Choose the market token where you want to apply your multiplier."),
@@ -132,27 +132,27 @@ object AppI18n {
         "new_cycle" to tr("NUEVO CICLO >", "NOU CICLE >", "NEW CYCLE >"),
         "apply_new_cycle" to tr("APLICAR Y NUEVO CICLO >", "APLICAR I NOU CICLE >", "APPLY AND NEW CYCLE >"),
         "edit_profile" to tr("Editar perfil", "Editar perfil", "Edit profile"),
-        "change_password" to tr("Cambiar contrasena", "Canviar contrasenya", "Change password"),
+        "change_password" to tr("Cambiar contraseña", "Canviar contrasenya", "Change password"),
         "save_changes" to tr("GUARDAR CAMBIOS", "DESAR CANVIS", "SAVE CHANGES"),
         "saving" to tr("GUARDANDO...", "DESANT...", "SAVING..."),
         "updating" to tr("ACTUALIZANDO...", "ACTUALITZANT...", "UPDATING..."),
         "username" to tr("Usuario", "Usuari", "Username"),
         "email" to tr("Email", "Email", "Email"),
-        "current_password" to tr("Contrasena actual", "Contrasenya actual", "Current password"),
-        "new_password" to tr("Nueva contrasena", "Nova contrasenya", "New password"),
-        "create_password_field" to tr("Crear contrasena", "Crear contrasenya", "Create password"),
-        "repeat_password" to tr("Repite contrasena", "Repeteix contrasenya", "Repeat password"),
-        "create_password" to tr("CREAR CONTRASENA", "CREAR CONTRASENYA", "CREATE PASSWORD"),
-        "update_password" to tr("ACTUALIZAR CONTRASENA", "ACTUALITZAR CONTRASENYA", "UPDATE PASSWORD"),
+        "current_password" to tr("Contraseña actual", "Contrasenya actual", "Current password"),
+        "new_password" to tr("Nueva contraseña", "Nova contrasenya", "New password"),
+        "create_password_field" to tr("Crear contraseña", "Crear contrasenya", "Create password"),
+        "repeat_password" to tr("Repite contraseña", "Repeteix contrasenya", "Repeat password"),
+        "create_password" to tr("CREAR CONTRASEÑA", "CREAR CONTRASENYA", "CREATE PASSWORD"),
+        "update_password" to tr("ACTUALIZAR CONTRASEÑA", "ACTUALITZAR CONTRASENYA", "UPDATE PASSWORD"),
         "no_local_password_hint" to tr(
-            "Aun no tienes contrasena local. Escribe una nueva y la guardaremos en tu cuenta.",
+            "Aún no tienes contraseña local. Escribe una nueva y la guardaremos en tu cuenta.",
             "Encara no tens contrasenya local. Escriu-ne una de nova i la guardarem al teu compte.",
             "You do not have a local password yet. Type a new one and we will save it to your account."
         ),
         "protect_account" to tr("Protege tu cuenta", "Protegeix el teu compte", "Protect your account"),
         "google_password_hint" to tr(
-            "Has entrado con Google. Crea una contrasena local para poder iniciar sesion tambien con email.",
-            "Has entrat amb Google. Crea una contrasenya local per poder iniciar sessio tambe amb email.",
+            "Has entrado con Google. Crea una contraseña local para poder iniciar sesión también con email.",
+            "Has entrat amb Google. Crea una contrasenya local per poder iniciar sessió també amb email.",
             "You signed in with Google. Create a local password so you can also sign in with email."
         ),
         "badges" to tr("Insignias", "Insignies", "Badges"),
@@ -161,7 +161,7 @@ object AppI18n {
         "see" to tr("VER", "VEURE", "SEE"),
         "close" to tr("Cerrar", "Tancar", "Close"),
         "verified" to tr("VERIFICADO", "VERIFICAT", "VERIFIED"),
-        "stats" to tr("ESTADISTICAS", "ESTADISTIQUES", "STATS"),
+        "stats" to tr("ESTADÍSTICAS", "ESTADÍSTIQUES", "STATS"),
         "matches" to tr("PARTIDAS", "PARTIDES", "MATCHES"),
         "wins" to tr("VICTORIAS", "VICTORIES", "WINS"),
         "best_multiplier" to tr("MEJOR x", "MILLOR x", "BEST x"),
@@ -169,21 +169,21 @@ object AppI18n {
         "ball_rooms" to tr("Salas de bolas", "Sales de boles", "Ball rooms"),
         "change_photo" to tr("Cambiar foto", "Canviar foto", "Change photo"),
         "choose_avatar" to tr(
-            "Elige un avatar o sube uno desde tu galeria",
+            "Elige un avatar o sube uno desde tu galería",
             "Tria un avatar o puja'n un des de la galeria",
             "Choose an avatar or upload one from your gallery"
         ),
         "upload_avatar" to tr("Subir foto de avatar", "Pujar foto d'avatar", "Upload avatar photo"),
-        "choose_gallery_photo" to tr("Elige una foto de tu galeria", "Tria una foto de la galeria", "Choose a gallery photo"),
+        "choose_gallery_photo" to tr("Elige una foto de tu galería", "Tria una foto de la galeria", "Choose a gallery photo"),
         "open" to tr("ABRIR", "OBRIR", "OPEN"),
         "preset_avatars" to tr("AVATARES PRESET", "AVATARS PREDEFINITS", "PRESET AVATARS"),
-        "rarity_common" to tr("COMUN", "COMU", "COMMON"),
+        "rarity_common" to tr("COMÚN", "COMÚ", "COMMON"),
         "rarity_rare" to tr("RARA", "RARA", "RARE"),
-        "rarity_epic" to tr("EPICA", "EPICA", "EPIC"),
-        "rarity_legendary" to tr("LEGENDARIA", "LLEGENDARIA", "LEGENDARY"),
+        "rarity_epic" to tr("ÉPICA", "ÈPICA", "EPIC"),
+        "rarity_legendary" to tr("LEGENDARIA", "LLEGENDÀRIA", "LEGENDARY"),
         "badge_first_knockout_title" to tr("Primer Knockout", "Primer Knockout", "First Knockout"),
         "badge_first_knockout_desc" to tr("Gana tu primera batalla.", "Guanya la teva primera batalla.", "Win your first battle."),
-        "badge_cold_blood_title" to tr("Sangre Fria", "Sang Freda", "Cold Blood"),
+        "badge_cold_blood_title" to tr("Sangre Fría", "Sang Freda", "Cold Blood"),
         "badge_cold_blood_desc" to tr("Consigue multiplicador x3 o superior.", "Aconsegueix multiplicador x3 o superior.", "Get a x3 multiplier or higher."),
         "badge_daily_trader_title" to tr("Trader Diario", "Trader Diari", "Daily Trader"),
         "badge_daily_trader_desc" to tr("Juega 5 salas de bolas.", "Juga 5 sales de boles.", "Play 5 ball rooms."),
@@ -193,14 +193,14 @@ object AppI18n {
         "badge_bonus_hunter_desc" to tr("Reclama 3 rewarded ads.", "Reclama 3 rewarded ads.", "Claim 3 rewarded ads."),
         "or_separator" to tr("-- O --", "-- O --", "-- OR --"),
         "continue_google" to tr("CONTINUAR CON GOOGLE", "CONTINUAR AMB GOOGLE", "CONTINUE WITH GOOGLE"),
-        "login_success" to tr("Has iniciado sesion correctamente", "Has iniciat sessio correctament", "Signed in successfully"),
-        "send_code_error" to tr("No se pudo enviar el codigo", "No s'ha pogut enviar el codi", "Could not send the code"),
-        "password_update_error" to tr("No se pudo actualizar la contrasena", "No s'ha pogut actualitzar la contrasenya", "Could not update the password"),
+        "login_success" to tr("Has iniciado sesión correctamente", "Has iniciat sessió correctament", "Signed in successfully"),
+        "send_code_error" to tr("No se pudo enviar el código", "No s'ha pogut enviar el codi", "Could not send the code"),
+        "password_update_error" to tr("No se pudo actualizar la contraseña", "No s'ha pogut actualitzar la contrasenya", "Could not update the password"),
         "pick_ball_message" to tr("Elige una bola.", "Tria una bola.", "Choose a ball."),
         "pick_ball_first" to tr("Elige una bola primero", "Tria una bola primer", "Choose a ball first"),
         "battle_ready" to tr("Battle Royale listo.", "Battle Royale llest.", "Battle Royale ready."),
         "rebound_returns" to tr("Rebote devuelve", "Rebot retorna", "Rebound returns"),
-        "damage" to tr("dano", "dany", "damage"),
+        "damage" to tr("daño", "dany", "damage"),
         "new_cycle_ready" to tr("Nuevo ciclo listo. Vuelve al sorteo de bolas.", "Nou cicle llest. Torna al sorteig de boles.", "New cycle ready. Return to the ball draw."),
         "complete_ball_first" to tr("Completa primero el sorteo de bolas.", "Completa primer el sorteig de boles.", "Complete the ball draw first."),
         "already_searching" to tr("Ya estas buscando partida.", "Ja estas buscant partida.", "You are already searching for a match."),
@@ -211,88 +211,100 @@ object AppI18n {
         "no_active_room" to tr("No hay sala activa", "No hi ha sala activa", "No active room"),
         "no_free_balls" to tr("No quedan bolas libres", "No queden boles lliures", "No free balls left"),
         "time_expired_ball_assigned" to tr("Tiempo agotado. Bola asignada.", "Temps esgotat. Bola assignada.", "Time is up. Ball assigned."),
-        "auto_ball_error" to tr("No se pudo asignar bola automaticamente", "No s'ha pogut assignar bola automaticament", "Could not assign a ball automatically"),
+        "auto_ball_error" to tr("No se pudo asignar bola automáticamente", "No s'ha pogut assignar bola automàticament", "Could not assign a ball automatically"),
         "multiplier_revealed" to tr("Multiplicador revelado.", "Multiplicador revelat.", "Multiplier revealed."),
         "no_active_battle" to tr("No hay battle activa", "No hi ha battle activa", "No active battle"),
-        "not_alive" to tr("Ya no estas vivo.", "Ja no estas viu.", "You are no longer alive."),
+        "not_alive" to tr("Ya no estás vivo.", "Ja no estàs viu.", "You are no longer alive."),
         "no_cards" to tr("No tienes cartas.", "No tens cartes.", "You have no cards."),
         "multiplier_apply_error" to tr("No se pudo aplicar el multiplicador", "No s'ha pogut aplicar el multiplicador", "Could not apply the multiplier"),
-        "match_finished_new_room" to tr("Partida finalizada. Abriendo nueva sala...", "Partida finalitzada. Obrint nova sala...", "Match finished. Opening new room..."),
+        "match_finished_new_room" to tr("Partida finalizada. Abriendo nueva sala...", "Partida finalitzada. Obrint sala nova...", "Match finished. Opening new room..."),
         "battle_closed_ready" to tr("Battle cerrada. Preparado para una nueva sala.", "Battle tancada. Preparat per a una nova sala.", "Battle closed. Ready for a new room."),
         "profile_load_error" to tr("No se pudo cargar el perfil", "No s'ha pogut carregar el perfil", "Could not load profile"),
-        "connection_error" to tr("Error de conexion", "Error de connexio", "Connection error"),
-        "session_not_started" to tr("Sesion no iniciada", "Sessio no iniciada", "Session not started"),
-        "validate_session_error" to tr("No se pudo validar la sesion", "No s'ha pogut validar la sessio", "Could not validate session"),
-        "network_or_server_error" to tr("Error de red: verifica conexion o servidor.", "Error de xarxa: comprova connexio o servidor.", "Network error: check connection or server."),
+        "connection_error" to tr("Error de conexión", "Error de connexió", "Connection error"),
+        "session_not_started" to tr("Sesión no iniciada", "Sessió no iniciada", "Session not started"),
+        "validate_session_error" to tr("No se pudo validar la sesión", "No s'ha pogut validar la sessió", "Could not validate session"),
+        "network_or_server_error" to tr("Error de red: verifica conexión o servidor.", "Error de xarxa: comprova connexió o servidor.", "Network error: check connection or server."),
         "login_ok" to tr("Login correcto", "Login correcte", "Login successful"),
         "register_ok" to tr("Registro completado", "Registre completat", "Registration complete"),
         "google_login_ok" to tr("Login con Google correcto", "Login amb Google correcte", "Google login successful"),
         "check_email" to tr("Revisa tu correo para continuar", "Revisa el correu per continuar", "Check your email to continue"),
-        "password_ok" to tr("Contrasena actualizada correctamente", "Contrasenya actualitzada correctament", "Password updated successfully"),
-        "user_registered" to tr("El usuario o email ya esta registrado", "L'usuari o email ja esta registrat", "User or email is already registered"),
+        "password_ok" to tr("Contraseña actualizada correctamente", "Contrasenya actualitzada correctament", "Password updated successfully"),
+        "user_registered" to tr("El usuario o email ya está registrado", "L'usuari o email ja està registrat", "User or email is already registered"),
         "bad_credentials" to tr("Credenciales incorrectas", "Credencials incorrectes", "Wrong credentials"),
-        "invalid_data" to tr("Datos invalidos", "Dades invalides", "Invalid data"),
+        "invalid_data" to tr("Datos inválidos", "Dades invàlides", "Invalid data"),
         "close_match_error" to tr("No se pudo cerrar el match", "No s'ha pogut tancar el match", "Could not close match"),
-        "change_password_error" to tr("No se pudo cambiar la contrasena", "No s'ha pogut canviar la contrasenya", "Could not change password"),
-        "matchmaking_cancelled" to tr("Matchmaking cancelado", "Matchmaking cancel.lat", "Matchmaking cancelled"),
-        "match_abandoned" to tr("Partida abandonada. Un bot ocupa tu plaza si la sala ya habia avanzado.", "Partida abandonada. Un bot ocupa la teva placa si la sala ja havia avancat.", "Match abandoned. A bot takes your place if the room had already advanced."),
+        "change_password_error" to tr("No se pudo cambiar la contraseña", "No s'ha pogut canviar la contrasenya", "Could not change password"),
+        "entry_paid_searching" to tr("Entrada pagada. Buscando jugadores", "Entrada pagada. Buscant jugadors", "Entry paid. Searching for players"),
+        "entry_paid_waiting" to tr("Entrada pagada. Esperando que el matchmaking termine.", "Entrada pagada. Esperant que acabi el matchmaking.", "Entry paid. Waiting for matchmaking to finish."),
+        "matchmaking_started" to tr("Matchmaking iniciado", "Matchmaking iniciat", "Matchmaking started"),
+        "matchmaking_cancelled" to tr("Matchmaking cancelado", "Matchmaking cancel·lat", "Matchmaking cancelled"),
+        "joined_room" to tr("Te has unido a la sala", "T'has unit a la sala", "You joined the room"),
+        "match_abandoned" to tr("Partida abandonada. Un bot ocupa tu plaza si la sala ya había avanzado.", "Partida abandonada. Un bot ocupa la teva plaça si la sala ja havia avançat.", "Match abandoned. A bot takes your place if the room had already advanced."),
         "battle_unlock_hint" to tr("Completa el sorteo de bolas para desbloquear el Battle Royale.", "Completa el sorteig de boles per desbloquejar el Battle Royale.", "Complete the ball draw to unlock Battle Royale."),
-        "preparing_ball_selection" to tr("Preparando seleccion de bolas...", "Preparant seleccio de boles...", "Preparing ball selection..."),
+        "preparing_ball_selection" to tr("Preparando selección de bolas...", "Preparant selecció de boles...", "Preparing ball selection..."),
         "ball_pick_rule" to tr("Elige una bola. Cada jugador solo puede tomar una.", "Tria una bola. Cada jugador nomes en pot agafar una.", "Choose a ball. Each player can take only one."),
-        "room_not_picking" to tr("La sala no esta en fase de seleccion.", "La sala no esta en fase de seleccio.", "Room is not in selection phase."),
-        "player_not_found" to tr("No se encontro al jugador.", "No s'ha trobat el jugador.", "Player not found."),
+        "room_not_picking" to tr("La sala no está en fase de selección.", "La sala no està en fase de selecció.", "Room is not in selection phase."),
+        "player_not_found" to tr("No se encontró al jugador.", "No s'ha trobat el jugador.", "Player not found."),
         "already_picked_ball" to tr("Ya has elegido una bola.", "Ja has triat una bola.", "You already chose a ball."),
-        "invalid_ball" to tr("Bola invalida.", "Bola invalida.", "Invalid ball."),
+        "invalid_ball" to tr("Bola inválida.", "Bola invàlida.", "Invalid ball."),
         "all_picked_reveal" to tr("Todos eligieron. Revela multiplicadores para iniciar Battle Royale.", "Tots han triat. Revela multiplicadors per iniciar Battle Royale.", "Everyone chose. Reveal multipliers to start Battle Royale."),
         "waiting_others" to tr("Esperando al resto de jugadores...", "Esperant la resta de jugadors...", "Waiting for the other players..."),
-        "players_missing_ball" to tr("Aun faltan jugadores por elegir bola.", "Encara falten jugadors per triar bola.", "Some players still need to choose a ball."),
+        "players_missing_ball" to tr("Aún faltan jugadores por elegir bola.", "Encara falten jugadors per triar bola.", "Some players still need to choose a ball."),
         "multipliers_revealed" to tr("Multiplicadores revelados.", "Multiplicadors revelats.", "Multipliers revealed."),
+        "ball_confirmed" to tr("Bola confirmada", "Bola confirmada", "Ball confirmed"),
+        "go_battle_message" to tr("Ya puedes pasar al Battle Royale.", "Ja pots passar al Battle Royale.", "You can move to Battle Royale."),
+        "language_updated" to tr("Idioma actualizado", "Idioma actualitzat", "Language updated"),
         "battle_ready_full" to tr("Battle listo", "Battle llest", "Battle ready"),
         "draw_no_survivors" to tr("Empate total: nadie sobrevive.", "Empat total: ningu sobreviu.", "Full draw: nobody survives."),
         "profile_updated" to tr("Perfil actualizado", "Perfil actualitzat", "Profile updated"),
         "profile_loaded" to tr("Perfil cargado", "Perfil carregat", "Profile loaded"),
         "avatar_updated" to tr("Foto de perfil actualizada", "Foto de perfil actualitzada", "Profile picture updated"),
-        "password_updated" to tr("Contrasena actualizada", "Contrasenya actualitzada", "Password updated"),
-        "password_created" to tr("Contrasena local creada", "Contrasenya local creada", "Local password created"),
+        "password_updated" to tr("Contraseña actualizada", "Contrasenya actualitzada", "Password updated"),
+        "password_created" to tr("Contraseña local creada", "Contrasenya local creada", "Local password created"),
         "add_password" to tr(
-            "Anade una contrasena para proteger tu cuenta.",
+            "Añade una contraseña para proteger tu cuenta.",
             "Afegeix una contrasenya per protegir el teu compte.",
             "Add a password to protect your account."
         ),
         "account_has_password" to tr(
-            "Tu cuenta ya tiene contrasena. Introduce la actual.",
-            "El teu compte ja te contrasenya. Introdueix l'actual.",
+            "Tu cuenta ya tiene contraseña. Introduce la actual.",
+            "El teu compte ja té contrasenya. Introdueix l'actual.",
             "Your account already has a password. Enter the current one."
         ),
-        "passwords_do_not_match" to tr("Las contrasenas no coinciden", "Les contrasenyes no coincideixen", "Passwords do not match"),
+        "passwords_do_not_match" to tr("Las contraseñas no coinciden", "Les contrasenyes no coincideixen", "Passwords do not match"),
         "session_expired" to tr(
-            "Sesion caducada. Vuelve a iniciar sesion.",
-            "Sessio caducada. Torna a iniciar sessio.",
+            "Sesión caducada. Vuelve a iniciar sesión.",
+            "Sessió caducada. Torna a iniciar sessió.",
             "Session expired. Sign in again."
         ),
-        "invalid_session" to tr("Sesion invalida", "Sessio invalida", "Invalid session"),
-        "invalid_credentials" to tr("Credenciales invalidas", "Credencials invalides", "Invalid credentials"),
+        "invalid_session" to tr("Sesión inválida", "Sessió invàlida", "Invalid session"),
+        "invalid_credentials" to tr("Credenciales inválidas", "Credencials invàlides", "Invalid credentials"),
         "network_error" to tr(
-            "Error de red: verifica conexion y backend activo.",
-            "Error de xarxa: comprova la connexio i el backend.",
+            "Error de red: verifica conexión y backend activo.",
+            "Error de xarxa: comprova la connexió i el backend.",
             "Network error: check connection and backend."
         ),
         "server_error" to tr("Error de servidor", "Error de servidor", "Server error"),
         "loading_state" to tr("Cargando estado...", "Carregant estat...", "Loading state..."),
+        "session_closed" to tr("Sesión cerrada", "Sessió tancada", "Session closed"),
+        "validating_session" to tr("Validando sesión...", "Validant sessió...", "Validating session..."),
+        "session_restored" to tr("Sesión restaurada", "Sessió restaurada", "Session restored"),
+        "can_login_now" to tr("Ya puedes iniciar sesión", "Ja pots iniciar sessió", "You can sign in now"),
+        "google_connect_error" to tr("Error al conectar con Google", "Error en connectar amb Google", "Error connecting to Google"),
         "card_used" to tr("Carta usada. Robas una nueva.", "Carta utilitzada. En robes una nova.", "Card used. You draw a new one."),
         "back_to_entry" to tr(
             "Pulsa volver a la entrada para salir de la pantalla de derrota.",
             "Prem tornar a l'entrada per sortir de la pantalla de derrota.",
             "Press back to entry to leave the defeat screen."
         ),
-        "rewarded_not_available" to tr("Rewarded no disponible todavia.", "Rewarded encara no disponible.", "Rewarded is not available yet."),
+        "rewarded_not_available" to tr("Rewarded no disponible todavía.", "Rewarded encara no disponible.", "Rewarded is not available yet."),
         "pay_entry" to tr("Paga 10 FTC para entrar en la sala.", "Paga 10 FTC per entrar a la sala.", "Pay 10 FTC to enter the room."),
         "eliminated_back" to tr("Eliminado. Pulsa para volver a la entrada.", "Eliminat. Prem per tornar a l'entrada.", "Eliminated. Press to return to entry."),
         "already_active_match" to tr("Ya tienes una partida activa", "Ja tens una partida activa", "You already have an active match"),
         "not_enough_buy" to tr("Saldo insuficiente para comprar", "Saldo insuficient per comprar", "Not enough balance to buy"),
         "not_enough_sell" to tr("No tienes suficientes fichas para vender", "No tens prou fitxes per vendre", "Not enough tokens to sell"),
-        "image_required" to tr("La imagen es obligatoria", "La imatge es obligatoria", "Image is required"),
-        "image_format" to tr("Formato de imagen no permitido", "Format d'imatge no permes", "Image format is not allowed"),
+        "image_required" to tr("La imagen es obligatoria", "La imatge és obligatòria", "Image is required"),
+        "image_format" to tr("Formato de imagen no permitido", "Format d'imatge no permès", "Image format is not allowed"),
         "image_save_error" to tr("No se pudo guardar la imagen", "No s'ha pogut guardar la imatge", "Could not save the image")
     )
 
@@ -301,16 +313,31 @@ object AppI18n {
         "Perfil cargado" to "profile_loaded",
         "Foto de perfil actualizada" to "avatar_updated",
         "Contrasena actualizada" to "password_updated",
+        "Contraseña actualizada" to "password_updated",
         "Contrasena local creada" to "password_created",
+        "Contraseña local creada" to "password_created",
         "Anade una contrasena para proteger tu cuenta." to "add_password",
+        "Añade una contraseña para proteger tu cuenta." to "add_password",
         "Tu cuenta ya tiene contrasena. Introduce la actual." to "account_has_password",
+        "Tu cuenta ya tiene contraseña. Introduce la actual." to "account_has_password",
         "Las contrasenas no coinciden" to "passwords_do_not_match",
+        "Las contraseñas no coinciden" to "passwords_do_not_match",
         "Sesion caducada. Vuelve a iniciar sesion." to "session_expired",
+        "Sesión caducada. Vuelve a iniciar sesión." to "session_expired",
         "Sesion invalida" to "invalid_session",
+        "Sesión inválida" to "invalid_session",
         "Credenciales invalidas" to "invalid_credentials",
+        "Credenciales inválidas" to "invalid_credentials",
+        "Sesion cerrada" to "session_closed",
+        "Sesión cerrada" to "session_closed",
+        "Validando sesion..." to "validating_session",
+        "Validando sesión..." to "validating_session",
+        "Sesion restaurada" to "session_restored",
+        "Sesión restaurada" to "session_restored",
         "Error de red: verifica conexion y backend activo." to "network_error",
         "Error de red: verifica conexión y backend activo." to "network_error",
         "Error de servidor" to "server_error",
+        "Error al conectar con Google" to "google_connect_error",
         "Cargando estado..." to "loading_state",
         "Carta usada. Robas una nueva." to "card_used",
         "Pulsa volver a la entrada para salir de la pantalla de derrota." to "back_to_entry",
@@ -349,6 +376,8 @@ object AppI18n {
         "Login correcto" to "login_ok",
         "Registro completado" to "register_ok",
         "Login con Google correcto" to "google_login_ok",
+        "Ya puedes iniciar sesion" to "can_login_now",
+        "Ya puedes iniciar sesión" to "can_login_now",
         "Revisa tu correo para continuar" to "check_email",
         "Contrasena actualizada correctamente" to "password_ok",
         "El usuario o email ya esta registrado" to "user_registered",
@@ -356,7 +385,13 @@ object AppI18n {
         "Datos invalidos" to "invalid_data",
         "No se pudo cerrar el match" to "close_match_error",
         "No se pudo cambiar la contrasena" to "change_password_error",
+        "No se pudo cambiar la contraseña" to "change_password_error",
+        "Entrada pagada. Buscando jugadores" to "entry_paid_searching",
+        "Entrada pagada. Buscando jugadores para la sala de bolas." to "entry_paid_searching",
+        "Entrada pagada. Esperando que el matchmaking termine." to "entry_paid_waiting",
+        "Matchmaking iniciado" to "matchmaking_started",
         "Matchmaking cancelado" to "matchmaking_cancelled",
+        "Te has unido a la sala" to "joined_room",
         "Partida abandonada. Un bot ocupa tu plaza si la sala ya habia avanzado." to "match_abandoned",
         "Completa el sorteo de bolas para desbloquear el Battle Royale." to "battle_unlock_hint",
         "Preparando seleccion de bolas..." to "preparing_ball_selection",
@@ -370,6 +405,10 @@ object AppI18n {
         "Esperando al resto de jugadores..." to "waiting_others",
         "Aun faltan jugadores por elegir bola." to "players_missing_ball",
         "Multiplicadores revelados." to "multipliers_revealed",
+        "Multiplicadores revelados" to "multipliers_revealed",
+        "Bola confirmada" to "ball_confirmed",
+        "Ya puedes pasar al Battle Royale." to "go_battle_message",
+        "Idioma actualizado" to "language_updated",
         "Empate total: nadie sobrevive." to "draw_no_survivors",
         "No se pudo enviar el codigo" to "send_code_error",
         "No se pudo actualizar la contrasena" to "password_update_error",
@@ -388,8 +427,55 @@ object AppI18n {
 
     fun message(raw: String?, language: AppLanguage = SessionStore.language()): String? {
         if (raw.isNullOrBlank()) return raw
-        val key = aliases[raw.trim()] ?: return raw
-        return text(key, language)
+        val trimmed = raw.trim()
+        val key = aliases[trimmed]
+        if (key != null) {
+            return text(key, language)
+        }
+        Regex("""Buscando jugadores: (\d+)/(\d+)\.""").matchEntire(trimmed)?.let { match ->
+            val current = match.groupValues[1]
+            val total = match.groupValues[2]
+            return when (language) {
+                AppLanguage.ES -> "Buscando jugadores: $current/$total."
+                AppLanguage.CA -> "Buscant jugadors: $current/$total."
+                AppLanguage.EN -> "Searching for players: $current/$total."
+            }
+        }
+        Regex("""Has quedado en posicion #(\d+)\.""").matchEntire(trimmed)?.let { match ->
+            val placement = match.groupValues[1]
+            return when (language) {
+                AppLanguage.ES -> "Has quedado en posición #$placement."
+                AppLanguage.CA -> "Has quedat en posició #$placement."
+                AppLanguage.EN -> "You finished in position #$placement."
+            }
+        }
+        Regex("""Has quedado en posición #(\d+)\.""").matchEntire(trimmed)?.let { match ->
+            val placement = match.groupValues[1]
+            return when (language) {
+                AppLanguage.ES -> "Has quedado en posición #$placement."
+                AppLanguage.CA -> "Has quedat en posició #$placement."
+                AppLanguage.EN -> "You finished in position #$placement."
+            }
+        }
+        Regex("""Has elegido la bola (\d+)\.""").matchEntire(trimmed)?.let { match ->
+            val ball = match.groupValues[1]
+            return when (language) {
+                AppLanguage.ES -> "Has elegido la bola $ball."
+                AppLanguage.CA -> "Has triat la bola $ball."
+                AppLanguage.EN -> "You selected ball $ball."
+            }
+        }
+        Regex("""Entrada pagada\. Buscando jugadores.*""").matchEntire(trimmed)?.let {
+            return text("entry_paid_searching", language)
+        }
+        Regex("""(.+)\. Ya puedes iniciar sesi[oó]n""").matchEntire(trimmed)?.let { match ->
+            val first = message(match.groupValues[1], language) ?: match.groupValues[1]
+            return "$first. ${text("can_login_now", language)}"
+        }
+        Regex("""Matchmaking cancelado.*""").matchEntire(trimmed)?.let {
+            return text("matchmaking_cancelled", language)
+        }
+        return raw
     }
 
     private fun tr(es: String, ca: String, en: String): Map<AppLanguage, String> {
