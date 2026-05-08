@@ -67,6 +67,17 @@ class AuthRepository {
         }
     }
 
+    suspend fun logout(): Result<Unit> {
+        return try {
+            val auth = SessionStore.authHeaderOrNull()
+                ?: return Result.success(Unit)
+            ApiClient.authApi.logout(auth)
+            Result.success(Unit)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
     suspend fun requestPasswordReset(email: String): Result<String> {
         return runMessageSafely {
             val response = ApiClient.authApi.requestPasswordReset(

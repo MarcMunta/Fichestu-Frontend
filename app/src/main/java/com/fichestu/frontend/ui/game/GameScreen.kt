@@ -75,6 +75,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -261,6 +262,7 @@ fun FichestuGameScreen(
                             onConfirmPasswordChange = viewModel::updateConfirmPassword,
                             onChangePassword = viewModel::changePassword,
                             onUploadAvatar = viewModel::uploadProfileAvatar,
+                            onSelectPresetAvatar = viewModel::selectPresetAvatar,
                             appLanguage = uiState.appLanguage,
                             onLanguageChange = viewModel::changeLanguage,
                             onLogout = { viewModel.abandonActiveMatchForExit(onLogout) }
@@ -323,6 +325,7 @@ private fun GameTopBar(
     onToggleNotifications: () -> Unit,
     onLogout: () -> Unit
 ) {
+    val presetIndex = profilePicUrl.toPresetAvatarIndex()
     ArcadePanel(contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -337,7 +340,9 @@ private fun GameTopBar(
                     .border(2.dp, GoldDark, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                if (!profilePicUrl.isNullOrBlank()) {
+                if (presetIndex in PresetAvatars.indices) {
+                    CompactPresetAvatar(preset = PresetAvatars[presetIndex], size = 52.dp)
+                } else if (!profilePicUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = profilePicUrl,
                         contentDescription = AppI18n.text("change_photo", language),
@@ -411,6 +416,27 @@ private fun GameTopBar(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CompactPresetAvatar(preset: PresetAvatar, size: Dp) {
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(Brush.linearGradient(preset.gradient))
+            .padding(size * 0.16f),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = preset.emoji,
+            style = MaterialTheme.typography.titleLarge.copy(
+                fontSize = (size.value * 0.46f).sp,
+                fontWeight = FontWeight.ExtraBold
+            ),
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -731,9 +757,9 @@ private fun DashboardTab(
                 Spacer(Modifier.height(10.dp))
                 ArcadePrimaryButton(
                     text = if (rewardedAvailable) {
-                        "REWARDED +25 FTC"
+                        AppI18n.text("rewarded_claim", language)
                     } else {
-                        "REWARDED ${rewardedCooldownSec}s"
+                        "${AppI18n.text("rewarded_cooldown", language)} ${rewardedCooldownSec}s"
                     },
                     enabled = rewardedAvailable,
                     onClick = onClaimRewarded
@@ -1175,7 +1201,6 @@ private fun PlayerBallStatusItem(
 @Composable
 private fun BattleTab(
     battle: BattleUiState,
-    selectedTokenId: TokenId,
     onSelectAction: (BattleCardType) -> Unit,
     onPlayRound: () -> Unit,
     onResetCycle: () -> Unit
@@ -1198,7 +1223,7 @@ private fun BattleTab(
             ArcadePanel {
                 val alive = battle.players.count { it.isAlive }
                 Text(
-                    text = "${AppI18n.text("round")} ${battle.round} | ${AppI18n.text("alive")}: $alive | ${AppI18n.text("target_token")}: ${selectedTokenId.name}",
+                    text = "${AppI18n.text("round")} ${battle.round} | ${AppI18n.text("alive")}: $alive",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         color = PureWhite,
                         fontWeight = FontWeight.SemiBold

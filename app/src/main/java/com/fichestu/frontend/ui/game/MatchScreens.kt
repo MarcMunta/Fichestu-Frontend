@@ -159,7 +159,6 @@ fun BattleFlow(
         BattlePhase.LOCKED -> LockedView(language = language, modifier = modifier)
         BattlePhase.READY, BattlePhase.IN_PROGRESS -> ArenaView(
             battle = battle,
-            selectedTokenId = market.selectedToken,
             language = language,
             onSelectAction = onSelectAction,
             onSelectCard = onSelectCard,
@@ -1100,7 +1099,6 @@ fun RevealView(
 @Composable
 fun ArenaView(
     battle: BattleUiState,
-    selectedTokenId: TokenId,
     language: AppLanguage,
     onSelectAction: (BattleCardType) -> Unit,
     onSelectCard: (Long) -> Unit,
@@ -1216,13 +1214,6 @@ fun ArenaView(
                 }
             }
 
-            Text(
-                text = "${t("target_token", language)}: ${selectedTokenId.name}",
-                style = MaterialTheme.typography.labelMedium.copy(color = Gold)
-            )
-            Spacer(Modifier.height(4.dp))
-
-            // Hand strip (5 random cards)
             Eyebrow(text = t("your_hand", language), color = Gold)
             Spacer(Modifier.height(4.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

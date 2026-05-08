@@ -11,12 +11,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import com.fichestu.frontend.data.repository.AuthRepository
 import com.fichestu.frontend.data.repository.SessionStore
 import com.fichestu.frontend.data.viewmodels.AuthViewModel
 import com.fichestu.frontend.views.AuthScreen
 import com.fichestu.frontend.views.ForgotPasswordScreen
 import com.fichestu.frontend.ui.game.FichestuGameScreen
 import com.fichestu.frontend.util.GoogleAuthHelper
+import kotlinx.coroutines.launch
 
 
 private object AppRoute {
@@ -35,6 +38,8 @@ fun AppNavGraph() {
     val navController = rememberNavController()
     val context = LocalContext.current as ComponentActivity
     val googleAuthHelper = remember { GoogleAuthHelper(context) }
+    val authRepository = remember { AuthRepository() }
+    val scope = rememberCoroutineScope()
 
     NavHost(
         navController = navController,
@@ -71,13 +76,16 @@ fun AppNavGraph() {
             FichestuGameScreen(
                 playerName = playerName,
                 onLogout = {
-                    SessionStore.clear()
-                    if (navController.currentDestination?.route == AppRoute.AUTH) {
-                        return@FichestuGameScreen
-                    }
-                    navController.navigate(AppRoute.AUTH) {
-                        popUpTo(navController.graph.id) {
-                            inclusive = true
+                    scope.launch {
+                        authRepository.logout()
+                        SessionStore.clear()
+                        if (navController.currentDestination?.route == AppRoute.AUTH) {
+                            return@launch
+                        }
+                        navController.navigate(AppRoute.AUTH) {
+                            popUpTo(navController.graph.id) {
+                                inclusive = true
+                            }
                         }
                     }
                 }

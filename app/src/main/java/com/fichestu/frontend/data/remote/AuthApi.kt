@@ -30,6 +30,11 @@ interface AuthApi {
         @Body request: GoogleLoginRequest
     ): Response<AuthResponse>
 
+    @POST("api/auth/logout")
+    suspend fun logout(
+        @Header("Authorization") authorization: String
+    ): Response<GenericResponse>
+
     @POST("api/auth/password-reset/request")
     suspend fun requestPasswordReset(
         @Body request: PasswordResetRequest

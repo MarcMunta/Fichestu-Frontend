@@ -154,6 +154,24 @@ class ProfileRepository {
         )
     }
 
+    suspend fun savePresetAvatar(currentState: GameUiState, presetId: String): Result<GameUiState> = runSafely {
+        val profile = currentState.profile
+        val response = ApiClient.profileApi.updateProfile(
+            authorization = requireAuth(),
+            request = UpdateProfileRequestDto(
+                username = profile.username.trim(),
+                email = profile.email.trim(),
+                profilePicUrl = "preset:$presetId"
+            )
+        )
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
+
+        currentState.copy(
+            profile = mapProfile(currentState.profile, dto).copy(isSavingProfile = false),
+            transientMessage = AppI18n.message(dto.message) ?: dto.message
+        )
+    }
+
     private fun mapProfile(current: ProfileUiState, dto: ProfileResponseDto): ProfileUiState {
         return current.copy(
             playerName = dto.username,
@@ -169,6 +187,7 @@ class ProfileRepository {
 
     private fun String?.toAbsoluteProfileUrl(): String? {
         if (isNullOrBlank()) return null
+        if (startsWith("preset:", ignoreCase = true)) return this
         if (startsWith("http://", ignoreCase = true) || startsWith("https://", ignoreCase = true)) return this
         val base = BuildConfig.BASE_URL.trimEnd('/')
         return "$base${if (startsWith("/")) this else "/$this"}"
