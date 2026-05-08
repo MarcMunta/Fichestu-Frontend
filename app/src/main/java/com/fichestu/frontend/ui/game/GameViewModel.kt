@@ -140,6 +140,22 @@ class GameViewModel(
         }
     }
 
+    fun selectPresetAvatar(presetId: String) {
+        viewModelScope.launch {
+            _uiState.update { state ->
+                state.copy(profile = state.profile.copy(isSavingProfile = true), transientMessage = null)
+            }
+
+            val result = profileRepository.savePresetAvatar(_uiState.value, presetId)
+            applyResult(result)
+            if (result.isFailure) {
+                _uiState.update { state ->
+                    state.copy(profile = state.profile.copy(isSavingProfile = false))
+                }
+            }
+        }
+    }
+
     fun changeLanguage(language: AppLanguage) {
         SessionStore.setLanguage(language)
         _uiState.update { state ->

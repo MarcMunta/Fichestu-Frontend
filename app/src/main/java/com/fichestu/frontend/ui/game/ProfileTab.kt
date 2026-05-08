@@ -149,6 +149,7 @@ fun ProfileTab(
     onConfirmPasswordChange: (String) -> Unit,
     onChangePassword: () -> Unit,
     onUploadAvatar: (ByteArray, String) -> Unit,
+    onSelectPresetAvatar: (String) -> Unit,
     appLanguage: AppLanguage,
     onLanguageChange: (AppLanguage) -> Unit,
     onLogout: () -> Unit
@@ -175,6 +176,8 @@ fun ProfileTab(
     }
 
     val screenBg = ScreenBackgrounds.getOrElse(selectedScreenBgIndex) { ScreenBackgrounds.first() }
+    val effectiveAvatarIndex = selectedAvatarIndex.takeIf { it >= 0 }
+        ?: profile.profilePicUrl.toPresetAvatarIndex()
 
     Box(modifier = Modifier.fillMaxSize()) {
         // ── FONDO DE PANTALLA PERSONALIZABLE ─────────────────────────────────
@@ -220,7 +223,7 @@ fun ProfileTab(
                     ProfileHeroCard(
                         profile = profile,
                         large = true,
-                        selectedPresetIndex = selectedAvatarIndex,
+                        selectedPresetIndex = effectiveAvatarIndex,
                         backgroundIndex = selectedFrameIndex,
                         language = appLanguage,
                         onChangePicture = { showAvatarDialog = true }
@@ -277,7 +280,7 @@ fun ProfileTab(
                     ProfileHeroCard(
                         profile = profile,
                         large = false,
-                        selectedPresetIndex = selectedAvatarIndex,
+                        selectedPresetIndex = effectiveAvatarIndex,
                         backgroundIndex = selectedFrameIndex,
                         language = appLanguage,
                         onChangePicture = { showAvatarDialog = true }
@@ -335,7 +338,7 @@ fun ProfileTab(
     // ── DIALOG DE AVATAR ─────────────────────────────────────────────────
     if (showAvatarDialog) {
         AvatarPickerDialog(
-            currentSelection = selectedAvatarIndex,
+            currentSelection = effectiveAvatarIndex,
             currentFrame = selectedFrameIndex,
             currentScreenBg = selectedScreenBgIndex,
             hasPhotoBg = !screenBgPhotoUri.isNullOrBlank(),
@@ -343,6 +346,8 @@ fun ProfileTab(
             language = appLanguage,
             onPick = { idx ->
                 selectedAvatarIndex = idx
+                onSelectPresetAvatar(PresetAvatars[idx].presetId)
+                showAvatarDialog = false
             },
             onPickFrame = { idx ->
                 selectedFrameIndex = idx
@@ -1775,14 +1780,23 @@ private fun BackgroundSwatchTile(
     }
 }
 
-private data class PresetAvatar(
+data class PresetAvatar(
     val name: String,
     val emoji: String,
     val gradient: List<Color>,
     val ringColor: Color
 )
 
-private val PresetAvatars: List<PresetAvatar> = listOf(
+val PresetAvatar.presetId: String
+    get() = name.lowercase(Locale.US).replace(" ", "-")
+
+fun String?.toPresetAvatarIndex(): Int {
+    if (isNullOrBlank() || !startsWith("preset:", ignoreCase = true)) return -1
+    val presetId = substringAfter("preset:").lowercase(Locale.US)
+    return PresetAvatars.indexOfFirst { it.presetId == presetId }
+}
+
+val PresetAvatars: List<PresetAvatar> = listOf(
     PresetAvatar("Gold King",   "👑", listOf(GoldLight, Gold, GoldDark),                      Gold),
     PresetAvatar("Pyro",        "🔥", listOf(Color(0xFFFFB347), ChipRed, ChipRedDark),        ChipRed),
     PresetAvatar("Ice Shark",   "🦈", listOf(Color(0xFF7FE0FF), ShieldBlue, Color(0xFF1B4F7A)), ShieldBlue),
@@ -1798,7 +1812,7 @@ private val PresetAvatars: List<PresetAvatar> = listOf(
 )
 
 @Composable
-private fun PresetAvatarVisual(preset: PresetAvatar, modifier: Modifier = Modifier) {
+fun PresetAvatarVisual(preset: PresetAvatar, modifier: Modifier = Modifier) {
     Box(
         modifier = modifier.background(Brush.linearGradient(preset.gradient)),
         contentAlignment = Alignment.Center

@@ -25,7 +25,8 @@ data class ProfileStatsResponseDto(
 
 data class UpdateProfileRequestDto(
     val username: String,
-    val email: String
+    val email: String,
+    val profilePicUrl: String? = null
 )
 
 data class UpdateLanguageRequestDto(

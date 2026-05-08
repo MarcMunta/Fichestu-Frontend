@@ -297,8 +297,11 @@ object AppI18n {
             "Prem tornar a l'entrada per sortir de la pantalla de derrota.",
             "Press back to entry to leave the defeat screen."
         ),
-        "rewarded_not_available" to tr("Rewarded no disponible todavía.", "Rewarded encara no disponible.", "Rewarded is not available yet."),
+        "rewarded_not_available" to tr("Recompensa no disponible todavia.", "Recompensa encara no disponible.", "Reward is not available yet."),
         "pay_entry" to tr("Paga 10 FTC para entrar en la sala.", "Paga 10 FTC per entrar a la sala.", "Pay 10 FTC to enter the room."),
+        "rewarded_claim" to tr("RECLAMAR +25 FTC", "RECLAMAR +25 FTC", "CLAIM +25 FTC"),
+        "rewarded_cooldown" to tr("RECOMPENSA", "RECOMPENSA", "REWARD"),
+        "rewarded_applied" to tr("Recompensa aplicada", "Recompensa aplicada", "Reward applied"),
         "eliminated_back" to tr("Eliminado. Pulsa para volver a la entrada.", "Eliminat. Prem per tornar a l'entrada.", "Eliminated. Press to return to entry."),
         "already_active_match" to tr("Ya tienes una partida activa", "Ja tens una partida activa", "You already have an active match"),
         "not_enough_buy" to tr("Saldo insuficiente para comprar", "Saldo insuficient per comprar", "Not enough balance to buy"),
@@ -342,6 +345,9 @@ object AppI18n {
         "Carta usada. Robas una nueva." to "card_used",
         "Pulsa volver a la entrada para salir de la pantalla de derrota." to "back_to_entry",
         "Rewarded no disponible todavia." to "rewarded_not_available",
+        "Rewarded no disponible todavÃ­a." to "rewarded_not_available",
+        "Rewarded aplicado" to "rewarded_applied",
+        "REWARDED aplicado" to "rewarded_applied",
         "Paga 10 FTC para entrar en la sala." to "pay_entry",
         "Eliminado. Pulsa para volver a la entrada." to "eliminated_back",
         "Ya tienes una partida activa" to "already_active_match",
@@ -463,6 +469,14 @@ object AppI18n {
                 AppLanguage.ES -> "Has elegido la bola $ball."
                 AppLanguage.CA -> "Has triat la bola $ball."
                 AppLanguage.EN -> "You selected ball $ball."
+            }
+        }
+        Regex("""Has recibido ([\d.,]+) FTC en tu saldo\.""").matchEntire(trimmed)?.let { match ->
+            val amount = match.groupValues[1]
+            return when (language) {
+                AppLanguage.ES -> "Has recibido $amount FTC en tu saldo."
+                AppLanguage.CA -> "Has rebut $amount FTC al teu saldo."
+                AppLanguage.EN -> "You received $amount FTC in your balance."
             }
         }
         Regex("""Entrada pagada\. Buscando jugadores.*""").matchEntire(trimmed)?.let {
