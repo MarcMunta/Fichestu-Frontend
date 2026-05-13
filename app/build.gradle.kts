@@ -12,7 +12,7 @@ val localProperties = Properties().apply {
     }
 }
 
-val apiBaseUrl = localProperties.getProperty("API_BASE_URL") ?: "http://10.0.2.2:8080/"
+val apiBaseUrl = localProperties.getProperty("API_BASE_URL") ?: "https://fichestu-backend.onrender.com/"
 
 android {
     namespace = "com.fichestu.frontend"
