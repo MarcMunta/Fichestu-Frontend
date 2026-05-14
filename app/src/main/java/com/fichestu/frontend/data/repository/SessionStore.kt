@@ -25,19 +25,23 @@ object SessionStore {
     fun init(context: Context) {
         if (prefs != null) return
         prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs?.edit()?.remove(KEY_TOKEN)?.apply()
-        token = null
+        token = prefs?.getString(KEY_TOKEN, null)
         displayName = prefs?.getString(KEY_DISPLAY_NAME, "Jugador") ?: "Jugador"
         language = AppLanguage.fromCode(prefs?.getString(KEY_LANGUAGE, AppLanguage.ES.code))
     }
 
     fun setAuth(token: String?, displayName: String) {
-        this.token = token
+        this.token = token?.trim()?.takeIf { it.isNotBlank() }
         this.displayName = displayName.ifBlank { "Jugador" }
-        prefs?.edit()
-            ?.remove(KEY_TOKEN)
-            ?.putString(KEY_DISPLAY_NAME, this.displayName)
-            ?.apply()
+        prefs?.edit()?.apply {
+            if (this@SessionStore.token == null) {
+                remove(KEY_TOKEN)
+            } else {
+                putString(KEY_TOKEN, this@SessionStore.token)
+            }
+            putString(KEY_DISPLAY_NAME, this@SessionStore.displayName)
+            apply()
+        }
     }
 
     fun clear() {

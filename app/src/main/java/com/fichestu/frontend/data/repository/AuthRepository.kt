@@ -24,7 +24,7 @@ class AuthRepository {
             val response = ApiClient.authApi.login(
                 LoginRequest(email = email, password = password)
             )
-            val result = parseResponse(response, "Login successful")
+            val result = parseResponse(response, "Login successful", requireToken = true)
             SessionStore.setAuth(result.token, email.substringBefore('@'))
             result
         }
@@ -35,7 +35,7 @@ class AuthRepository {
             val response = ApiClient.authApi.register(
                 RegisterRequest(username = username, email = email, password = password)
             )
-            parseResponse(response, "Registration complete")
+            parseResponse(response, "Registration complete", requireToken = false)
         }
     }
 
@@ -44,7 +44,7 @@ class AuthRepository {
             val response = ApiClient.authApi.loginWithGoogle(
                 GoogleLoginRequest(idToken = idToken)
             )
-            val result = parseResponse(response, "Google login successful")
+            val result = parseResponse(response, "Google login successful", requireToken = true)
             SessionStore.setAuth(result.token, SessionStore.displayName())
             result
         }
@@ -108,13 +108,18 @@ class AuthRepository {
 
     private fun parseResponse(
         response: Response<AuthResponse>,
-        defaultMessage: String
+        defaultMessage: String,
+        requireToken: Boolean
     ): AuthResult {
         if (response.isSuccessful) {
             val body = response.body()
+            val token = body?.token?.trim()
+            if (requireToken && token.isNullOrBlank()) {
+                throw Exception("Login failed: server did not return a session token")
+            }
             return AuthResult(
                 message = body?.message ?: defaultMessage,
-                token = body?.token
+                token = token
             )
         }
 
