@@ -149,11 +149,11 @@ class AuthViewModel(
             _uiState.update { current ->
                 result.fold(
                     onSuccess = { authResult ->
-                        if (state.isLoginMode) {
-                            val displayName = deriveDisplayName(
-                                username = state.username,
-                                email = state.email
-                            )
+                        val displayName = deriveDisplayName(
+                            username = state.username,
+                            email = state.email
+                        )
+                        if (!authResult.token.isNullOrBlank()) {
                             SessionStore.setAuth(authResult.token, displayName)
                             current.copy(
                                 isLoading = false,

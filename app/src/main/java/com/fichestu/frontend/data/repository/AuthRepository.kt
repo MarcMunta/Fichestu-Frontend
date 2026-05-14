@@ -35,7 +35,9 @@ class AuthRepository {
             val response = ApiClient.authApi.register(
                 RegisterRequest(username = username, email = email, password = password)
             )
-            parseResponse(response, "Registration complete", requireToken = false)
+            val result = parseResponse(response, "Registration complete", requireToken = true)
+            SessionStore.setAuth(result.token, username)
+            result
         }
     }
 
