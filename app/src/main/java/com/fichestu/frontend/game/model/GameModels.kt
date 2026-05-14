@@ -143,7 +143,8 @@ data class BattleUiState(
     val interstitialAvailable: Boolean = true,
     val roundDeadlineEpochMs: Long? = null,
     val submittedActions: Int? = null,
-    val aliveHumans: Int? = null
+    val aliveHumans: Int? = null,
+    val userActionSubmitted: Boolean = false
 )
 
 data class BadgeUi(

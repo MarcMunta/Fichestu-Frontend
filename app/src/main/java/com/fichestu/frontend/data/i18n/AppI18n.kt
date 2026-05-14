@@ -73,6 +73,7 @@ object AppI18n {
         "your_hand" to tr("TU MANO", "LA TEVA MÀ", "YOUR HAND"),
         "choose_card" to tr("Elige tu carta", "Tria la teva carta", "Choose your card"),
         "play_round" to tr("JUGAR RONDA", "JUGAR RONDA", "PLAY ROUND"),
+        "prepared" to tr("PREPARADA", "PREPARADA", "PREPARED"),
         "finished" to tr("FINALIZADO", "FINALITZAT", "FINISHED"),
         "battle_finished" to tr("BATTLE FINALIZADO", "BATTLE FINALITZAT", "BATTLE FINISHED"),
         "log" to tr("LOG", "LOG", "LOG"),
@@ -292,6 +293,7 @@ object AppI18n {
         "can_login_now" to tr("Ya puedes iniciar sesión", "Ja pots iniciar sessió", "You can sign in now"),
         "google_connect_error" to tr("Error al conectar con Google", "Error en connectar amb Google", "Error connecting to Google"),
         "card_used" to tr("Carta usada. Robas una nueva.", "Carta utilitzada. En robes una nova.", "Card used. You draw a new one."),
+        "card_prepared" to tr("Carta preparada. Se revelara cuando todos esten listos.", "Carta preparada. Es revelara quan tothom estigui llest.", "Card prepared. It reveals when everyone is ready."),
         "back_to_entry" to tr(
             "Pulsa volver a la entrada para salir de la pantalla de derrota.",
             "Prem tornar a l'entrada per sortir de la pantalla de derrota.",
@@ -343,6 +345,7 @@ object AppI18n {
         "Error al conectar con Google" to "google_connect_error",
         "Cargando estado..." to "loading_state",
         "Carta usada. Robas una nueva." to "card_used",
+        "Carta preparada. Se revelara cuando todos esten listos." to "card_prepared",
         "Pulsa volver a la entrada para salir de la pantalla de derrota." to "back_to_entry",
         "Rewarded no disponible todavia." to "rewarded_not_available",
         "Rewarded no disponible todavÃ­a." to "rewarded_not_available",

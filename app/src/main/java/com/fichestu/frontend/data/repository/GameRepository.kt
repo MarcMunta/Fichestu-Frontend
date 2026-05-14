@@ -392,7 +392,8 @@ class GameRepository {
             interstitialAvailable = dto.interstitialAvailable,
             roundDeadlineEpochMs = localDeadlineEpochMs,
             submittedActions = dto.submittedActions,
-            aliveHumans = dto.aliveHumans
+            aliveHumans = dto.aliveHumans,
+            userActionSubmitted = dto.userActionSubmitted
         )
     }
 

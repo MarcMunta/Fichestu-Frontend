@@ -1107,6 +1107,7 @@ fun ArenaView(
     modifier: Modifier = Modifier
 ) {
     var logExpanded by remember { mutableStateOf(false) }
+    val actionPrepared = battle.userActionSubmitted && battle.phase == BattlePhase.IN_PROGRESS
 
     Box(modifier = modifier.fillMaxSize()) {
         AmbientBackground(particleCount = 16)
@@ -1223,8 +1224,10 @@ fun ArenaView(
                         selected = card.id == battle.selectedCardId,
                         language = language,
                         onClick = {
-                            onSelectAction(card.type)
-                            onSelectCard(card.id)
+                            if (!actionPrepared) {
+                                onSelectAction(card.type)
+                                onSelectCard(card.id)
+                            }
                         },
                         modifier = Modifier.weight(1f)
                     )
@@ -1232,9 +1235,13 @@ fun ArenaView(
             }
             Spacer(Modifier.height(8.dp))
             BigPushButtonInternal(
-                text = if (battle.phase == BattlePhase.FINISHED) t("finished", language) else t("play_round", language),
+                text = when {
+                    battle.phase == BattlePhase.FINISHED -> t("finished", language)
+                    actionPrepared -> t("prepared", language)
+                    else -> t("play_round", language)
+                },
                 color = ChipRed,
-                enabled = battle.phase != BattlePhase.FINISHED,
+                enabled = battle.phase != BattlePhase.FINISHED && !actionPrepared,
                 onClick = onPlayRound,
                 modifier = Modifier
                     .fillMaxWidth()

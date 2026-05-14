@@ -1080,9 +1080,19 @@ class GameViewModel(
                     shouldRefreshNotifications = true
                     val next = stabilizeMatchmakingTransition(current, success)
                         .copy(battle = mergeBattleHand(success.battle, current.battle))
+                    val roundResolved = next.battle.phase == BattlePhase.FINISHED ||
+                        next.battle.round > current.battle.round
                     next.copy(
-                        battle = consumeBattleCardAfterBackendRound(next.battle, current.battle),
-                transientMessage = AppI18n.text("card_used")
+                        battle = if (roundResolved) {
+                            consumeBattleCardAfterBackendRound(next.battle, current.battle)
+                        } else {
+                            next.battle
+                        },
+                        transientMessage = if (roundResolved) {
+                            AppI18n.text("card_used")
+                        } else {
+                            AppI18n.text("card_prepared")
+                        }
                     )
                 },
                 onFailure = { error ->
@@ -1146,10 +1156,12 @@ class GameViewModel(
 
     private fun stabilizeMatchmakingTransition(current: GameUiState, next: GameUiState): GameUiState {
         if (next.ballRoom.phase == BallRoomPhase.MATCHMAKING) {
-            if (matchmakingVisualDeadlineMs == null) {
-                matchmakingVisualDeadlineMs = next.ballRoom.selectionDeadlineEpochMs
-                    ?: current.ballRoom.selectionDeadlineEpochMs
-                    ?: (System.currentTimeMillis() + 15_000L)
+            val incomingDeadline = next.ballRoom.selectionDeadlineEpochMs
+            val fallbackDeadline = current.ballRoom.selectionDeadlineEpochMs ?: (System.currentTimeMillis() + 15_000L)
+            matchmakingVisualDeadlineMs = when {
+                matchmakingVisualDeadlineMs == null -> incomingDeadline ?: fallbackDeadline
+                incomingDeadline != null && incomingDeadline > matchmakingVisualDeadlineMs!! -> incomingDeadline
+                else -> matchmakingVisualDeadlineMs
             }
             return next.copy(
                 ballRoom = next.ballRoom.copy(selectionDeadlineEpochMs = matchmakingVisualDeadlineMs)

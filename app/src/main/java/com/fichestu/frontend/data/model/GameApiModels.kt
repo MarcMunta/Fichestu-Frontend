@@ -126,6 +126,7 @@ data class BattleDto(
     val serverNowEpochMs: Long? = null,
     val submittedActions: Int? = null,
     val aliveHumans: Int? = null,
+    val userActionSubmitted: Boolean = false,
     val winnerId: String?,
     val winnerName: String?,
     val winningMultiplier: Double?,
