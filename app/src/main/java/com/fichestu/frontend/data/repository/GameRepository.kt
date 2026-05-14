@@ -371,6 +371,14 @@ class GameRepository {
     private fun mapBattle(dto: BattleDto): BattleUiState {
         val players = dto.players.map { it.toBattlePlayer() }
         val winnerId = players.firstOrNull { it.id == dto.winnerId }?.let { if (it.isUser) "user" else it.id }
+        val localDeadlineEpochMs = dto.roundDeadlineEpochMs?.let { deadline ->
+            val serverNow = dto.serverNowEpochMs
+            if (serverNow != null) {
+                System.currentTimeMillis() + (deadline - serverNow).coerceAtLeast(0L)
+            } else {
+                deadline
+            }
+        }
         return BattleUiState(
             phase = dto.phase.toBattlePhase(),
             players = players,
@@ -381,7 +389,10 @@ class GameRepository {
             winningMultiplier = dto.winningMultiplier,
             selectedAction = dto.selectedAction.toBattleCardType(),
             impactApplied = false,
-            interstitialAvailable = dto.interstitialAvailable
+            interstitialAvailable = dto.interstitialAvailable,
+            roundDeadlineEpochMs = localDeadlineEpochMs,
+            submittedActions = dto.submittedActions,
+            aliveHumans = dto.aliveHumans
         )
     }
 

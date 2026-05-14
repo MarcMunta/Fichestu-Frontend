@@ -3,6 +3,7 @@ package com.fichestu.frontend.ui.game
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.fichestu.frontend.data.i18n.AppI18n
+import com.fichestu.frontend.data.remote.MatchRealtimeClient
 import com.fichestu.frontend.data.repository.GameRepository
 import com.fichestu.frontend.data.repository.ProfileRepository
 import com.fichestu.frontend.data.repository.SessionStore
@@ -45,6 +46,9 @@ class GameViewModel(
     private var autoRestartJob: Job? = null
     private var nextBattleCardId = 1L
     private var matchmakingVisualDeadlineMs: Long? = null
+    private val realtimeClient = MatchRealtimeClient { matchId, _ ->
+        onRealtimeMatchChanged(matchId)
+    }
 
     init {
         bootstrap()
@@ -298,6 +302,7 @@ class GameViewModel(
                 _uiState.value = stabilizeMatchmakingTransition(current, newState).copy(
                     battle = mergeBattleHand(newState.battle, current.battle)
                 )
+                syncRealtimeSubscription(_uiState.value)
             }
             result.onFailure { error ->
                 if (error is SessionExpiredException) {
@@ -975,6 +980,7 @@ class GameViewModel(
     private fun shouldRefreshMatch(current: GameUiState): Boolean {
         if (current.currentMatchId == null) return false
 
+        val shouldRefreshBattleTimer = current.battle.phase == BattlePhase.IN_PROGRESS
         val shouldRefreshBattle = current.activeTab == MainTab.BATTLE &&
             current.battle.phase != BattlePhase.LOCKED &&
             current.battle.hand.isEmpty()
@@ -982,7 +988,7 @@ class GameViewModel(
             (current.ballRoom.phase == BallRoomPhase.MATCHMAKING ||
                 current.ballRoom.phase == BallRoomPhase.PICKING)
 
-        return shouldRefreshBattle || shouldRefreshBallRoom
+        return shouldRefreshBattleTimer || shouldRefreshBattle || shouldRefreshBallRoom
     }
 
     private fun passiveRefreshDelayMs(current: GameUiState): Long {
@@ -1013,6 +1019,7 @@ class GameViewModel(
             _uiState.value = newState.copy(
                 battle = mergeBattleHand(newState.battle, current.battle)
             )
+            syncRealtimeSubscription(_uiState.value)
         }
         result.onFailure { error ->
             if (error is SessionExpiredException) {
@@ -1060,6 +1067,7 @@ class GameViewModel(
             )
         }
         if (shouldRefreshNotifications) {
+            syncRealtimeSubscription(_uiState.value)
             refreshNotifications()
         }
     }
@@ -1090,8 +1098,32 @@ class GameViewModel(
             )
         }
         if (shouldRefreshNotifications) {
+            syncRealtimeSubscription(_uiState.value)
             refreshNotifications()
         }
+    }
+
+    private fun onRealtimeMatchChanged(matchId: Int) {
+        viewModelScope.launch {
+            val current = _uiState.value
+            if (current.currentMatchId != matchId) return@launch
+            refreshMatchFromState(current)
+        }
+    }
+
+    private fun syncRealtimeSubscription(state: GameUiState) {
+        val matchId = state.currentMatchId
+        val token = SessionStore.tokenOrNull()
+        if (matchId == null || token == null) {
+            realtimeClient.close()
+            return
+        }
+        realtimeClient.connect(matchId, token)
+    }
+
+    override fun onCleared() {
+        realtimeClient.close()
+        super.onCleared()
     }
 
     private fun consumeBattleCardAfterBackendRound(

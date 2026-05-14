@@ -59,6 +59,8 @@ object SessionStore {
         return "Bearer $current"
     }
 
+    fun tokenOrNull(): String? = token?.trim()?.takeIf { it.isNotBlank() }
+
     fun displayName(): String = displayName
 
     fun language(): AppLanguage = language

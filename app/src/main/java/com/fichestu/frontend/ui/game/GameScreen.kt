@@ -1229,6 +1229,10 @@ private fun BattleTab(
                         fontWeight = FontWeight.SemiBold
                     )
                 )
+                if (battle.phase == BattlePhase.IN_PROGRESS) {
+                    Spacer(Modifier.height(6.dp))
+                    BattleRoundCountdown(battle = battle)
+                }
                 Spacer(Modifier.height(8.dp))
                 if (battle.phase == BattlePhase.LOCKED) {
                     Text(
@@ -1366,6 +1370,34 @@ private fun BattleTab(
             }
         }
     }
+}
+
+@Composable
+private fun BattleRoundCountdown(battle: BattleUiState) {
+    var remaining by remember(battle.roundDeadlineEpochMs) {
+        mutableStateOf(
+            battle.roundDeadlineEpochMs
+                ?.let { ((it - System.currentTimeMillis()) / 1000).toInt().coerceAtLeast(0) }
+                ?: 0
+        )
+    }
+
+    LaunchedEffect(battle.roundDeadlineEpochMs) {
+        while (battle.roundDeadlineEpochMs != null) {
+            remaining = ((battle.roundDeadlineEpochMs - System.currentTimeMillis()) / 1000).toInt().coerceAtLeast(0)
+            delay(1000)
+        }
+    }
+
+    val submitted = battle.submittedActions ?: 0
+    val total = battle.aliveHumans ?: battle.players.count { it.isUser && it.isAlive }
+    Text(
+        text = "Tiempo ronda: ${remaining}s | Acciones: $submitted/$total",
+        style = MaterialTheme.typography.bodySmall.copy(
+            color = if (remaining <= 5) ChipRed else Gold,
+            fontWeight = FontWeight.Bold
+        )
+    )
 }
 
 @Composable

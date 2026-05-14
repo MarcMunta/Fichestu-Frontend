@@ -122,6 +122,10 @@ data class WinnerImpactRequestDto(
 data class BattleDto(
     val phase: String,
     val round: Int,
+    val roundDeadlineEpochMs: Long? = null,
+    val serverNowEpochMs: Long? = null,
+    val submittedActions: Int? = null,
+    val aliveHumans: Int? = null,
     val winnerId: String?,
     val winnerName: String?,
     val winningMultiplier: Double?,
