@@ -72,10 +72,12 @@ class GameRepository {
 
     suspend fun refreshMatch(currentState: GameUiState): Result<GameUiState> = runSafely {
         val auth = requireAuth()
+        val requestStartedAt = System.currentTimeMillis()
         val response = ApiClient.gameApi.currentMatchState(auth)
+        val responseReceivedAt = System.currentTimeMillis()
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
-        val nextBattle = mapBattle(dto.battle)
-        val nextBallRoom = mapBallRoom(dto.ballRoom, currentState.ballRoom.pendingSelectedBallId)
+        val nextBattle = mapBattle(dto.battle, requestStartedAt, responseReceivedAt)
+        val nextBallRoom = mapBallRoom(dto.ballRoom, currentState.ballRoom.pendingSelectedBallId, requestStartedAt, responseReceivedAt)
         currentState.copy(
             currentMatchId = dto.matchId,
             activeTab = if (
@@ -113,13 +115,15 @@ class GameRepository {
     }
 
     suspend fun enterBallRoom(currentState: GameUiState): Result<GameUiState> = runSafely {
+        val requestStartedAt = System.currentTimeMillis()
         val response = ApiClient.gameApi.enterBallRoom(requireAuth())
+        val responseReceivedAt = System.currentTimeMillis()
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         currentState.copy(
             currentMatchId = dto.matchId,
             activeTab = MainTab.BALL_ROOM,
             market = currentState.market.copy(cashBalance = dto.cashBalance),
-            ballRoom = mapBallRoom(dto.ballRoom),
+            ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
             battle = BattleUiState(phase = BattlePhase.LOCKED, log = listOf("Completa el sorteo de bolas para desbloquear el Battle Royale.")),
             profile = currentState.profile.copy(stats = currentState.profile.stats.copy(ballRoomsPlayed = currentState.profile.stats.ballRoomsPlayed + 1)),
             transientMessage = dto.message
@@ -127,13 +131,15 @@ class GameRepository {
     }
 
     suspend fun cancelMatchmaking(currentState: GameUiState, matchId: Int): Result<GameUiState> = runSafely {
+        val requestStartedAt = System.currentTimeMillis()
         val response = ApiClient.gameApi.cancelMatchmaking(requireAuth(), matchId)
+        val responseReceivedAt = System.currentTimeMillis()
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         currentState.copy(
             currentMatchId = null,
             activeTab = MainTab.BALL_ROOM,
             market = currentState.market.copy(cashBalance = dto.cashBalance),
-            ballRoom = mapBallRoom(dto.ballRoom),
+            ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
             battle = BattleUiState(
                 phase = BattlePhase.LOCKED,
                 log = listOf("Matchmaking cancelado")
@@ -143,13 +149,15 @@ class GameRepository {
     }
 
     suspend fun abandonMatch(currentState: GameUiState, matchId: Int): Result<GameUiState> = runSafely {
+        val requestStartedAt = System.currentTimeMillis()
         val response = ApiClient.gameApi.abandonMatch(requireAuth(), matchId)
+        val responseReceivedAt = System.currentTimeMillis()
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         currentState.copy(
             currentMatchId = null,
             activeTab = MainTab.BALL_ROOM,
             market = currentState.market.copy(cashBalance = dto.cashBalance),
-            ballRoom = mapBallRoom(dto.ballRoom),
+            ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
             battle = BattleUiState(
                 phase = BattlePhase.LOCKED,
                 log = listOf("Partida abandonada. Un bot ocupa tu plaza si la sala ya habia avanzado.")
@@ -159,18 +167,22 @@ class GameRepository {
     }
 
     suspend fun pickBall(currentState: GameUiState, matchId: Int, ballId: Int): Result<GameUiState> = runSafely {
+        val requestStartedAt = System.currentTimeMillis()
         val response = ApiClient.gameApi.pickBall(requireAuth(), matchId, PickBallRequestDto(ballId))
+        val responseReceivedAt = System.currentTimeMillis()
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         currentState.copy(
             currentMatchId = dto.matchId,
-            ballRoom = mapBallRoom(dto.ballRoom),
-            battle = mapBattle(dto.battle),
+            ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
+            battle = mapBattle(dto.battle, requestStartedAt, responseReceivedAt),
             transientMessage = dto.message
         )
     }
 
     suspend fun revealMultipliers(currentState: GameUiState, matchId: Int): Result<GameUiState> = runSafely {
+        val requestStartedAt = System.currentTimeMillis()
         val response = ApiClient.gameApi.revealMultipliers(requireAuth(), matchId)
+        val responseReceivedAt = System.currentTimeMillis()
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
 
         val me = dto.ballRoom.players.firstOrNull { it.isUser }
@@ -189,8 +201,8 @@ class GameRepository {
         currentState.copy(
             currentMatchId = dto.matchId,
             activeTab = MainTab.BALL_ROOM,
-            ballRoom = mapBallRoom(dto.ballRoom),
-            battle = mapBattle(dto.battle),
+            ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
+            battle = mapBattle(dto.battle, requestStartedAt, responseReceivedAt),
             profile = currentState.profile.copy(stats = stats, badges = recomputeBadges(stats)),
             transientMessage = dto.message
         )
@@ -201,6 +213,7 @@ class GameRepository {
         val selectedPower = currentState.battle.hand
             .firstOrNull { it.id == currentState.battle.selectedCardId }
             ?.power
+        val requestStartedAt = System.currentTimeMillis()
         val response = ApiClient.gameApi.submitBattleAction(
             authorization = requireAuth(),
             matchId = matchId,
@@ -210,9 +223,10 @@ class GameRepository {
                 targetUserId = currentState.battle.selectedTargetId?.toIntOrNull()
             )
         )
+        val responseReceivedAt = System.currentTimeMillis()
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
 
-        val nextBattle = mapBattle(dto.battle).copy(selectedAction = selectedAction)
+        val nextBattle = mapBattle(dto.battle, requestStartedAt, responseReceivedAt).copy(selectedAction = selectedAction)
         val nextStats = if (nextBattle.phase == BattlePhase.FINISHED) {
             val isUserWinner = nextBattle.winnerId == "user"
             currentState.profile.stats.copy(
@@ -226,7 +240,7 @@ class GameRepository {
         currentState.copy(
             currentMatchId = dto.matchId,
             battle = nextBattle,
-            ballRoom = mapBallRoom(dto.ballRoom),
+            ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
             profile = currentState.profile.copy(stats = nextStats, badges = recomputeBadges(nextStats)),
             transientMessage = dto.message
         ).exitBattleIfUserEliminated()
@@ -234,16 +248,18 @@ class GameRepository {
 
     suspend fun applyWinnerImpact(currentState: GameUiState, matchId: Int): Result<GameUiState> = runSafely {
         val token = currentState.market.selectedToken
+        val requestStartedAt = System.currentTimeMillis()
         val response = ApiClient.gameApi.applyWinnerImpact(
             authorization = requireAuth(),
             matchId = matchId,
             request = WinnerImpactRequestDto(token.name)
         )
+        val responseReceivedAt = System.currentTimeMillis()
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         currentState.copy(
             currentMatchId = dto.matchId,
-            battle = mapBattle(dto.battle),
-            ballRoom = mapBallRoom(dto.ballRoom),
+            battle = mapBattle(dto.battle, requestStartedAt, responseReceivedAt),
+            ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
             transientMessage = dto.message
         )
     }
@@ -322,17 +338,17 @@ class GameRepository {
 
     private fun mapBallRoom(
         dto: BallRoomDto,
-        pendingSelectedBallId: Int? = null
+        pendingSelectedBallId: Int? = null,
+        requestStartedAt: Long? = null,
+        responseReceivedAt: Long? = null
     ): BallRoomUiState {
         val players = dto.players.map { it.toBallPlayer() }
-        val localDeadlineEpochMs = dto.selectionDeadlineEpochMs?.let { deadline ->
-            val serverNow = dto.serverNowEpochMs
-            if (serverNow != null) {
-                System.currentTimeMillis() + (deadline - serverNow).coerceAtLeast(0L)
-            } else {
-                deadline
-            }
-        }
+        val localDeadlineEpochMs = toLocalDeadlineEpochMs(
+            deadlineEpochMs = dto.selectionDeadlineEpochMs,
+            serverNowEpochMs = dto.serverNowEpochMs,
+            requestStartedAt = requestStartedAt,
+            responseReceivedAt = responseReceivedAt
+        )
         val userIds = players.filter { it.isUser }.map { it.id }.toSet()
         val userPicked = players.any { it.isUser && it.selectedBallId != null }
         val pendingAvailable = pendingSelectedBallId?.let { pending: Int ->
@@ -349,17 +365,19 @@ class GameRepository {
         )
     }
 
-    private fun mapBattle(dto: BattleDto): BattleUiState {
+    private fun mapBattle(
+        dto: BattleDto,
+        requestStartedAt: Long? = null,
+        responseReceivedAt: Long? = null
+    ): BattleUiState {
         val players = dto.players.map { it.toBattlePlayer() }
         val winnerId = players.firstOrNull { it.id == dto.winnerId }?.let { if (it.isUser) "user" else it.id }
-        val localDeadlineEpochMs = dto.roundDeadlineEpochMs?.let { deadline ->
-            val serverNow = dto.serverNowEpochMs
-            if (serverNow != null) {
-                System.currentTimeMillis() + (deadline - serverNow).coerceAtLeast(0L)
-            } else {
-                deadline
-            }
-        }
+        val localDeadlineEpochMs = toLocalDeadlineEpochMs(
+            deadlineEpochMs = dto.roundDeadlineEpochMs,
+            serverNowEpochMs = dto.serverNowEpochMs,
+            requestStartedAt = requestStartedAt,
+            responseReceivedAt = responseReceivedAt
+        )
         return BattleUiState(
             phase = dto.phase.toBattlePhase(),
             players = players,
@@ -376,6 +394,21 @@ class GameRepository {
             aliveHumans = dto.aliveHumans,
             userActionSubmitted = dto.userActionSubmitted
         )
+    }
+
+    private fun toLocalDeadlineEpochMs(
+        deadlineEpochMs: Long?,
+        serverNowEpochMs: Long?,
+        requestStartedAt: Long?,
+        responseReceivedAt: Long?
+    ): Long? {
+        if (deadlineEpochMs == null) return null
+        if (serverNowEpochMs == null || requestStartedAt == null || responseReceivedAt == null) {
+            return deadlineEpochMs
+        }
+        val localMidpoint = requestStartedAt + ((responseReceivedAt - requestStartedAt).coerceAtLeast(0L) / 2L)
+        val estimatedServerOffset = localMidpoint - serverNowEpochMs
+        return deadlineEpochMs + estimatedServerOffset
     }
 
     private fun mapStats(dto: ProfileStatsDto): ProfileStats {

@@ -1245,8 +1245,9 @@ fun ArenaView(
                     actionPrepared -> t("prepared", language)
                     else -> t("play_round", language)
                 },
-                color = ChipRed,
+                color = if (actionPrepared) Color(0xFF10B981) else ChipRed,
                 enabled = battle.phase != BattlePhase.FINISHED && !actionPrepared,
+                disabledAlpha = if (actionPrepared) 1f else 0.4f,
                 onClick = onPlayRound,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -2102,16 +2103,21 @@ internal fun BigPushButtonInternal(
     text: String,
     color: Color,
     enabled: Boolean = true,
+    disabledAlpha: Float = 0.4f,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val shadowColor = if (color == Gold) GoldDark else ChipRedDark
+    val shadowColor = when (color) {
+        Gold -> GoldDark
+        Color(0xFF10B981) -> Color(0xFF047857)
+        else -> ChipRedDark
+    }
     val textColor = if (color == Gold) NightBlue else PureWhite
 
     Box(
         modifier = modifier
             .height(50.dp)
-            .alpha(if (enabled) 1f else 0.4f)
+            .alpha(if (enabled) 1f else disabledAlpha)
     ) {
         Box(
             modifier = Modifier

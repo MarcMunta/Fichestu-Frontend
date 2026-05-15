@@ -249,7 +249,7 @@ class GameViewModel(
                 return@launch
             }
             snapshot.currentMatchId?.let { matchId ->
-                runCatching { repository.closeMatch(matchId) }
+                runCatching { repository.abandonMatch(snapshot, matchId) }
                 _uiState.update { state ->
                     state.copy(
                         currentMatchId = null,
@@ -275,7 +275,7 @@ class GameViewModel(
                 return@launch
             }
 
-            val result = repository.cancelMatchmaking(snapshot, matchId)
+            val result = repository.abandonMatch(snapshot, matchId)
             applyResult(result)
         }
     }
@@ -512,7 +512,30 @@ class GameViewModel(
                 return@launch
             }
 
+            val optimisticSubmittedActions = ((snapshot.battle.submittedActions ?: 0) + 1)
+                .coerceAtMost(snapshot.battle.aliveHumans ?: Int.MAX_VALUE)
+            _uiState.update { state ->
+                if (state.currentMatchId == matchId && !state.battle.userActionSubmitted) {
+                    state.copy(
+                        battle = state.battle.copy(
+                            userActionSubmitted = true,
+                            submittedActions = optimisticSubmittedActions
+                        )
+                    )
+                } else {
+                    state
+                }
+            }
             val result = repository.playBattleRound(snapshot, matchId)
+            result.onFailure {
+                _uiState.update { state ->
+                    if (state.currentMatchId == matchId) {
+                        state.copy(battle = snapshot.battle)
+                    } else {
+                        state
+                    }
+                }
+            }
             applyBattleRoundResult(result)
         }
     }
@@ -928,8 +951,8 @@ class GameViewModel(
                 }
             }
             current.activeTab == MainTab.BALL_ROOM &&
-                current.ballRoom.phase == BallRoomPhase.PICKING -> 2_000L
-            current.activeTab == MainTab.BATTLE -> 1_500L
+                current.ballRoom.phase == BallRoomPhase.PICKING -> 750L
+            current.activeTab == MainTab.BATTLE -> 750L
             else -> 2_500L
         }
     }
