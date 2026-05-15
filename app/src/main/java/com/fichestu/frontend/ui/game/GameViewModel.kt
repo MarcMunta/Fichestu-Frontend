@@ -45,7 +45,6 @@ class GameViewModel(
     private var autoRevealJob: Job? = null
     private var autoRestartJob: Job? = null
     private var nextBattleCardId = 1L
-    private var matchmakingVisualDeadlineMs: Long? = null
     private val realtimeClient = MatchRealtimeClient { matchId, _ ->
         onRealtimeMatchChanged(matchId)
     }
@@ -299,7 +298,7 @@ class GameViewModel(
             if (current.currentMatchId == null) return@launch
             val result = repository.refreshMatch(current)
             result.onSuccess { newState ->
-                _uiState.value = stabilizeMatchmakingTransition(current, newState).copy(
+                _uiState.value = newState.copy(
                     battle = mergeBattleHand(newState.battle, current.battle)
                 )
                 syncRealtimeSubscription(_uiState.value)
@@ -340,6 +339,15 @@ class GameViewModel(
         _uiState.update { state ->
             state.copy(ballRoom = state.ballRoom.copy(pendingSelectedBallId = ballId))
         }
+        viewModelScope.launch {
+            val current = _uiState.value
+            val matchId = current.currentMatchId ?: return@launch
+            if (current.ballRoom.players.any { it.isUser && it.selectedBallId != null }) {
+                return@launch
+            }
+            val result = repository.pickBall(current, matchId, ballId)
+            applyResult(result)
+        }
     }
 
     fun confirmBallSelection() {
@@ -374,7 +382,7 @@ class GameViewModel(
             val matchId = snapshot.currentMatchId
             val backendSelected = snapshot.ballRoom.players.firstOrNull { it.isUser }?.selectedBallId
             if (backendSelected != null && backendSelected != selectedBallId) {
-                forceLocalRevealAndBattle(selectedBallId)
+                refreshActiveMatch()
                 return@launch
             }
             val alreadyPicked = backendSelected == selectedBallId
@@ -385,16 +393,15 @@ class GameViewModel(
                     snapshot = pickedState
                 }
                 if (pickResult.isFailure) {
-                    forceLocalRevealAndBattle(selectedBallId)
+                    applyResult(pickResult)
                     return@launch
                 }
             }
 
-            val revealResult = matchId?.let { repository.revealMultipliers(snapshot, it) }
-            if (revealResult != null && revealResult.isSuccess) {
-                applyResult(revealResult)
+            if (matchId != null && _uiState.value.ballRoom.canRevealBattle) {
+                applyResult(repository.revealMultipliers(_uiState.value, matchId))
             } else {
-                forceLocalRevealAndBattle(selectedBallId)
+                refreshActiveMatch()
             }
         }
     }
@@ -448,8 +455,7 @@ class GameViewModel(
                 }
             }
 
-            val revealResult = repository.revealMultipliers(snapshot, matchId)
-            revealResult.onSuccess { applyResult(Result.success(it)) }
+            refreshMatchFromState(snapshot)
         }
     }
 
@@ -465,91 +471,6 @@ class GameViewModel(
             val result = repository.revealMultipliers(snapshot, matchId)
             applyResult(result)
         }
-    }
-
-    private fun forceLocalRevealAndBattle(selectedBallId: Int) {
-        _uiState.update { state ->
-            val multiplier = localMultiplierFor(selectedBallId, state.ballRoom.balls.firstOrNull { it.id == selectedBallId }?.multiplier)
-            val existingPlayers = state.ballRoom.players
-            val userPlayer = existingPlayers.firstOrNull { it.isUser }
-                ?: com.fichestu.frontend.game.model.BallPlayer(
-                    id = "user",
-                    nickname = state.profile.playerName.ifBlank { "Tú" },
-                    isUser = true
-                )
-            val normalizedPlayers = buildList {
-                add(
-                    userPlayer.copy(
-                        id = "user",
-                        isUser = true,
-                        selectedBallId = selectedBallId,
-                        multiplier = multiplier
-                    )
-                )
-                existingPlayers.filterNot { it.isUser }.take(9).forEachIndexed { index, player ->
-                    add(
-                        player.copy(
-                            selectedBallId = player.selectedBallId ?: ((index + 2).coerceAtMost(50)),
-                            multiplier = player.multiplier ?: localMultiplierFor(index + 2, null)
-                        )
-                    )
-                }
-                while (size < 10) {
-                    val idx = size + 1
-                    add(
-                        com.fichestu.frontend.game.model.BallPlayer(
-                            id = "bot$idx",
-                            nickname = "Bot $idx",
-                            isUser = false,
-                            selectedBallId = idx,
-                            multiplier = localMultiplierFor(idx, null)
-                        )
-                    )
-                }
-            }
-            val revealedBalls = state.ballRoom.balls.map { ball ->
-                if (ball.id == selectedBallId) {
-                    ball.copy(multiplier = multiplier, pickedBy = "user")
-                } else {
-                    ball
-                }
-            }
-            val battlePlayers = normalizedPlayers.map { player ->
-                BattlePlayer(
-                    id = if (player.isUser) "user" else player.id,
-                    nickname = player.nickname,
-                    isUser = player.isUser,
-                    multiplier = player.multiplier ?: 1.0
-                )
-            }
-            state.copy(
-                ballRoom = state.ballRoom.copy(
-                    phase = BallRoomPhase.REVEALED,
-                    players = normalizedPlayers,
-                    balls = revealedBalls,
-                    canRevealBattle = true,
-                    pendingSelectedBallId = null,
-                    statusMessage = AppI18n.text("multiplier_revealed")
-                ),
-                battle = BattleUiState(
-                    phase = BattlePhase.READY,
-                    players = battlePlayers,
-                    round = 1,
-                    log = listOf(AppI18n.text("battle_ready")),
-                    hand = drawBattleHand(),
-                    selectedTargetId = battlePlayers.firstOrNull { !it.isUser && it.isAlive }?.id
-                ),
-                transientMessage = "${AppI18n.text("multiplier")}: x${"%.2f".format(multiplier)}"
-            )
-        }
-    }
-
-    private fun localMultiplierFor(ballId: Int, backendMultiplier: Double?): Double {
-        if (backendMultiplier != null && backendMultiplier != 1.0) {
-            return backendMultiplier.coerceIn(GameRules.MULTIPLIER_MIN, GameRules.MULTIPLIER_MAX)
-        }
-        val values = listOf(0.5, 1.1, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0)
-        return values[(ballId * 37).mod(values.size)]
     }
 
     fun chooseBattleAction(action: BattleCardType) {
@@ -1051,7 +972,7 @@ class GameViewModel(
             result.fold(
                 onSuccess = { success ->
                     shouldRefreshNotifications = true
-                    stabilizeMatchmakingTransition(current, success)
+                    success
                         .copy(battle = mergeBattleHand(success.battle, current.battle))
                 },
                 onFailure = { error ->
@@ -1078,7 +999,7 @@ class GameViewModel(
             result.fold(
                 onSuccess = { success ->
                     shouldRefreshNotifications = true
-                    val next = stabilizeMatchmakingTransition(current, success)
+                    val next = success
                         .copy(battle = mergeBattleHand(success.battle, current.battle))
                     val roundResolved = next.battle.phase == BattlePhase.FINISHED ||
                         next.battle.round > current.battle.round
@@ -1152,41 +1073,6 @@ class GameViewModel(
             selectedCardId = nextSelectedCardId,
             selectedAction = nextHand.firstOrNull { it.id == nextSelectedCardId }?.type ?: incoming.selectedAction
         )
-    }
-
-    private fun stabilizeMatchmakingTransition(current: GameUiState, next: GameUiState): GameUiState {
-        if (next.ballRoom.phase == BallRoomPhase.MATCHMAKING) {
-            val incomingDeadline = next.ballRoom.selectionDeadlineEpochMs
-            val fallbackDeadline = current.ballRoom.selectionDeadlineEpochMs ?: (System.currentTimeMillis() + 15_000L)
-            matchmakingVisualDeadlineMs = when {
-                matchmakingVisualDeadlineMs == null -> incomingDeadline ?: fallbackDeadline
-                incomingDeadline != null && incomingDeadline > matchmakingVisualDeadlineMs!! -> incomingDeadline
-                else -> matchmakingVisualDeadlineMs
-            }
-            return next.copy(
-                ballRoom = next.ballRoom.copy(selectionDeadlineEpochMs = matchmakingVisualDeadlineMs)
-            )
-        }
-
-        val deadline = matchmakingVisualDeadlineMs
-        val isEarlyPickingTransition = current.ballRoom.phase == BallRoomPhase.MATCHMAKING &&
-            next.ballRoom.phase == BallRoomPhase.PICKING &&
-            deadline != null &&
-            System.currentTimeMillis() < deadline
-
-        if (isEarlyPickingTransition) {
-            return next.copy(
-                ballRoom = current.ballRoom.copy(
-                    selectionDeadlineEpochMs = deadline,
-                    statusMessage = AppI18n.text("preparing_ball_selection")
-                ),
-                battle = current.battle,
-                activeTab = current.activeTab
-            )
-        }
-
-        matchmakingVisualDeadlineMs = null
-        return next
     }
 
     private fun refreshNotifications() {

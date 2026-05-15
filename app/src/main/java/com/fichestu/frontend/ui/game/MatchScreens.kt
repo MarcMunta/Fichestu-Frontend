@@ -264,7 +264,7 @@ fun LobbyView(
     val displayedPlayerCount = maxOf(players.size, if (hasActiveLobbyMatch) 1 else 0)
 
     LaunchedEffect(hasActiveLobbyMatch, ballRoom.selectionDeadlineEpochMs) {
-        if (hasActiveLobbyMatch && activeDeadlineMs == null) {
+        if (hasActiveLobbyMatch) {
             activeDeadlineMs = ballRoom.selectionDeadlineEpochMs
                 ?: (System.currentTimeMillis() + maxCountdown * 1000L)
         }
@@ -677,9 +677,10 @@ fun BallsPoolView(
     onTimeout: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val timer = rememberBallPickCountdown(ballRoom.phase)
-    val userPick = ballRoom.balls.firstOrNull { it.id == ballRoom.pendingSelectedBallId }
-    val hasCommittedPick = false
+    val timer = rememberBallPickCountdown(ballRoom.phase, ballRoom.selectionDeadlineEpochMs)
+    val committedBallId = ballRoom.players.firstOrNull { it.isUser }?.selectedBallId
+    val userPick = ballRoom.balls.firstOrNull { it.id == (committedBallId ?: ballRoom.pendingSelectedBallId) }
+    val hasCommittedPick = committedBallId != null
     val ballsLeft = ballRoom.balls.count { !it.isPicked }
     var timeoutHandled by remember(ballRoom.phase) { mutableStateOf(false) }
 
@@ -761,8 +762,8 @@ fun BallsPoolView(
                         ownerInitials = ballRoom.players
                             .firstOrNull { it.id == ball.pickedBy }
                             ?.let { initialsFor(it.nickname) },
-                        isUserPicked = ball.id == ballRoom.pendingSelectedBallId,
-                        enabled = !ball.isPicked,
+                        isUserPicked = ball.id == (committedBallId ?: ballRoom.pendingSelectedBallId),
+                        enabled = !ball.isPicked && !hasCommittedPick,
                         onClick = { onPickBall(ball.id) },
                         modifier = Modifier
                             .offset { IntOffset(xDp.roundToPx(), yDp.roundToPx()) }
@@ -783,7 +784,7 @@ fun BallsPoolView(
                 BigPushButtonInternal(
                     text = confirmBallButtonText(userPick, hasCommittedPick, language),
                     color = Gold,
-                    enabled = userPick != null,
+                    enabled = userPick != null && !hasCommittedPick,
                     onClick = onConfirm,
                     modifier = Modifier.weight(1.1f)
                 )
@@ -793,15 +794,19 @@ fun BallsPoolView(
 }
 
 @Composable
-private fun rememberBallPickCountdown(phase: BallRoomPhase): Int {
-    var remaining by remember(phase) {
-        mutableIntStateOf(20)
+private fun rememberBallPickCountdown(phase: BallRoomPhase, deadlineEpochMs: Long?): Int {
+    var remaining by remember(phase, deadlineEpochMs) {
+        mutableIntStateOf(
+            deadlineEpochMs?.let { ((it - System.currentTimeMillis()).coerceAtLeast(0L) / 1000L).toInt() } ?: 20
+        )
     }
-    LaunchedEffect(phase) {
-        remaining = 20
-        while (phase == BallRoomPhase.PICKING && remaining > 0) {
-            delay(1000)
-            remaining -= 1
+    LaunchedEffect(phase, deadlineEpochMs) {
+        while (phase == BallRoomPhase.PICKING) {
+            remaining = deadlineEpochMs
+                ?.let { ((it - System.currentTimeMillis()).coerceAtLeast(0L) / 1000L).toInt() }
+                ?: remaining.coerceAtLeast(0)
+            if (remaining <= 0) break
+            delay(250)
         }
     }
     return remaining

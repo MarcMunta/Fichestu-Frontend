@@ -76,25 +76,6 @@ class GameRepository {
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
         val nextBattle = mapBattle(dto.battle)
         val nextBallRoom = mapBallRoom(dto.ballRoom, currentState.ballRoom.pendingSelectedBallId)
-        val matchmakingDeadlineNotReached = currentState.ballRoom.selectionDeadlineEpochMs
-            ?.let { it > System.currentTimeMillis() + 250L } == true
-        val shouldHoldMatchmakingUntilLocalDeadline =
-            currentState.ballRoom.phase == BallRoomPhase.MATCHMAKING &&
-                nextBallRoom.phase == BallRoomPhase.PICKING &&
-                matchmakingDeadlineNotReached &&
-                currentState.ballRoom.players.size < GameRules.ROOM_SIZE
-        val stableBallRoom = if (
-            currentState.ballRoom.phase == BallRoomPhase.PICKING &&
-            nextBallRoom.phase == BallRoomPhase.WAITING_ENTRY
-        ) {
-            nextBallRoom.copy(phase = BallRoomPhase.PICKING)
-        } else if (shouldHoldMatchmakingUntilLocalDeadline) {
-            currentState.ballRoom.copy(
-                statusMessage = "Preparando selección de bolas..."
-            )
-        } else {
-            nextBallRoom
-        }
         currentState.copy(
             currentMatchId = dto.matchId,
             activeTab = if (
@@ -105,7 +86,7 @@ class GameRepository {
             } else {
                 currentState.activeTab
             },
-            ballRoom = stableBallRoom,
+            ballRoom = nextBallRoom,
             battle = nextBattle,
             transientMessage = currentState.transientMessage
         ).exitBattleIfUserEliminated()
