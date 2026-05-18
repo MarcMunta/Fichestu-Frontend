@@ -1019,7 +1019,8 @@ fun RevealView(
     modifier: Modifier = Modifier
 ) {
     val userPlayer = ballRoom.players.firstOrNull { it.isUser }
-    val userBall = ballRoom.balls.firstOrNull { it.pickedBy == GameRules.USER_PLAYER_ID }
+    val userBall = ballRoom.balls.firstOrNull { it.pickedBy == GameRules.USER_PLAYER_ID || it.pickedBy == "user" }
+        ?: ballRoom.balls.firstOrNull { it.id == userPlayer?.selectedBallId }
     val mult = userPlayer?.multiplier ?: userBall?.multiplier ?: 1.0
 
     Box(modifier = modifier.fillMaxSize()) {

@@ -301,9 +301,7 @@ class GameViewModel(
             if (current.currentMatchId == null) return@launch
             val result = repository.refreshMatch(current)
             result.onSuccess { newState ->
-                _uiState.value = newState.copy(
-                    battle = mergeBattleHand(newState.battle, current.battle)
-                )
+                _uiState.value = mergeIncomingGameState(newState, current)
                 syncRealtimeSubscription(_uiState.value)
             }
             result.onFailure { error ->
@@ -982,9 +980,7 @@ class GameViewModel(
                 matchRefreshQueued = false
                 val result = repository.refreshMatch(snapshot)
                 result.onSuccess { newState ->
-                    _uiState.value = newState.copy(
-                        battle = mergeBattleHand(newState.battle, _uiState.value.battle)
-                    )
+                    _uiState.value = mergeIncomingGameState(newState, _uiState.value)
                     syncRealtimeSubscription(_uiState.value)
                 }
                 result.onFailure { error ->
@@ -1050,8 +1046,7 @@ class GameViewModel(
             result.fold(
                 onSuccess = { success ->
                     shouldRefreshNotifications = true
-                    success
-                        .copy(battle = mergeBattleHand(success.battle, current.battle))
+                    mergeIncomingGameState(success, current)
                 },
                 onFailure = { error ->
                     if (error is SessionExpiredException) {
@@ -1077,10 +1072,10 @@ class GameViewModel(
             result.fold(
                 onSuccess = { success ->
                     shouldRefreshNotifications = true
-                    val next = success
-                        .copy(battle = mergeBattleHand(success.battle, current.battle))
-                    val roundResolved = next.battle.phase == BattlePhase.FINISHED ||
-                        next.battle.round > current.battle.round
+                    val next = success.copy(
+                        battle = mergeBattleHand(success.battle, current.battle)
+                    )
+                    val roundResolved = didBattleRoundAdvance(next.battle, current.battle)
                     next.copy(
                         battle = if (roundResolved) {
                             consumeBattleCardAfterBackendRound(next.battle, current.battle)
@@ -1147,8 +1142,27 @@ class GameViewModel(
         return incoming.copy(
             hand = nextHand,
             selectedCardId = nextSelectedCardId,
+            selectedTargetId = incoming.players.firstOrNull { !it.isUser && it.isAlive }?.id,
             selectedAction = nextHand.firstOrNull { it.id == nextSelectedCardId }?.type ?: incoming.selectedAction
         )
+    }
+
+    private fun mergeIncomingGameState(incoming: GameUiState, previous: GameUiState): GameUiState {
+        val mergedBattle = mergeBattleHand(incoming.battle, previous.battle)
+        val roundAdvanced = didBattleRoundAdvance(mergedBattle, previous.battle)
+        return incoming.copy(
+            battle = if (roundAdvanced) {
+                consumeBattleCardAfterBackendRound(mergedBattle, previous.battle)
+            } else {
+                mergedBattle
+            }
+        )
+    }
+
+    private fun didBattleRoundAdvance(incoming: BattleUiState, previous: BattleUiState): Boolean {
+        if (incoming.phase == BattlePhase.LOCKED || incoming.phase == BattlePhase.DEFEATED) return false
+        if (previous.phase == BattlePhase.LOCKED || previous.phase == BattlePhase.DEFEATED) return false
+        return incoming.phase == BattlePhase.FINISHED || incoming.round > previous.round
     }
 
     private fun refreshNotifications() {

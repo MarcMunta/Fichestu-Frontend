@@ -93,14 +93,7 @@ class GameRepository {
         val nextBallRoom = mapBallRoom(dto.ballRoom, currentState.ballRoom.pendingSelectedBallId, requestStartedAt, responseReceivedAt)
         currentState.copy(
             currentMatchId = dto.matchId,
-            activeTab = if (
-                currentState.activeTab == MainTab.BALL_ROOM &&
-                (nextBattle.phase == BattlePhase.READY || nextBattle.phase == BattlePhase.IN_PROGRESS)
-            ) {
-                MainTab.BATTLE
-            } else {
-                currentState.activeTab
-            },
+            activeTab = currentState.activeTab,
             ballRoom = nextBallRoom,
             battle = nextBattle,
             transientMessage = currentState.transientMessage
