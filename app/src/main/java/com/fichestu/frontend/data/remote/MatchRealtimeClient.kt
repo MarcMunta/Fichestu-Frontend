@@ -8,6 +8,8 @@ import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import java.net.URLEncoder
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 
 class MatchRealtimeClient(
@@ -19,12 +21,19 @@ class MatchRealtimeClient(
 
     private var webSocket: WebSocket? = null
     private var subscribedMatchId: Int? = null
+    private var subscribedToken: String? = null
+    private val reconnectExecutor = Executors.newSingleThreadScheduledExecutor()
+    private var reconnectTask: ScheduledFuture<*>? = null
 
     fun connect(matchId: Int, token: String) {
         if (subscribedMatchId == matchId && webSocket != null) return
         close()
         subscribedMatchId = matchId
+        subscribedToken = token
+        openSocket(matchId, token)
+    }
 
+    private fun openSocket(matchId: Int, token: String) {
         val encodedToken = URLEncoder.encode(token, Charsets.UTF_8.name())
         val request = Request.Builder()
             .url("${webSocketBaseUrl()}ws/matches?token=$encodedToken")
@@ -32,6 +41,8 @@ class MatchRealtimeClient(
 
         webSocket = client.newWebSocket(request, object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                reconnectTask?.cancel(false)
+                reconnectTask = null
                 webSocket.send("""{"type":"SUBSCRIBE_MATCH","matchId":$matchId}""")
             }
 
@@ -46,21 +57,37 @@ class MatchRealtimeClient(
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 if (subscribedMatchId == matchId) {
                     this@MatchRealtimeClient.webSocket = null
+                    scheduleReconnect(matchId, token)
                 }
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
                 if (subscribedMatchId == matchId) {
                     this@MatchRealtimeClient.webSocket = null
+                    if (code != 1000) {
+                        scheduleReconnect(matchId, token)
+                    }
                 }
             }
         })
     }
 
     fun close() {
+        reconnectTask?.cancel(false)
+        reconnectTask = null
         webSocket?.close(1000, "closed")
         webSocket = null
         subscribedMatchId = null
+        subscribedToken = null
+    }
+
+    private fun scheduleReconnect(matchId: Int, token: String) {
+        if (subscribedMatchId != matchId || subscribedToken != token || reconnectTask?.isDone == false) return
+        reconnectTask = reconnectExecutor.schedule({
+            if (subscribedMatchId == matchId && subscribedToken == token && webSocket == null) {
+                openSocket(matchId, token)
+            }
+        }, 1500, TimeUnit.MILLISECONDS)
     }
 
     private fun webSocketBaseUrl(): String {

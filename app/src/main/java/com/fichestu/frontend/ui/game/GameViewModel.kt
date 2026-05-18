@@ -44,6 +44,8 @@ class GameViewModel(
     private var rewardedCooldownJob: Job? = null
     private var autoRevealJob: Job? = null
     private var autoRestartJob: Job? = null
+    private var matchRefreshRunning = false
+    private var matchRefreshQueued = false
     private var nextBattleCardId = 1L
     private val realtimeClient = MatchRealtimeClient { matchId, _ ->
         onRealtimeMatchChanged(matchId)
@@ -955,30 +957,53 @@ class GameViewModel(
                 val remainingMs = current.ballRoom.selectionDeadlineEpochMs
                     ?.let { it - System.currentTimeMillis() }
                 when {
-                    remainingMs == null -> 3_000L
-                    remainingMs <= 1_000L -> 500L
-                    remainingMs <= 3_500L -> 1_000L
-                    else -> 3_000L
+                    remainingMs == null -> 1_500L
+                    remainingMs <= 1_000L -> 300L
+                    remainingMs <= 3_500L -> 600L
+                    else -> 1_500L
                 }
             }
             current.activeTab == MainTab.BALL_ROOM &&
-                current.ballRoom.phase == BallRoomPhase.PICKING -> 750L
-            current.activeTab == MainTab.BATTLE -> 750L
+                current.ballRoom.phase == BallRoomPhase.PICKING -> 450L
+            current.activeTab == MainTab.BATTLE -> 450L
             else -> 2_500L
         }
     }
 
     private suspend fun refreshMatchFromState(current: GameUiState) {
-        val result = repository.refreshMatch(current)
-        result.onSuccess { newState ->
-            _uiState.value = newState.copy(
-                battle = mergeBattleHand(newState.battle, current.battle)
-            )
-            syncRealtimeSubscription(_uiState.value)
+        if (matchRefreshRunning) {
+            matchRefreshQueued = true
+            return
         }
-        result.onFailure { error ->
-            if (error is SessionExpiredException) {
-                _uiState.update { it.copy(isSessionExpired = true) }
+        matchRefreshRunning = true
+        try {
+            var snapshot = current
+            do {
+                matchRefreshQueued = false
+                val result = repository.refreshMatch(snapshot)
+                result.onSuccess { newState ->
+                    _uiState.value = newState.copy(
+                        battle = mergeBattleHand(newState.battle, _uiState.value.battle)
+                    )
+                    syncRealtimeSubscription(_uiState.value)
+                }
+                result.onFailure { error ->
+                    if (error is SessionExpiredException) {
+                        _uiState.update { it.copy(isSessionExpired = true) }
+                    }
+                }
+                snapshot = _uiState.value
+            } while (matchRefreshQueued && snapshot.currentMatchId != null)
+        } finally {
+            matchRefreshRunning = false
+        }
+    }
+
+    private fun requestMatchRefresh() {
+        viewModelScope.launch {
+            val current = _uiState.value
+            if (current.currentMatchId != null) {
+                refreshMatchFromState(current)
             }
         }
     }
@@ -1088,10 +1113,8 @@ class GameViewModel(
     }
 
     private fun onRealtimeMatchChanged(matchId: Int) {
-        viewModelScope.launch {
-            val current = _uiState.value
-            if (current.currentMatchId != matchId) return@launch
-            refreshMatchFromState(current)
+        if (_uiState.value.currentMatchId == matchId) {
+            requestMatchRefresh()
         }
     }
 
