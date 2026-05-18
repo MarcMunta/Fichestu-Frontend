@@ -162,7 +162,7 @@ fun FichestuGameScreen(
             .fillMaxSize()
             .background(
                 Brush.linearGradient(
-                    listOf(NightBlue, DeepBlue, Color(0xFF2A145B))
+                    listOf(NightBlue, Color(0xFF0E1A2D), Color(0xFF092B2B))
                 )
             )
             .windowInsetsPadding(WindowInsets.systemBars)
@@ -678,15 +678,14 @@ private fun DashboardTab(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        contentPadding = PaddingValues(bottom = 4.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        contentPadding = PaddingValues(bottom = 6.dp)
     ) {
         item {
-            BubbleText(
-                text = AppI18n.text("market_title", language),
-                style = MaterialTheme.typography.displaySmall.copy(fontSize = 30.sp),
-                fillColor = Gold,
-                outlineColor = DeepBlue
+            PortfolioHero(
+                market = market,
+                language = language,
+                modifier = Modifier.fillMaxWidth()
             )
         }
 
@@ -700,9 +699,10 @@ private fun DashboardTab(
                     ) {
                         SelectedTokenPanel(
                             token = selected,
+                            market = market,
                             resetCountdown = market.resetCountdownLabel,
                             language = language,
-                            modifier = Modifier.weight(1.5f)
+                            modifier = Modifier.weight(1.45f)
                         )
                         TokenSidePanel(
                             tokens = market.tokens,
@@ -716,6 +716,7 @@ private fun DashboardTab(
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         SelectedTokenPanel(
                             token = selected,
+                            market = market,
                             resetCountdown = market.resetCountdownLabel,
                             language = language,
                             modifier = Modifier.fillMaxWidth()
@@ -733,15 +734,28 @@ private fun DashboardTab(
         }
 
         item {
-            ArcadePanel {
-                Text(
-                    text = AppI18n.text("quick_actions", language),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        color = PureWhite,
-                        fontWeight = FontWeight.Bold
+            ArcadePanel(contentPadding = PaddingValues(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = AppI18n.text("quick_actions", language),
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            color = PureWhite,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
-                )
-                Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = "${AppI18n.text("selected_token", language)}: ${selected.ticker}",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            color = TextSecondary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     ArcadePrimaryButton(
                         text = AppI18n.text("buy_1", language),
@@ -771,69 +785,220 @@ private fun DashboardTab(
                 )
             }
         }
+    }
+}
 
-        item {
-            ArcadePanel {
+@Composable
+private fun PortfolioHero(
+    market: MarketUiState,
+    language: AppLanguage,
+    modifier: Modifier = Modifier
+) {
+    val holdingChangePositive = market.totalHoldingChange >= 0.0
+    val chartValues = remember(market.tokens, market.cashBalance) { market.portfolioHistory() }
+
+    ArcadePanel(modifier = modifier, contentPadding = PaddingValues(16.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = AppI18n.text("market_rules", language),
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        color = Gold,
-                        fontWeight = FontWeight.Bold
+                    text = AppI18n.text("market_title", language),
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        color = PureWhite,
+                        fontWeight = FontWeight.ExtraBold
                     )
                 )
-                Spacer(Modifier.height(8.dp))
-                RuleLine(AppI18n.text("market_rule_1", language))
-                RuleLine(AppI18n.text("market_rule_2", language))
-                RuleLine(AppI18n.text("market_rule_3", language))
-                RuleLine(AppI18n.text("market_rule_4", language))
+                Text(
+                    text = AppI18n.text("portfolio_subtitle", language),
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = TextSecondary,
+                        lineHeight = 18.sp
+                    )
+                )
+            }
+            StatusTicker(
+                text = AppI18n.text("portfolio_title", language),
+                modifier = Modifier.width(132.dp)
+            )
+        }
+
+        Spacer(Modifier.height(14.dp))
+
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 720.dp
+            if (compact) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    PortfolioMetricRow(market, language, holdingChangePositive)
+                    PortfolioChartSurface(chartValues, holdingChangePositive)
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    PortfolioMetricRow(
+                        market = market,
+                        language = language,
+                        positive = holdingChangePositive,
+                        modifier = Modifier.weight(0.95f)
+                    )
+                    PortfolioChartSurface(
+                        values = chartValues,
+                        positive = holdingChangePositive,
+                        modifier = Modifier.weight(1.35f)
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
+private fun PortfolioMetricRow(
+    market: MarketUiState,
+    language: AppLanguage,
+    positive: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PortfolioMetric(
+                label = AppI18n.text("balance_total", language),
+                value = formatCurrency(market.totalBalance),
+                accent = Gold,
+                modifier = Modifier.weight(1f)
+            )
+            PortfolioMetric(
+                label = AppI18n.text("cash_balance", language),
+                value = formatCurrency(market.cashBalance),
+                accent = TextSecondary,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PortfolioMetric(
+                label = AppI18n.text("token_value", language),
+                value = formatCurrency(market.holdingsValue),
+                accent = Gold,
+                modifier = Modifier.weight(1f)
+            )
+            PortfolioMetric(
+                label = AppI18n.text("portfolio_change", language),
+                value = formatCurrency(market.totalHoldingChange),
+                accent = if (positive) Gold else ChipRed,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun PortfolioMetric(
+    label: String,
+    value: String,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.height(76.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = NightBlue.copy(alpha = 0.50f)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .border(1.dp, PureWhite.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = label,
+                maxLines = 1,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = TextSecondary,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+            Text(
+                text = value,
+                maxLines = 1,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = accent,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun PortfolioChartSurface(
+    values: List<Double>,
+    positive: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.height(160.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = NightBlue.copy(alpha = 0.58f)
+    ) {
+        TokenSparkChart(
+            values = values,
+            lineColor = if (positive) Gold else ChipRed,
+            glowColor = (if (positive) Gold else ChipRed).copy(alpha = 0.18f),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(8.dp)
+        )
+    }
+}
+
+@Composable
 private fun SelectedTokenPanel(
     token: MarketToken,
+    market: MarketUiState,
     resetCountdown: String,
     language: AppLanguage,
     modifier: Modifier = Modifier
 ) {
     val positive = token.changePercent >= 0
+    val holdingPositive = token.holdingChangeValue >= 0.0
+    val accent = tokenAccent(token)
 
-    ArcadePanel(modifier = modifier) {
-        BubbleText(
-            text = token.displayName,
-            style = MaterialTheme.typography.displaySmall.copy(fontSize = 32.sp),
-            fillColor = Gold,
-            outlineColor = DeepBlue
-        )
-        Text(
-            text = token.ticker,
-            style = MaterialTheme.typography.bodyLarge.copy(
-                color = TextSecondary,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.4.sp
-            )
-        )
-        Spacer(Modifier.height(8.dp))
+    ArcadePanel(modifier = modifier, contentPadding = PaddingValues(14.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
                 Text(
-                    text = formatCurrency(token.currentPrice),
+                    text = AppI18n.text("selected_token", language),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = TextSecondary,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+                Text(
+                    text = token.displayName,
                     style = MaterialTheme.typography.headlineSmall.copy(
                         color = PureWhite,
                         fontWeight = FontWeight.ExtraBold
                     )
                 )
                 Text(
-                    text = formatPercent(token.changePercent),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = if (positive) Gold else ChipRed,
-                        fontWeight = FontWeight.Bold
+                    text = token.ticker,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        color = accent,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 1.2.sp
                     )
                 )
             }
@@ -842,37 +1007,108 @@ private fun SelectedTokenPanel(
                 modifier = Modifier.width(148.dp)
             )
         }
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TokenMetric(
+                label = AppI18n.text("price", language),
+                value = formatCurrency(token.currentPrice),
+                detail = formatPercent(token.changePercent),
+                detailColor = if (positive) Gold else ChipRed,
+                modifier = Modifier.weight(1f)
+            )
+            TokenMetric(
+                label = AppI18n.text("units", language),
+                value = formatQuantity(token.holdings),
+                detail = "${AppI18n.text("weight", language)} ${String.format(Locale.US, "%.1f%%", token.portfolioWeightPercent)}",
+                detailColor = TextSecondary,
+                modifier = Modifier.weight(1f)
+            )
+            TokenMetric(
+                label = AppI18n.text("contribution", language),
+                value = formatCurrency(token.portfolioValue),
+                detail = formatCurrency(token.holdingChangeValue),
+                detailColor = if (holdingPositive) Gold else ChipRed,
+                modifier = Modifier.weight(1f)
+            )
+        }
         Spacer(Modifier.height(10.dp))
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp),
-            shape = RoundedCornerShape(18.dp),
+                .height(220.dp),
+            shape = RoundedCornerShape(8.dp),
             color = NightBlue.copy(alpha = 0.58f)
         ) {
             TokenSparkChart(
                 values = token.history,
+                lineColor = accent,
+                glowColor = accent.copy(alpha = 0.18f),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(10.dp)
             )
         }
         Spacer(Modifier.height(10.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(
-                text = "${AppI18n.text("holdings", language)}: ${token.holdings}",
+                text = "${AppI18n.text("token_value", language)}: ${formatCurrency(market.holdingsValue)}",
                 style = MaterialTheme.typography.bodyMedium.copy(
-                    color = PureWhite,
+                    color = TextSecondary,
                     fontWeight = FontWeight.SemiBold
                 )
             )
             Text(
-                text = "${AppI18n.text("value", language)}: ${formatCurrency(token.portfolioValue)}",
+                text = "${AppI18n.text("balance_total", language)}: ${formatCurrency(market.totalBalance)}",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = Gold,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun TokenMetric(
+    label: String,
+    value: String,
+    detail: String,
+    detailColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.height(70.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = DeepBlue.copy(alpha = 0.48f)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .border(1.dp, PureWhite.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = label,
+                maxLines = 1,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = TextSecondary,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+            Text(
+                text = value,
+                maxLines = 1,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = PureWhite,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            )
+            Text(
+                text = detail,
+                maxLines = 1,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = detailColor,
                     fontWeight = FontWeight.Bold
                 )
             )
@@ -888,20 +1124,34 @@ private fun TokenSidePanel(
     onSelectToken: (TokenId) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    ArcadePanel(modifier = modifier) {
-        Text(
-            text = AppI18n.text("side_panel", language),
-            style = MaterialTheme.typography.titleMedium.copy(
-                color = Gold,
-                fontWeight = FontWeight.Bold
+    ArcadePanel(modifier = modifier, contentPadding = PaddingValues(14.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = AppI18n.text("side_panel", language),
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = PureWhite,
+                    fontWeight = FontWeight.Bold
+                )
             )
-        )
+            Text(
+                text = AppI18n.text("token_value", language),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = TextSecondary,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        }
         Spacer(Modifier.height(8.dp))
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             tokens.forEach { token ->
                 TokenListItem(
                     token = token,
                     selected = token.id == selectedId,
+                    language = language,
                     onClick = { onSelectToken(token.id) }
                 )
             }
@@ -913,49 +1163,74 @@ private fun TokenSidePanel(
 private fun TokenListItem(
     token: MarketToken,
     selected: Boolean,
+    language: AppLanguage,
     onClick: () -> Unit
 ) {
     val changePositive = token.changePercent >= 0
+    val contributionPositive = token.holdingChangeValue >= 0
+    val accent = tokenAccent(token)
     val containerColor = if (selected) Gold.copy(alpha = 0.16f) else DeepBlue.copy(alpha = 0.42f)
-    val borderColor = if (selected) Gold else PureWhite.copy(alpha = 0.12f)
+    val borderColor = if (selected) accent else PureWhite.copy(alpha = 0.12f)
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(8.dp),
         color = containerColor,
         tonalElevation = 0.dp
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .border(1.dp, borderColor, RoundedCornerShape(16.dp))
+                .border(1.dp, borderColor, RoundedCornerShape(8.dp))
                 .padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(7.dp)
         ) {
-            Column {
-                Text(
-                    text = token.displayName,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = PureWhite,
-                        fontWeight = FontWeight.Bold
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column {
+                    Text(
+                        text = token.displayName,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = PureWhite,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
-                )
-                Text(
-                    text = token.ticker,
-                    style = MaterialTheme.typography.labelSmall.copy(color = TextSecondary)
-                )
-            }
+                    Text(
+                        text = "${token.ticker} · ${formatQuantity(token.holdings)} ${AppI18n.text("units", language).lowercase()}",
+                        style = MaterialTheme.typography.labelSmall.copy(color = TextSecondary)
+                    )
+                }
 
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = formatCurrency(token.currentPrice),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Gold,
-                        fontWeight = FontWeight.Bold
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = formatCurrency(token.portfolioValue),
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = Gold,
+                            fontWeight = FontWeight.Bold
+                        )
                     )
+                    Text(
+                        text = formatCurrency(token.holdingChangeValue),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = if (contributionPositive) Gold else ChipRed,
+                            fontWeight = FontWeight.Bold
+                        )
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "${AppI18n.text("price", language)} ${formatCurrency(token.currentPrice)}",
+                    style = MaterialTheme.typography.labelSmall.copy(color = TextSecondary)
                 )
                 Text(
                     text = formatPercent(token.changePercent),
@@ -1777,6 +2052,35 @@ private data class BottomItem(
     val icon: ImageVector
 )
 
+private fun tokenAccent(token: MarketToken): Color {
+    return runCatching { Color(android.graphics.Color.parseColor(token.colorCode)) }
+        .getOrElse {
+            when (token.id) {
+                TokenId.ROJA -> ChipRed
+                TokenId.AZUL -> Color(0xFF4DA3FF)
+                TokenId.VERDE -> Color(0xFF2AD97E)
+                TokenId.DORADA -> Gold
+            }
+        }
+}
+
+private fun MarketUiState.portfolioHistory(): List<Double> {
+    val maxPoints = tokens.maxOfOrNull { it.history.size } ?: 0
+    if (maxPoints == 0) {
+        return listOf(totalBalance)
+    }
+
+    return (0 until maxPoints).map { index ->
+        val tokenValue = tokens.sumOf { token ->
+            val offset = maxPoints - token.history.size
+            val historyIndex = (index - offset).coerceAtLeast(0)
+            val price = token.history.getOrNull(historyIndex) ?: token.currentPrice
+            price * token.holdings
+        }
+        cashBalance + tokenValue
+    }
+}
+
 private fun formatNotificationTime(raw: String): String {
     return raw
         .replace("T", " ")
@@ -1788,30 +2092,30 @@ private fun formatNotificationTime(raw: String): String {
 @Composable
 private fun GameBackgroundPattern() {
     Canvas(modifier = Modifier.fillMaxSize()) {
-        val spacing = 84.dp.toPx()
-        var x = -size.height
-        while (x < size.width + size.height) {
+        val horizontalSpacing = 56.dp.toPx()
+        var y = horizontalSpacing
+        while (y < size.height) {
             drawLine(
-                color = ChipRed.copy(alpha = 0.10f),
-                start = Offset(x, 0f),
-                end = Offset(x + size.height, size.height),
-                strokeWidth = 2.dp.toPx(),
+                color = PureWhite.copy(alpha = 0.035f),
+                start = Offset(0f, y),
+                end = Offset(size.width, y),
+                strokeWidth = 1.dp.toPx(),
                 cap = StrokeCap.Round
             )
-            x += spacing
+            y += horizontalSpacing
         }
 
-        val spacing2 = 110.dp.toPx()
-        var x2 = 0f
-        while (x2 < size.width + size.height) {
+        val verticalSpacing = 120.dp.toPx()
+        var x = verticalSpacing
+        while (x < size.width) {
             drawLine(
-                color = Gold.copy(alpha = 0.05f),
-                start = Offset(x2, 0f),
-                end = Offset(x2 - size.height, size.height),
-                strokeWidth = 1.4.dp.toPx(),
+                color = Gold.copy(alpha = 0.025f),
+                start = Offset(x, 0f),
+                end = Offset(x, size.height),
+                strokeWidth = 1.dp.toPx(),
                 cap = StrokeCap.Round
             )
-            x2 += spacing2
+            x += verticalSpacing
         }
     }
 }

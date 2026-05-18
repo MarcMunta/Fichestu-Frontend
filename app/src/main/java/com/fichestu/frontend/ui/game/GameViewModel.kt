@@ -234,7 +234,8 @@ class GameViewModel(
         _uiState.update { state ->
             state.copy(
                 market = state.market.copy(
-                    cashBalance = (state.market.cashBalance + deltaCash).coerceAtLeast(0.0)
+                    cashBalance = (state.market.cashBalance + deltaCash).coerceAtLeast(0.0),
+                    reportedTotalBalance = null
                 ),
                 transientMessage = message
             )
@@ -919,6 +920,16 @@ class GameViewModel(
                 refreshNotifications()
             }
         }
+
+        viewModelScope.launch {
+            while (isActive) {
+                delay(12_000)
+                val current = _uiState.value
+                if (current.activeTab == MainTab.DASHBOARD || current.activeTab == MainTab.BALL_ROOM) {
+                    refreshMarketFromState(current)
+                }
+            }
+        }
     }
 
     private fun shouldRefreshMatch(current: GameUiState): Boolean {
@@ -968,6 +979,25 @@ class GameViewModel(
         result.onFailure { error ->
             if (error is SessionExpiredException) {
                 _uiState.update { it.copy(isSessionExpired = true) }
+            }
+        }
+    }
+
+    private suspend fun refreshMarketFromState(current: GameUiState) {
+        val result = repository.refreshMarket(current)
+        result.onSuccess { newState ->
+            _uiState.update { latest ->
+                latest.copy(
+                    market = newState.market.copy(selectedToken = latest.market.selectedToken),
+                    rewardedAvailable = newState.rewardedAvailable,
+                    rewardedCooldownSec = newState.rewardedCooldownSec,
+                    profile = latest.profile.copy(stats = newState.profile.stats)
+                )
+            }
+        }
+        result.onFailure { error ->
+            if (error is SessionExpiredException) {
+                expireSession(error)
             }
         }
     }

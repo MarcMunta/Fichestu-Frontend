@@ -70,6 +70,19 @@ class GameRepository {
         mapBootstrap(dto, currentState)
     }
 
+    suspend fun refreshMarket(currentState: GameUiState): Result<GameUiState> = runSafely {
+        val response = ApiClient.marketApi.market(requireAuth())
+        val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
+        currentState.copy(
+            market = mapMarket(dto, currentState.market.selectedToken),
+            rewardedAvailable = dto.rewardedCooldownSec == 0,
+            rewardedCooldownSec = dto.rewardedCooldownSec,
+            profile = currentState.profile.copy(
+                stats = currentState.profile.stats.copy(rewardedAdsClaimed = dto.rewardedAdsClaimed)
+            )
+        )
+    }
+
     suspend fun refreshMatch(currentState: GameUiState): Result<GameUiState> = runSafely {
         val auth = requireAuth()
         val requestStartedAt = System.currentTimeMillis()
@@ -122,7 +135,7 @@ class GameRepository {
         currentState.copy(
             currentMatchId = dto.matchId,
             activeTab = MainTab.BALL_ROOM,
-            market = currentState.market.copy(cashBalance = dto.cashBalance),
+            market = currentState.market.copy(cashBalance = dto.cashBalance, reportedTotalBalance = null),
             ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
             battle = BattleUiState(phase = BattlePhase.LOCKED, log = listOf("Completa el sorteo de bolas para desbloquear el Battle Royale.")),
             profile = currentState.profile.copy(stats = currentState.profile.stats.copy(ballRoomsPlayed = currentState.profile.stats.ballRoomsPlayed + 1)),
@@ -138,7 +151,7 @@ class GameRepository {
         currentState.copy(
             currentMatchId = null,
             activeTab = MainTab.BALL_ROOM,
-            market = currentState.market.copy(cashBalance = dto.cashBalance),
+            market = currentState.market.copy(cashBalance = dto.cashBalance, reportedTotalBalance = null),
             ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
             battle = BattleUiState(
                 phase = BattlePhase.LOCKED,
@@ -156,7 +169,7 @@ class GameRepository {
         currentState.copy(
             currentMatchId = null,
             activeTab = MainTab.BALL_ROOM,
-            market = currentState.market.copy(cashBalance = dto.cashBalance),
+            market = currentState.market.copy(cashBalance = dto.cashBalance, reportedTotalBalance = null),
             ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
             battle = BattleUiState(
                 phase = BattlePhase.LOCKED,
@@ -270,7 +283,7 @@ class GameRepository {
         val stats = currentState.profile.stats.copy(rewardedAdsClaimed = dto.rewardedAdsClaimed)
 
         currentState.copy(
-            market = currentState.market.copy(cashBalance = dto.cashBalance),
+            market = currentState.market.copy(cashBalance = dto.cashBalance, reportedTotalBalance = null),
             rewardedAvailable = false,
             rewardedCooldownSec = dto.rewardedCooldownSec,
             profile = currentState.profile.copy(stats = stats, badges = recomputeBadges(stats)),
@@ -300,6 +313,8 @@ class GameRepository {
                 selectedToken = selected,
                 tokens = dto.tokens.map { it.toMarketToken() },
                 cashBalance = dto.cashBalance,
+                portfolioValue = dto.portfolioValue,
+                reportedTotalBalance = dto.totalBalance,
                 lastResetDayIndex = currentState?.market?.lastResetDayIndex ?: 0L,
                 resetCountdownLabel = currentState?.market?.resetCountdownLabel ?: "--:--:--"
             ),
@@ -321,6 +336,8 @@ class GameRepository {
             selectedToken = selected,
             tokens = dto.tokens.map { it.toMarketToken() },
             cashBalance = dto.cashBalance,
+            portfolioValue = dto.portfolioValue,
+            reportedTotalBalance = dto.totalBalance,
             lastResetDayIndex = 0L,
             resetCountdownLabel = "--:--:--"
         )
@@ -331,6 +348,8 @@ class GameRepository {
             selectedToken = selected,
             tokens = dto.tokens.map { it.toMarketToken() },
             cashBalance = dto.cashBalance,
+            portfolioValue = dto.portfolioValue,
+            reportedTotalBalance = dto.totalBalance,
             lastResetDayIndex = 0L,
             resetCountdownLabel = "--:--:--"
         )
@@ -473,9 +492,13 @@ class GameRepository {
             id = tokenId.toTokenId(),
             displayName = name,
             ticker = ticker,
+            colorCode = colorCode,
             currentPrice = currentPrice,
             previousPrice = previousPrice,
-            holdings = holdings.toInt(),
+            holdings = holdings,
+            holdingValue = holdingValue,
+            holdingChangeValue = holdingChangeValue ?: ((currentPrice - previousPrice) * holdings),
+            portfolioWeightPercent = portfolioWeightPercent ?: 0.0,
             history = history
         )
     }
