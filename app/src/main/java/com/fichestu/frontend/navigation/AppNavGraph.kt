@@ -52,9 +52,10 @@ fun AppNavGraph() {
                 viewModel = authViewModel,
                 navController = navController,
                 onGoogleClick = {
-                    googleAuthHelper.launchGoogleLogin { token ->
-                        authViewModel.onGoogleLoginSuccess(token)
-                    }
+                    googleAuthHelper.launchGoogleLogin(
+                        onTokenReceived = { token -> authViewModel.onGoogleLoginSuccess(token) },
+                        onError = { message -> authViewModel.onGoogleLoginError(message) }
+                    )
                 }
             )
         }

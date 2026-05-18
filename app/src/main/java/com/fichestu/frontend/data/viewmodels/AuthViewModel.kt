@@ -125,6 +125,15 @@ class AuthViewModel(
         }
     }
 
+    fun onGoogleLoginError(message: String) {
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                message = if (message.isBlank()) "Error connecting to Google" else message
+            )
+        }
+    }
+
     fun submit() {
         val state = _uiState.value
 
@@ -189,8 +198,13 @@ class AuthViewModel(
             return false
         }
 
+        if (state.email.isBlank()) {
+            _uiState.update { it.copy(message = if (state.isLoginMode) "Enter email or username" else "Enter a valid email") }
+            return false
+        }
+
         val emailMatches = Patterns.EMAIL_ADDRESS.matcher(state.email.trim()).matches()
-        if (state.email.isBlank() || !emailMatches) {
+        if (!state.isLoginMode && !emailMatches) {
             _uiState.update { it.copy(message = "Enter a valid email") }
             return false
         }

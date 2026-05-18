@@ -187,7 +187,7 @@ private fun LoginForm(
     CasinoOutlinedTextField(
         value = state.email,
         onValueChange = viewModel::updateEmail,
-        label = stringResource(R.string.forgot_label_email),
+        label = stringResource(R.string.auth_label_login_identifier),
         enabled = !state.isLoading,
         leadingIcon = { Icon(Icons.Default.Email, null, Modifier.size(20.dp)) },
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)

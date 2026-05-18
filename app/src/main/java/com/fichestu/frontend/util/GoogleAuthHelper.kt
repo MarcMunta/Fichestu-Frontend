@@ -13,7 +13,10 @@ class GoogleAuthHelper(private val activity: ComponentActivity) {
     private val webClientId = "376595931736-ts5451g69bk8rd6re82o6ln1p28m4i2l.apps.googleusercontent.com"
 
 
-    fun launchGoogleLogin(onTokenReceived: (String) -> Unit) {
+    fun launchGoogleLogin(
+        onTokenReceived: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
         val credentialManager = CredentialManager.create(activity)
 
         val googleIdOption = GetSignInWithGoogleOption.Builder(webClientId)
@@ -32,6 +35,7 @@ class GoogleAuthHelper(private val activity: ComponentActivity) {
                 onTokenReceived(credential.idToken)
             } catch (e: Exception) {
                 Log.e("GOOGLE_AUTH", "Error: ${e.message}")
+                onError(e.message ?: "Error connecting to Google")
             }
         }
     }
