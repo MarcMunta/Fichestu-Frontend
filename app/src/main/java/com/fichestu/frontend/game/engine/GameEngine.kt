@@ -42,7 +42,7 @@ class GameEngine(
                 ticker = seed.third,
                 currentPrice = latest,
                 previousPrice = prev,
-                holdings = if (index == 0) 8 else random.nextInt(1, 6),
+                holdings = if (index == 0) 8.0 else random.nextInt(1, 6).toDouble(),
                 history = history
             )
         }
@@ -76,7 +76,7 @@ class GameEngine(
             token.copy(
                 currentPrice = latest,
                 previousPrice = latest,
-                holdings = 0,
+                holdings = 0.0,
                 history = seeded
             )
         }

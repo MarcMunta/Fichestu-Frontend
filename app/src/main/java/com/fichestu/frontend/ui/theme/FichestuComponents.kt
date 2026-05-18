@@ -1,13 +1,8 @@
 package com.fichestu.frontend.ui.theme
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -76,74 +71,42 @@ fun AuthScaffold(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit
 ) {
-    // Fondo radial
-    val backgroundBrush = Brush.radialGradient(
-        colors = listOf(DeepBlue, NightBlue),
-        center = Offset(0.5f * 1080f, 0.3f * 1920f),
-        radius = 1400f
+    // Fondo base sobrio para login.
+    val backgroundBrush = Brush.linearGradient(
+        colors = listOf(NightBlue, Color(0xFF0E1A2D), Color(0xFF092B2B))
     )
 
-    // ── Animación de líneas tipo ficha ───────────────────────────────────
-    val infiniteTransition = rememberInfiniteTransition(label = "chip_lines")
-    // offset lateral: avanza de 0 a 1 de forma continua → movimiento suave y sin salto
-    val lineOffset by infiniteTransition.animateFloat(
-        initialValue = 0f,
-        targetValue  = 1f,
-        animationSpec = infiniteRepeatable(
-            animation  = tween(durationMillis = 4000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "chip_offset"
-    )
 
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(backgroundBrush)
     ) {
-        // ── Líneas rojas diagonales animadas (estética ficha de casino) ───
         Canvas(modifier = Modifier.fillMaxSize()) {
-            val spacingPx   = 72.dp.toPx()
-            val strokePx    = 2.2.dp.toPx()
-            val diagLen     = size.height    // longitud suficiente para cruzar la pantalla
-            val shift       = lineOffset * spacingPx
-            // Ángulo de ~35° → dx/dy = tan(35°) ≈ 0.70
-            val slope       = 0.70f
-            val lineColor   = ChipRed.copy(alpha = 0.13f)
-            val lineColor2  = ChipRed.copy(alpha = 0.07f)
-
-            // ── Set 1: líneas hacia la derecha-abajo ──────────────────────
-            var startX = -diagLen * slope - spacingPx + shift
-            while (startX < size.width + spacingPx) {
-                val x0 = startX
-                val y0 = 0f
-                val x1 = startX + diagLen * slope
-                val y1 = diagLen
+            val horizontalSpacing = 56.dp.toPx()
+            var y = horizontalSpacing
+            while (y < size.height) {
                 drawLine(
-                    color       = lineColor,
-                    start       = Offset(x0, y0),
-                    end         = Offset(x1, y1),
-                    strokeWidth = strokePx,
-                    cap         = StrokeCap.Round
+                    color = Color.White.copy(alpha = 0.035f),
+                    start = Offset(0f, y),
+                    end = Offset(size.width, y),
+                    strokeWidth = 1.dp.toPx(),
+                    cap = StrokeCap.Round
                 )
-                startX += spacingPx
+                y += horizontalSpacing
             }
 
-            // ── Set 2: líneas opuestas (izq-abajo), más sutiles ───────────
-            var startX2 = -spacingPx + shift * 0.6f
-            while (startX2 < size.width + diagLen * slope + spacingPx) {
-                val x0 = startX2
-                val y0 = 0f
-                val x1 = startX2 - diagLen * slope
-                val y1 = diagLen
+            val verticalSpacing = 120.dp.toPx()
+            var x = verticalSpacing
+            while (x < size.width) {
                 drawLine(
-                    color       = lineColor2,
-                    start       = Offset(x0, y0),
-                    end         = Offset(x1, y1),
-                    strokeWidth = strokePx,
-                    cap         = StrokeCap.Round
+                    color = Gold.copy(alpha = 0.025f),
+                    start = Offset(x, 0f),
+                    end = Offset(x, size.height),
+                    strokeWidth = 1.dp.toPx(),
+                    cap = StrokeCap.Round
                 )
-                startX2 += spacingPx * 1.5f
+                x += verticalSpacing
             }
         }
 

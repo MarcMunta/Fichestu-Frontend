@@ -6,6 +6,8 @@ data class GameBootstrapResponse(
     val userId: Int,
     val playerName: String,
     val cashBalance: Double,
+    val portfolioValue: Double? = null,
+    val totalBalance: Double? = null,
     val rewardedCooldownSec: Int,
     val tokens: List<GameTokenDto>,
     val badges: List<BadgeDto>? = null,
@@ -27,6 +29,9 @@ data class GameTokenDto(
     val currentPrice: Double,
     val previousPrice: Double,
     val holdings: Double,
+    val holdingValue: Double? = null,
+    val holdingChangeValue: Double? = null,
+    val portfolioWeightPercent: Double? = null,
     val history: List<Double>
 )
 
@@ -49,6 +54,7 @@ data class GameMarketResponseDto(
     val message: String,
     val success: Boolean,
     val cashBalance: Double,
+    val portfolioValue: Double? = null,
     val totalBalance: Double,
     val rewardedCooldownSec: Int,
     val rewardedAdsClaimed: Int,
@@ -59,6 +65,7 @@ data class WalletResponseDto(
     val message: String,
     val success: Boolean,
     val cashBalance: Double,
+    val portfolioValue: Double? = null,
     val totalBalance: Double,
     val tokens: List<GameTokenDto>
 )

@@ -32,27 +32,39 @@ data class MarketToken(
     val id: TokenId,
     val displayName: String,
     val ticker: String,
+    val colorCode: String = "#FFDD3D",
     val currentPrice: Double,
     val previousPrice: Double,
-    val holdings: Int,
+    val holdings: Double,
+    val holdingValue: Double? = null,
+    val holdingChangeValue: Double = 0.0,
+    val portfolioWeightPercent: Double = 0.0,
     val history: List<Double>
 ) {
     val changePercent: Double
         get() = if (previousPrice == 0.0) 0.0 else ((currentPrice - previousPrice) / previousPrice) * 100
 
     val portfolioValue: Double
-        get() = holdings * currentPrice
+        get() = holdingValue ?: (holdings * currentPrice)
 }
 
 data class MarketUiState(
     val selectedToken: TokenId = TokenId.ROJA,
     val tokens: List<MarketToken> = emptyList(),
     val cashBalance: Double = 0.0,
+    val portfolioValue: Double? = null,
+    val reportedTotalBalance: Double? = null,
     val lastResetDayIndex: Long = 0L,
     val resetCountdownLabel: String = ""
 ) {
+    val holdingsValue: Double
+        get() = portfolioValue ?: tokens.sumOf { it.portfolioValue }
+
     val totalBalance: Double
-        get() = cashBalance + tokens.sumOf { it.portfolioValue }
+        get() = reportedTotalBalance ?: (cashBalance + holdingsValue)
+
+    val totalHoldingChange: Double
+        get() = tokens.sumOf { it.holdingChangeValue }
 
     val selectedMarketToken: MarketToken?
         get() = tokens.firstOrNull { it.id == selectedToken }

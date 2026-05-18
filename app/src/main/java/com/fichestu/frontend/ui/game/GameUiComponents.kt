@@ -1,5 +1,7 @@
 package com.fichestu.frontend.ui.game
 
+import android.graphics.Paint
+import android.graphics.Typeface
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,6 +36,8 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -49,6 +53,7 @@ import com.fichestu.frontend.ui.theme.InputBg
 import com.fichestu.frontend.ui.theme.NightBlue
 import com.fichestu.frontend.ui.theme.PanelBlue
 import com.fichestu.frontend.ui.theme.PureWhite
+import kotlin.math.abs
 import java.util.Locale
 
 @Composable
@@ -225,20 +230,31 @@ fun TokenSparkChart(
     values: List<Double>,
     modifier: Modifier = Modifier,
     lineColor: Color = Gold,
-    glowColor: Color = Gold.copy(alpha = 0.24f)
+    glowColor: Color = Gold.copy(alpha = 0.24f),
+    showLabels: Boolean = true
 ) {
     Canvas(modifier = modifier) {
         if (values.isEmpty()) return@Canvas
 
         val safeMax = values.maxOrNull() ?: 1.0
         val safeMin = values.minOrNull() ?: 0.0
-        val range = (safeMax - safeMin).takeIf { it > 0.0 } ?: 1.0
-        val stepX = if (values.size <= 1) size.width else size.width / (values.size - 1)
+        val rawRange = (safeMax - safeMin).takeIf { it > 0.0 } ?: (safeMax.takeIf { it > 0.0 } ?: 1.0)
+        val paddingY = rawRange * 0.10
+        val minY = (safeMin - paddingY).coerceAtLeast(0.0)
+        val maxY = safeMax + paddingY
+        val range = (maxY - minY).takeIf { it > 0.0 } ?: 1.0
+        val leftPad = if (showLabels) 48.dp.toPx() else 4.dp.toPx()
+        val rightPad = 8.dp.toPx()
+        val topPad = 8.dp.toPx()
+        val bottomPad = if (showLabels) 20.dp.toPx() else 6.dp.toPx()
+        val chartWidth = (size.width - leftPad - rightPad).coerceAtLeast(1f)
+        val chartHeight = (size.height - topPad - bottomPad).coerceAtLeast(1f)
+        val stepX = if (values.size <= 1) 0f else chartWidth / (values.size - 1)
 
         val points = values.mapIndexed { index, value ->
-            val normalized = ((value - safeMin) / range).toFloat()
-            val y = size.height - normalized * size.height
-            Offset(index * stepX, y)
+            val normalized = ((value - minY) / range).toFloat()
+            val y = topPad + chartHeight - normalized * chartHeight
+            Offset(leftPad + index * stepX, y)
         }
 
         val path = Path().apply {
@@ -250,18 +266,27 @@ fun TokenSparkChart(
 
         val fillPath = Path().apply {
             addPath(path)
-            lineTo(size.width, size.height)
-            lineTo(0f, size.height)
+            lineTo(leftPad + chartWidth, topPad + chartHeight)
+            lineTo(leftPad, topPad + chartHeight)
             close()
         }
 
         val gridLines = 4
         repeat(gridLines + 1) { index ->
-            val y = size.height / gridLines * index
+            val y = topPad + (chartHeight / gridLines) * index
             drawLine(
-                color = PureWhite.copy(alpha = 0.08f),
-                start = Offset(0f, y),
-                end = Offset(size.width, y),
+                color = PureWhite.copy(alpha = if (index == gridLines) 0.16f else 0.08f),
+                start = Offset(leftPad, y),
+                end = Offset(leftPad + chartWidth, y),
+                strokeWidth = 1.dp.toPx()
+            )
+        }
+        repeat(5) { index ->
+            val x = leftPad + (chartWidth / 4f) * index
+            drawLine(
+                color = PureWhite.copy(alpha = 0.05f),
+                start = Offset(x, topPad),
+                end = Offset(x, topPad + chartHeight),
                 strokeWidth = 1.dp.toPx()
             )
         }
@@ -270,8 +295,8 @@ fun TokenSparkChart(
             path = fillPath,
             brush = Brush.verticalGradient(
                 listOf(glowColor, Color.Transparent),
-                startY = 0f,
-                endY = size.height
+                startY = topPad,
+                endY = topPad + chartHeight
             )
         )
 
@@ -284,6 +309,36 @@ fun TokenSparkChart(
                 join = StrokeJoin.Round
             )
         )
+
+        points.firstOrNull()?.let { point ->
+            drawCircle(
+                color = lineColor.copy(alpha = 0.42f),
+                radius = 4.dp.toPx(),
+                center = point
+            )
+        }
+        points.lastOrNull()?.let { point ->
+            drawCircle(
+                color = lineColor,
+                radius = 4.5.dp.toPx(),
+                center = point
+            )
+        }
+
+        if (showLabels) {
+            val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.argb(178, 169, 182, 211)
+                textSize = 10.sp.toPx()
+                typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+                textAlign = Paint.Align.RIGHT
+            }
+            drawIntoCanvas { canvas ->
+                val native = canvas.nativeCanvas
+                native.drawText(formatAxisValue(maxY), leftPad - 6.dp.toPx(), topPad + 4.dp.toPx(), labelPaint)
+                native.drawText(formatAxisValue((maxY + minY) / 2), leftPad - 6.dp.toPx(), topPad + chartHeight / 2 + 4.dp.toPx(), labelPaint)
+                native.drawText(formatAxisValue(minY), leftPad - 6.dp.toPx(), topPad + chartHeight + 4.dp.toPx(), labelPaint)
+            }
+        }
     }
 }
 
@@ -316,4 +371,19 @@ fun formatCurrency(value: Double): String {
 fun formatPercent(value: Double): String {
     val sign = if (value >= 0.0) "+" else ""
     return String.format(Locale.US, "%s%.2f%%", sign, value)
+}
+
+fun formatQuantity(value: Double): String {
+    return if (abs(value - value.toInt()) < 0.0001) {
+        value.toInt().toString()
+    } else {
+        String.format(Locale.US, "%.2f", value)
+    }
+}
+
+private fun formatAxisValue(value: Double): String {
+    return when {
+        value >= 1000.0 -> String.format(Locale.US, "%.1fk", value / 1000.0)
+        else -> String.format(Locale.US, "%.0f", value)
+    }
 }
