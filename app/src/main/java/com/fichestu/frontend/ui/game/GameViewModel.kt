@@ -47,6 +47,7 @@ class GameViewModel(
     private var matchRefreshRunning = false
     private var matchRefreshQueued = false
     private var nextBattleCardId = 1L
+    private val submittedBattleCards = mutableMapOf<String, Long>()
     private val realtimeClient = MatchRealtimeClient { matchId, _ ->
         onRealtimeMatchChanged(matchId)
     }
@@ -340,15 +341,6 @@ class GameViewModel(
         _uiState.update { state ->
             state.copy(ballRoom = state.ballRoom.copy(pendingSelectedBallId = ballId))
         }
-        viewModelScope.launch {
-            val current = _uiState.value
-            val matchId = current.currentMatchId ?: return@launch
-            if (current.ballRoom.players.any { it.isUser && it.selectedBallId != null }) {
-                return@launch
-            }
-            val result = repository.pickBall(current, matchId, ballId)
-            applyResult(result)
-        }
     }
 
     fun confirmBallSelection() {
@@ -513,6 +505,9 @@ class GameViewModel(
                 return@launch
             }
 
+            snapshot.battle.selectedCardId?.let { cardId ->
+                submittedBattleCards[battleCardKey(matchId, snapshot.battle.round)] = cardId
+            }
             val optimisticSubmittedActions = ((snapshot.battle.submittedActions ?: 0) + 1)
                 .coerceAtMost(snapshot.battle.aliveHumans ?: Int.MAX_VALUE)
             _uiState.update { state ->
@@ -529,6 +524,7 @@ class GameViewModel(
             }
             val result = repository.playBattleRound(snapshot, matchId)
             result.onFailure {
+                submittedBattleCards.remove(battleCardKey(matchId, snapshot.battle.round))
                 _uiState.update { state ->
                     if (state.currentMatchId == matchId) {
                         state.copy(battle = snapshot.battle)
@@ -540,6 +536,8 @@ class GameViewModel(
             applyBattleRoundResult(result)
         }
     }
+
+    private fun battleCardKey(matchId: Int, round: Int): String = "$matchId:$round"
 
     private fun resolveLocalBattleRound() {
         _uiState.update { state ->
@@ -1078,7 +1076,7 @@ class GameViewModel(
                     val roundResolved = didBattleRoundAdvance(next.battle, current.battle)
                     next.copy(
                         battle = if (roundResolved) {
-                            consumeBattleCardAfterBackendRound(next.battle, current.battle)
+                            consumeBattleCardAfterBackendRound(current.currentMatchId, next.battle, current.battle)
                         } else {
                             next.battle
                         },
@@ -1129,6 +1127,7 @@ class GameViewModel(
     }
 
     private fun consumeBattleCardAfterBackendRound(
+        matchId: Int?,
         incoming: BattleUiState,
         previous: BattleUiState
     ): BattleUiState {
@@ -1136,7 +1135,10 @@ class GameViewModel(
             return incoming
         }
         val previousHand = previous.hand.takeIf { it.isNotEmpty() } ?: incoming.hand
-        val usedCardId = previous.selectedCardId ?: previousHand.firstOrNull()?.id
+        val usedCardId = matchId
+            ?.let { submittedBattleCards.remove(battleCardKey(it, previous.round)) }
+            ?: previous.selectedCardId
+            ?: previousHand.firstOrNull()?.id
         val nextHand = previousHand.filterNot { it.id == usedCardId }.plus(drawBattleCard()).take(5)
         val nextSelectedCardId = nextHand.firstOrNull()?.id
         return incoming.copy(
@@ -1152,7 +1154,21 @@ class GameViewModel(
         val roundAdvanced = didBattleRoundAdvance(mergedBattle, previous.battle)
         return incoming.copy(
             battle = if (roundAdvanced) {
-                consumeBattleCardAfterBackendRound(mergedBattle, previous.battle)
+                if (previous.battle.userActionSubmitted ||
+                    previous.currentMatchId?.let { submittedBattleCards.containsKey(battleCardKey(it, previous.battle.round)) } == true
+                ) {
+                    consumeBattleCardAfterBackendRound(previous.currentMatchId, mergedBattle, previous.battle)
+                } else {
+                    mergedBattle.copy(
+                        hand = previous.battle.hand.takeIf { it.isNotEmpty() } ?: mergedBattle.hand,
+                        selectedCardId = previous.battle.selectedCardId ?: mergedBattle.selectedCardId,
+                        selectedTargetId = previous.battle.selectedTargetId ?: mergedBattle.selectedTargetId,
+                        selectedAction = previous.battle.hand
+                            .firstOrNull { it.id == previous.battle.selectedCardId }
+                            ?.type
+                            ?: mergedBattle.selectedAction
+                    )
+                }
             } else {
                 mergedBattle
             }
