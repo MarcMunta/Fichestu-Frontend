@@ -121,14 +121,16 @@ class GameRepository {
     }
 
     suspend fun enterBallRoom(currentState: GameUiState): Result<GameUiState> = runSafely {
+        val auth = requireAuth()
         val requestStartedAt = System.currentTimeMillis()
-        val response = ApiClient.gameApi.enterBallRoom(requireAuth())
+        val response = ApiClient.gameApi.enterBallRoom(auth)
         val responseReceivedAt = System.currentTimeMillis()
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
+        val market = loadMarketState(currentState.market.selectedToken, auth)
         currentState.copy(
             currentMatchId = dto.matchId,
             activeTab = MainTab.BALL_ROOM,
-            market = currentState.market.copy(cashBalance = dto.cashBalance, reportedTotalBalance = null),
+            market = market,
             ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
             battle = BattleUiState(phase = BattlePhase.LOCKED, log = listOf("Completa el sorteo de bolas para desbloquear el Battle Royale.")),
             profile = currentState.profile.copy(stats = currentState.profile.stats.copy(ballRoomsPlayed = currentState.profile.stats.ballRoomsPlayed + 1)),
@@ -137,14 +139,16 @@ class GameRepository {
     }
 
     suspend fun cancelMatchmaking(currentState: GameUiState, matchId: Int): Result<GameUiState> = runSafely {
+        val auth = requireAuth()
         val requestStartedAt = System.currentTimeMillis()
-        val response = ApiClient.gameApi.cancelMatchmaking(requireAuth(), matchId)
+        val response = ApiClient.gameApi.cancelMatchmaking(auth, matchId)
         val responseReceivedAt = System.currentTimeMillis()
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
+        val market = loadMarketState(currentState.market.selectedToken, auth)
         currentState.copy(
             currentMatchId = null,
             activeTab = MainTab.BALL_ROOM,
-            market = currentState.market.copy(cashBalance = dto.cashBalance, reportedTotalBalance = null),
+            market = market,
             ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
             battle = BattleUiState(
                 phase = BattlePhase.LOCKED,
@@ -155,14 +159,16 @@ class GameRepository {
     }
 
     suspend fun abandonMatch(currentState: GameUiState, matchId: Int): Result<GameUiState> = runSafely {
+        val auth = requireAuth()
         val requestStartedAt = System.currentTimeMillis()
-        val response = ApiClient.gameApi.abandonMatch(requireAuth(), matchId)
+        val response = ApiClient.gameApi.abandonMatch(auth, matchId)
         val responseReceivedAt = System.currentTimeMillis()
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
+        val market = loadMarketState(currentState.market.selectedToken, auth)
         currentState.copy(
             currentMatchId = null,
             activeTab = MainTab.BALL_ROOM,
-            market = currentState.market.copy(cashBalance = dto.cashBalance, reportedTotalBalance = null),
+            market = market,
             ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
             battle = BattleUiState(
                 phase = BattlePhase.LOCKED,
@@ -271,12 +277,14 @@ class GameRepository {
     }
 
     suspend fun claimRewarded(currentState: GameUiState): Result<GameUiState> = runSafely {
-        val response = ApiClient.marketApi.claimReward(requireAuth())
+        val auth = requireAuth()
+        val response = ApiClient.marketApi.claimReward(auth)
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
-        val stats = currentState.profile.stats.copy(rewardedAdsClaimed = dto.rewardedAdsClaimed)
+        val marketDto = loadMarketDto(auth)
+        val stats = currentState.profile.stats.copy(rewardedAdsClaimed = marketDto.rewardedAdsClaimed)
 
         currentState.copy(
-            market = currentState.market.copy(cashBalance = dto.cashBalance, reportedTotalBalance = null),
+            market = mapMarket(marketDto, currentState.market.selectedToken),
             rewardedAvailable = false,
             rewardedCooldownSec = dto.rewardedCooldownSec,
             profile = currentState.profile.copy(stats = stats, badges = recomputeBadges(stats)),
@@ -346,6 +354,15 @@ class GameRepository {
             lastResetDayIndex = 0L,
             resetCountdownLabel = "--:--:--"
         )
+    }
+
+    private suspend fun loadMarketState(selected: TokenId, authorization: String): MarketUiState {
+        return mapMarket(loadMarketDto(authorization), selected)
+    }
+
+    private suspend fun loadMarketDto(authorization: String): GameMarketResponseDto {
+        val response = ApiClient.marketApi.market(authorization)
+        return parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
     }
 
     private fun mapBallRoom(

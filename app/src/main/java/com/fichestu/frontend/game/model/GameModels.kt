@@ -61,7 +61,7 @@ data class MarketUiState(
         get() = portfolioValue ?: tokens.sumOf { it.portfolioValue }
 
     val totalBalance: Double
-        get() = reportedTotalBalance ?: (cashBalance + holdingsValue)
+        get() = reportedTotalBalance ?: holdingsValue
 
     val totalHoldingChange: Double
         get() = tokens.sumOf { it.holdingChangeValue }

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -41,13 +42,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Casino
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -65,9 +71,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -178,7 +186,7 @@ fun FichestuGameScreen(
             GameTopBar(
                 playerName = uiState.profile.playerName,
                 profilePicUrl = uiState.profile.profilePicUrl,
-                totalBalance = uiState.market.totalBalance,
+                market = uiState.market,
                 notificationCount = uiState.unreadNotificationCount,
                 notificationsOpen = notificationTrayOpen,
                 language = uiState.appLanguage,
@@ -225,7 +233,7 @@ fun FichestuGameScreen(
                             if (showBallRoom) {
                                 BallRoomFlow(
                                     ballRoom = uiState.ballRoom,
-                                    cashBalance = uiState.market.cashBalance,
+                                    cashBalance = uiState.market.totalBalance,
                                     language = uiState.appLanguage,
                                     isInRoom = uiState.currentMatchId != null ||
                                         uiState.ballRoom.players.any { it.isUser },
@@ -318,7 +326,7 @@ fun FichestuGameScreen(
 private fun GameTopBar(
     playerName: String,
     profilePicUrl: String?,
-    totalBalance: Double,
+    market: MarketUiState,
     notificationCount: Int,
     notificationsOpen: Boolean,
     language: AppLanguage,
@@ -326,22 +334,33 @@ private fun GameTopBar(
     onLogout: () -> Unit
 ) {
     val presetIndex = profilePicUrl.toPresetAvatarIndex()
-    ArcadePanel(contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)) {
+    val changePositive = market.totalHoldingChange >= 0.0
+    val chartValues = remember(market.tokens, market.totalBalance) { market.portfolioHistory() }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(58.dp),
+        shape = RoundedCornerShape(0.dp),
+        color = Color(0xFF071326).copy(alpha = 0.96f)
+    ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxSize()
+                .border(1.dp, Color(0xFF1A4965).copy(alpha = 0.72f), RoundedCornerShape(0.dp))
+                .padding(horizontal = 20.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Box(
                 modifier = Modifier
-                    .size(52.dp)
+                    .size(42.dp)
                     .clip(CircleShape)
                     .background(Gold)
                     .border(2.dp, GoldDark, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 if (presetIndex in PresetAvatars.indices) {
-                    CompactPresetAvatar(preset = PresetAvatars[presetIndex], size = 52.dp)
+                    CompactPresetAvatar(preset = PresetAvatars[presetIndex], size = 42.dp)
                 } else if (!profilePicUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = profilePicUrl,
@@ -351,7 +370,7 @@ private fun GameTopBar(
                 } else {
                     Text(
                         text = playerName.take(1).uppercase(Locale.US),
-                        style = MaterialTheme.typography.titleLarge.copy(
+                        style = MaterialTheme.typography.titleMedium.copy(
                             color = NightBlue,
                             fontWeight = FontWeight.ExtraBold
                         )
@@ -359,23 +378,59 @@ private fun GameTopBar(
                 }
             }
 
-            Column(modifier = Modifier.weight(1f)) {
-                BubbleText(
+            Column(modifier = Modifier.width(172.dp)) {
+                Text(
                     text = playerName,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fillColor = PureWhite,
-                    outlineColor = DeepBlue
+                    maxLines = 1,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        color = PureWhite,
+                        fontWeight = FontWeight.ExtraBold
+                    )
                 )
                 Text(
-                    text = "${AppI18n.text("balance_total", language)}: ${formatCurrency(totalBalance)}",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = Gold,
-                        fontWeight = FontWeight.SemiBold
+                    text = "Nivel 12  -  Coleccionista",
+                    maxLines = 1,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = TextSecondary,
+                        fontWeight = FontWeight.Bold
                     )
                 )
             }
 
-            NotificationBell(
+            TopBarDivider()
+
+            CompactTopMetric(
+                label = "Valor total FTC",
+                value = formatCurrency(market.totalBalance),
+                detail = "≈ ${String.format(Locale.US, "%.2f €", market.totalBalance)}",
+                valueColor = PureWhite,
+                modifier = Modifier.width(170.dp)
+            )
+
+            TopBarDivider()
+
+            CompactTopMetric(
+                label = "Cambio 24h",
+                value = formatCurrency(market.totalHoldingChange),
+                detail = formatPercent(portfolioChangePercent(market)),
+                valueColor = if (changePositive) Color(0xFF33E27B) else ChipRed,
+                detailColor = if (changePositive) Color(0xFF33E27B) else ChipRed,
+                modifier = Modifier.width(150.dp)
+            )
+
+            TokenSparkChart(
+                values = chartValues,
+                lineColor = if (changePositive) Color(0xFF33E27B) else ChipRed,
+                glowColor = (if (changePositive) Color(0xFF33E27B) else ChipRed).copy(alpha = 0.16f),
+                showLabels = false,
+                modifier = Modifier
+                    .width(118.dp)
+                    .height(36.dp)
+            )
+
+            Spacer(Modifier.weight(1f))
+
+            CompactNotificationButton(
                 count = notificationCount,
                 isOpen = notificationsOpen,
                 language = language,
@@ -384,16 +439,16 @@ private fun GameTopBar(
 
             Surface(
                 modifier = Modifier
-                    .width(124.dp)
-                    .height(52.dp)
+                    .width(108.dp)
+                    .height(42.dp)
                     .clickable(onClick = onLogout),
                 shape = RoundedCornerShape(8.dp),
-                color = PanelBlue.copy(alpha = 0.92f)
+                color = PanelBlue.copy(alpha = 0.88f)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .border(1.dp, Gold.copy(alpha = 0.55f), RoundedCornerShape(8.dp))
+                        .border(1.dp, PureWhite.copy(alpha = 0.13f), RoundedCornerShape(8.dp))
                         .padding(horizontal = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
@@ -402,7 +457,7 @@ private fun GameTopBar(
                         imageVector = Icons.Default.Logout,
                         contentDescription = null,
                         tint = PureWhite,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(17.dp)
                     )
                     Spacer(Modifier.width(6.dp))
                     Text(
@@ -674,115 +729,1610 @@ private fun DashboardTab(
     onOpenBallRoom: () -> Unit,
     onClaimRewarded: () -> Unit
 ) {
-    val selected = market.selectedMarketToken ?: return
+    val selected = market.selectedMarketToken
+    if (selected == null) {
+        MockupMarketLoading(modifier = Modifier.fillMaxSize())
+        return
+    }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(bottom = 6.dp)
-    ) {
-        item {
-            PortfolioHero(
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        if (maxWidth >= 920.dp) {
+            MockupMarketDashboard(
                 market = market,
+                selected = selected,
+                rewardedAvailable = rewardedAvailable,
+                rewardedCooldownSec = rewardedCooldownSec,
                 language = language,
-                modifier = Modifier.fillMaxWidth()
+                onSelectToken = onSelectToken,
+                onBuy = onBuy,
+                onSell = onSell,
+                onOpenBallRoom = onOpenBallRoom,
+                onClaimRewarded = onClaimRewarded,
+                modifier = Modifier.fillMaxSize()
             )
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 4.dp)
+            ) {
+                item {
+                    MockupMarketDashboard(
+                        market = market,
+                        selected = selected,
+                        rewardedAvailable = rewardedAvailable,
+                        rewardedCooldownSec = rewardedCooldownSec,
+                        language = language,
+                        onSelectToken = onSelectToken,
+                        onBuy = onBuy,
+                        onSell = onSell,
+                        onOpenBallRoom = onOpenBallRoom,
+                        onClaimRewarded = onClaimRewarded,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
+    }
+}
 
-        item {
-            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-                val isWide = maxWidth >= 760.dp
-                if (isWide) {
+@Composable
+private fun MockupMarketLoading(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            modifier = Modifier
+                .widthIn(min = 320.dp, max = 520.dp)
+                .height(140.dp),
+            shape = RoundedCornerShape(8.dp),
+            color = Color(0xFF0C1D33).copy(alpha = 0.94f)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .border(1.dp, Gold.copy(alpha = 0.36f), RoundedCornerShape(8.dp))
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Cargando mercado",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        color = PureWhite,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Sincronizando fichas, cartera y precios.",
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodyMedium.copy(color = TextSecondary)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MockupMarketDashboard(
+    market: MarketUiState,
+    selected: MarketToken,
+    rewardedAvailable: Boolean,
+    rewardedCooldownSec: Int,
+    language: AppLanguage,
+    onSelectToken: (TokenId) -> Unit,
+    onBuy: () -> Unit,
+    onSell: () -> Unit,
+    onOpenBallRoom: () -> Unit,
+    onClaimRewarded: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val chartValues = remember(market.tokens, market.totalBalance) { market.portfolioHistory() }
+
+    BoxWithConstraints(modifier = modifier) {
+        val wide = maxWidth >= 920.dp
+        if (wide) {
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1.88f)
+                        .fillMaxHeight(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    MockupPortfolioHeader()
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        modifier = Modifier.weight(1.16f),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        SelectedTokenPanel(
-                            token = selected,
+                        MockupPortfolioChartCard(
                             market = market,
-                            resetCountdown = market.resetCountdownLabel,
-                            language = language,
-                            modifier = Modifier.weight(1.45f)
+                            chartValues = chartValues,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
                         )
-                        TokenSidePanel(
-                            tokens = market.tokens,
-                            selectedId = market.selectedToken,
-                            language = language,
-                            onSelectToken = onSelectToken,
-                            modifier = Modifier.weight(1f)
+                        MockupSelectedTokenChartCard(
+                            token = selected,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
                         )
                     }
-                } else {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SelectedTokenPanel(
-                            token = selected,
+                    Row(
+                        modifier = Modifier.weight(0.90f),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        MockupDistributionCard(
                             market = market,
-                            resetCountdown = market.resetCountdownLabel,
-                            language = language,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
                         )
-                        TokenSidePanel(
-                            tokens = market.tokens,
-                            selectedId = market.selectedToken,
-                            language = language,
-                            onSelectToken = onSelectToken,
-                            modifier = Modifier.fillMaxWidth()
+                        MockupPerformanceCard(
+                            market = market,
+                            chartValues = chartValues,
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                        )
+                    }
+                    MockupActionRow(
+                        market = market,
+                        rewardedAvailable = rewardedAvailable,
+                        rewardedCooldownSec = rewardedCooldownSec,
+                        language = language,
+                        onBuy = onBuy,
+                        onSell = onSell,
+                        onSwap = { onSelectToken(nextTokenId(market, selected.id)) },
+                        onClaimRewarded = onClaimRewarded,
+                        onOpenBallRoom = onOpenBallRoom
+                    )
+                }
+
+                MockupTokenRail(
+                    tokens = market.tokens,
+                    selectedId = market.selectedToken,
+                    onSelectToken = onSelectToken,
+                    fillAvailableHeight = true,
+                    modifier = Modifier
+                        .weight(0.92f)
+                        .fillMaxHeight()
+                )
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                MockupPortfolioHeader()
+                MockupPortfolioChartCard(
+                    market = market,
+                    chartValues = chartValues,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(196.dp)
+                )
+                MockupSelectedTokenChartCard(
+                    token = selected,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(196.dp)
+                )
+                MockupDistributionCard(
+                    market = market,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(158.dp)
+                )
+                MockupPerformanceCard(
+                    market = market,
+                    chartValues = chartValues,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(158.dp)
+                )
+                MockupTokenRail(
+                    tokens = market.tokens,
+                    selectedId = market.selectedToken,
+                    onSelectToken = onSelectToken,
+                    fillAvailableHeight = false,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                MockupActionRow(
+                    market = market,
+                    rewardedAvailable = rewardedAvailable,
+                    rewardedCooldownSec = rewardedCooldownSec,
+                    language = language,
+                    onBuy = onBuy,
+                    onSell = onSell,
+                    onSwap = { onSelectToken(nextTokenId(market, selected.id)) },
+                    onClaimRewarded = onClaimRewarded,
+                    onOpenBallRoom = onOpenBallRoom
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MockupPortfolioHeader() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(44.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column {
+            Text(
+                text = "Cartera",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    color = PureWhite,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            )
+            Text(
+                text = "El valor de tu cartera depende de tus fichas y sus precios en tiempo real.",
+                maxLines = 1,
+                style = MaterialTheme.typography.labelMedium.copy(color = TextSecondary)
+            )
+        }
+        MockupPeriodPills()
+    }
+}
+
+@Composable
+private fun MockupPeriodPills() {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        listOf("24H", "7D", "30D", "90D").forEachIndexed { index, label ->
+            val selected = index == 0
+            Surface(
+                modifier = Modifier
+                    .width(46.dp)
+                    .height(26.dp),
+                shape = RoundedCornerShape(8.dp),
+                color = if (selected) Gold else Color.Transparent
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .border(
+                            1.dp,
+                            if (selected) Gold else PureWhite.copy(alpha = 0.08f),
+                            RoundedCornerShape(8.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = if (selected) NightBlue else TextSecondary,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MockupDashboardCard(
+    modifier: Modifier = Modifier,
+    borderColor: Color = PureWhite.copy(alpha = 0.10f),
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        color = Color(0xFF0C1D33).copy(alpha = 0.94f)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .border(1.dp, borderColor, RoundedCornerShape(8.dp))
+                .padding(12.dp),
+            content = content
+        )
+    }
+}
+
+@Composable
+private fun MockupPortfolioChartCard(
+    market: MarketUiState,
+    chartValues: List<Double>,
+    modifier: Modifier = Modifier
+) {
+    MockupDashboardCard(modifier = modifier) {
+        Text(
+            text = "Valor total de la cartera (FTC)",
+            maxLines = 1,
+            style = MaterialTheme.typography.labelLarge.copy(
+                color = PureWhite,
+                fontWeight = FontWeight.Bold
+            )
+        )
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(
+                text = formatCurrency(market.totalBalance).removeSuffix(" FTC"),
+                maxLines = 1,
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    color = PureWhite,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            )
+            Text(
+                text = "FTC",
+                style = MaterialTheme.typography.labelLarge.copy(
+                    color = TextSecondary,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        TokenSparkChart(
+            values = chartValues,
+            lineColor = Gold,
+            glowColor = Gold.copy(alpha = 0.24f),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun MockupSelectedTokenChartCard(
+    token: MarketToken,
+    modifier: Modifier = Modifier
+) {
+    val positive = token.changePercent >= 0.0
+    val accent = tokenAccent(token)
+    MockupDashboardCard(modifier = modifier, borderColor = accent.copy(alpha = 0.22f)) {
+        Text(
+            text = "${token.displayName} (${token.ticker})",
+            maxLines = 1,
+            style = MaterialTheme.typography.labelLarge.copy(
+                color = PureWhite,
+                fontWeight = FontWeight.Bold
+            )
+        )
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                text = formatCurrency(token.currentPrice),
+                maxLines = 1,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    color = PureWhite,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            )
+            Text(
+                text = formatPercent(token.changePercent),
+                style = MaterialTheme.typography.labelLarge.copy(
+                    color = if (positive) Color(0xFF33E27B) else ChipRed,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        TokenSparkChart(
+            values = token.history,
+            lineColor = accent,
+            glowColor = accent.copy(alpha = 0.24f),
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+        )
+    }
+}
+
+private data class MockupDistributionSegment(
+    val label: String,
+    val value: Double,
+    val color: Color
+)
+
+@Composable
+private fun MockupDistributionCard(
+    market: MarketUiState,
+    modifier: Modifier = Modifier
+) {
+    val tokenSegments = market.tokens
+        .filter { it.portfolioValue > 0.0 }
+        .map { MockupDistributionSegment(it.displayName, it.portfolioValue, tokenAccent(it)) }
+    val segments = tokenSegments.ifEmpty {
+        listOf(MockupDistributionSegment("FTC en fichas", market.totalBalance.takeIf { it > 0.0 } ?: 1.0, TextSecondary))
+    }
+    val total = segments.sumOf { it.value }.takeIf { it > 0.0 } ?: 1.0
+
+    MockupDashboardCard(modifier = modifier) {
+        Text(
+            text = "Distribucion por ficha",
+            style = MaterialTheme.typography.labelLarge.copy(
+                color = PureWhite,
+                fontWeight = FontWeight.Bold
+            )
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(104.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val stroke = 18.dp.toPx()
+                    val diameter = minOf(size.width, size.height) - stroke
+                    val topLeft = Offset((size.width - diameter) / 2f, (size.height - diameter) / 2f)
+                    var start = -90f
+                    segments.forEach { segment ->
+                        val sweep = ((segment.value / total) * 360.0).toFloat().coerceAtLeast(2f)
+                        drawArc(
+                            color = segment.color,
+                            startAngle = start,
+                            sweepAngle = sweep,
+                            useCenter = false,
+                            topLeft = topLeft,
+                            size = Size(diameter, diameter),
+                            style = Stroke(width = stroke, cap = StrokeCap.Butt)
+                        )
+                        start += sweep
+                    }
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = formatCurrency(market.totalBalance).removeSuffix(" FTC"),
+                        maxLines = 1,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            color = PureWhite,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    )
+                    Text(
+                        text = "FTC",
+                        style = MaterialTheme.typography.labelSmall.copy(color = TextSecondary)
+                    )
+                }
+            }
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                segments.take(5).forEach { segment ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(segment.color)
+                        )
+                        Text(
+                            text = segment.label,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            style = MaterialTheme.typography.labelSmall.copy(color = TextSecondary)
+                        )
+                        Text(
+                            text = String.format(Locale.US, "%.2f%%", (segment.value / total) * 100.0),
+                            maxLines = 1,
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = PureWhite,
+                                fontWeight = FontWeight.Bold
+                            )
                         )
                     }
                 }
             }
         }
+    }
+}
 
-        item {
-            ArcadePanel(contentPadding = PaddingValues(14.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+@Composable
+private fun MockupPerformanceCard(
+    market: MarketUiState,
+    chartValues: List<Double>,
+    modifier: Modifier = Modifier
+) {
+    val change24 = market.totalHoldingChange
+    val delta7 = historyDelta(chartValues, 7)
+    val delta30 = historyDelta(chartValues, 30)
+    val maxValue = chartValues.maxOrNull() ?: market.totalBalance
+    val minValue = chartValues.minOrNull() ?: market.totalBalance
+
+    MockupDashboardCard(modifier = modifier) {
+        Text(
+            text = "Rendimiento de la cartera",
+            style = MaterialTheme.typography.labelLarge.copy(
+                color = PureWhite,
+                fontWeight = FontWeight.Bold
+            )
+        )
+        Spacer(Modifier.height(8.dp))
+        MockupPerformanceLine("Cambio 24h", change24, portfolioChangePercent(market))
+        MockupPerformanceLine("Cambio 7d", delta7, percentFromDelta(market.totalBalance, delta7))
+        MockupPerformanceLine("Cambio 30d", delta30, percentFromDelta(market.totalBalance, delta30))
+        MockupStaticLine("Maximo historico", formatCurrency(maxValue))
+        MockupStaticLine("Minimo historico", formatCurrency(minValue))
+    }
+}
+
+@Composable
+private fun MockupPerformanceLine(label: String, value: Double, percent: Double) {
+    val positive = value >= 0.0
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(22.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.labelSmall.copy(color = TextSecondary)
+        )
+        Text(
+            text = formatCurrency(value),
+            maxLines = 1,
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = if (positive) Color(0xFF33E27B) else ChipRed,
+                fontWeight = FontWeight.ExtraBold
+            )
+        )
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = formatPercent(percent),
+            maxLines = 1,
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = if (positive) Color(0xFF33E27B) else ChipRed,
+                fontWeight = FontWeight.ExtraBold
+            )
+        )
+    }
+}
+
+@Composable
+private fun MockupStaticLine(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(22.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.labelSmall.copy(color = TextSecondary)
+        )
+        Text(
+            text = value,
+            maxLines = 1,
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = PureWhite,
+                fontWeight = FontWeight.Bold
+            )
+        )
+    }
+}
+
+@Composable
+private fun MockupTokenRail(
+    tokens: List<MarketToken>,
+    selectedId: TokenId,
+    onSelectToken: (TokenId) -> Unit,
+    fillAvailableHeight: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Column(modifier = Modifier.height(44.dp)) {
+            Text(
+                text = "Mercado de Fichas",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    color = PureWhite,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            )
+            Text(
+                text = "Tus fichas y precios en tiempo real",
+                maxLines = 1,
+                style = MaterialTheme.typography.labelMedium.copy(color = TextSecondary)
+            )
+        }
+        tokens.forEach { token ->
+            val cardModifier = if (fillAvailableHeight) {
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+            } else {
+                Modifier
+                    .fillMaxWidth()
+                    .height(106.dp)
+            }
+            MockupTokenRailCard(
+                token = token,
+                selected = token.id == selectedId,
+                onClick = { onSelectToken(token.id) },
+                modifier = cardModifier
+            )
+        }
+    }
+}
+
+@Composable
+private fun MockupTokenRailCard(
+    token: MarketToken,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val positive = token.changePercent >= 0.0
+    Surface(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        color = Color(0xFF0C1D33).copy(alpha = if (selected) 0.98f else 0.88f)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .border(
+                    2.dp,
+                    if (selected) Gold else PureWhite.copy(alpha = 0.08f),
+                    RoundedCornerShape(8.dp)
+                )
+                .padding(10.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                TokenMedallion(token = token, diameter = 42.dp)
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = AppI18n.text("quick_actions", language),
-                        style = MaterialTheme.typography.titleMedium.copy(
+                        text = token.displayName,
+                        maxLines = 1,
+                        style = MaterialTheme.typography.bodyLarge.copy(
                             color = PureWhite,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.ExtraBold
                         )
                     )
                     Text(
-                        text = "${AppI18n.text("selected_token", language)}: ${selected.ticker}",
-                        style = MaterialTheme.typography.labelMedium.copy(
+                        text = token.ticker,
+                        style = MaterialTheme.typography.labelSmall.copy(
                             color = TextSecondary,
                             fontWeight = FontWeight.Bold
                         )
                     )
                 }
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ArcadePrimaryButton(
-                        text = AppI18n.text("buy_1", language),
-                        modifier = Modifier.weight(1f),
-                        onClick = onBuy
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = formatCurrency(token.currentPrice),
+                        maxLines = 1,
+                        style = MaterialTheme.typography.bodyMedium.copy(
+                            color = PureWhite,
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     )
-                    ArcadeSecondaryButton(
-                        text = AppI18n.text("sell_1", language),
-                        modifier = Modifier.weight(1f),
-                        onClick = onSell
+                    Text(
+                        text = formatPercent(token.changePercent),
+                        maxLines = 1,
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = if (positive) Color(0xFF33E27B) else ChipRed,
+                            fontWeight = FontWeight.ExtraBold
+                        )
                     )
                 }
-                Spacer(Modifier.height(10.dp))
-                ArcadePrimaryButton(
-                    text = if (rewardedAvailable) {
-                        AppI18n.text("rewarded_claim", language)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                MockupTokenMiniStat("Tienes", formatQuantity(token.holdings))
+                MockupTokenMiniStat("Valor", formatCurrency(token.portfolioValue))
+                MockupTokenMiniStat("% Cartera", String.format(Locale.US, "%.2f%%", token.portfolioWeightPercent))
+            }
+        }
+    }
+}
+
+@Composable
+private fun MockupTokenMiniStat(label: String, value: String) {
+    Column {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = TextSecondary,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold
+            )
+        )
+        Text(
+            text = value,
+            maxLines = 1,
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = PureWhite,
+                fontWeight = FontWeight.ExtraBold
+            )
+        )
+    }
+}
+
+@Composable
+private fun MockupActionRow(
+    market: MarketUiState,
+    rewardedAvailable: Boolean,
+    rewardedCooldownSec: Int,
+    language: AppLanguage,
+    onBuy: () -> Unit,
+    onSell: () -> Unit,
+    onSwap: () -> Unit,
+    onClaimRewarded: () -> Unit,
+    onOpenBallRoom: () -> Unit
+) {
+    MockupDashboardCard(modifier = Modifier.fillMaxWidth().height(78.dp)) {
+        Text(
+            text = AppI18n.text("quick_actions", language),
+            style = MaterialTheme.typography.labelLarge.copy(
+                color = PureWhite,
+                fontWeight = FontWeight.Bold
+            )
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MockupActionButton(
+                label = "Comprar fichas",
+                icon = Icons.Default.ShoppingCart,
+                primary = true,
+                onClick = onBuy,
+                modifier = Modifier.weight(1f)
+            )
+            MockupActionButton(
+                label = "Vender fichas",
+                icon = Icons.Default.LocalOffer,
+                onClick = onSell,
+                modifier = Modifier.weight(1f)
+            )
+            MockupActionButton(
+                label = "Intercambiar",
+                icon = Icons.Default.SwapHoriz,
+                onClick = onSwap,
+                modifier = Modifier.weight(1f)
+            )
+            MockupActionButton(
+                label = if (rewardedAvailable) "+25 FTC" else "${rewardedCooldownSec}s",
+                icon = Icons.Default.CardGiftcard,
+                enabled = rewardedAvailable,
+                onClick = onClaimRewarded,
+                modifier = Modifier.weight(1f)
+            )
+            MockupActionButton(
+                label = "Jugar (10 FTC)",
+                icon = Icons.Default.SportsEsports,
+                enabled = market.totalBalance >= GameRules.BALL_ENTRY_COST,
+                onClick = onOpenBallRoom,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun MockupActionButton(
+    label: String,
+    icon: ImageVector,
+    modifier: Modifier = Modifier,
+    primary: Boolean = false,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(6.dp)
+    val bg = when {
+        !enabled -> DeepBlue.copy(alpha = 0.42f)
+        primary -> Gold
+        else -> PanelBlue.copy(alpha = 0.78f)
+    }
+    val fg = when {
+        !enabled -> TextSecondary
+        primary -> NightBlue
+        else -> PureWhite
+    }
+    Surface(
+        modifier = modifier
+            .height(36.dp)
+            .clickable(enabled = enabled, onClick = onClick),
+        shape = shape,
+        color = bg
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .border(1.dp, if (primary) Gold else PureWhite.copy(alpha = 0.10f), shape)
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(
+                text = label,
+                maxLines = 1,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = fg,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            )
+        }
+    }
+}
+
+private fun historyDelta(values: List<Double>, window: Int): Double {
+    if (values.size < 2) return 0.0
+    val startIndex = (values.size - 1 - window).coerceAtLeast(0)
+    return values.last() - values[startIndex]
+}
+
+private fun percentFromDelta(current: Double, delta: Double): Double {
+    val previous = current - delta
+    if (previous == 0.0) return 0.0
+    return (delta / previous) * 100.0
+}
+
+private fun portfolioChangePercent(market: MarketUiState): Double {
+    return percentFromDelta(market.holdingsValue, market.totalHoldingChange)
+}
+
+private fun nextTokenId(market: MarketUiState, current: TokenId): TokenId {
+    val ids = market.tokens.map { it.id }.ifEmpty { TokenId.entries }
+    val index = ids.indexOf(current).takeIf { it >= 0 } ?: 0
+    return ids[(index + 1) % ids.size]
+}
+
+@Composable
+private fun MarketCommandCenter(
+    market: MarketUiState,
+    selected: MarketToken,
+    rewardedAvailable: Boolean,
+    rewardedCooldownSec: Int,
+    language: AppLanguage,
+    onSelectToken: (TokenId) -> Unit,
+    onBuy: () -> Unit,
+    onSell: () -> Unit,
+    onOpenBallRoom: () -> Unit,
+    onClaimRewarded: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val selectedAccent = tokenAccent(selected)
+    val holdingChangePositive = market.totalHoldingChange >= 0.0
+    val chartValues = remember(market.tokens, market.totalBalance) { market.portfolioHistory() }
+    val shape = RoundedCornerShape(8.dp)
+
+    Surface(
+        modifier = modifier
+            .border(
+                width = 1.dp,
+                brush = Brush.linearGradient(
+                    listOf(
+                        Gold.copy(alpha = 0.86f),
+                        selectedAccent.copy(alpha = 0.74f),
+                        Color(0xFF00D7FF).copy(alpha = 0.50f)
+                    )
+                ),
+                shape = shape
+            ),
+        shape = shape,
+        color = Color.Transparent,
+        tonalElevation = 0.dp
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        listOf(Color(0xFF101725), Color(0xFF0A1424), Color(0xFF092D2D))
+                    )
+                )
+                .padding(14.dp)
+        ) {
+            MarketCommandPattern(selectedAccent)
+
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = AppI18n.text("market_title", language),
+                            style = MaterialTheme.typography.headlineLarge.copy(
+                                color = PureWhite,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        )
+                        Text(
+                            text = AppI18n.text("portfolio_subtitle", language),
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = TextSecondary,
+                                lineHeight = 18.sp
+                            )
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    LivePortfolioBadge(
+                        total = market.totalBalance,
+                        change = market.totalHoldingChange,
+                        positive = holdingChangePositive
+                    )
+                }
+
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val isWide = maxWidth >= 840.dp
+                    if (isWide) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            PortfolioStage(
+                                market = market,
+                                selected = selected,
+                                chartValues = chartValues,
+                                language = language,
+                                modifier = Modifier.weight(1.42f)
+                            )
+                            TokenMarketRail(
+                                tokens = market.tokens,
+                                selectedId = market.selectedToken,
+                                language = language,
+                                onSelectToken = onSelectToken,
+                                modifier = Modifier.weight(0.88f)
+                            )
+                        }
                     } else {
-                        "${AppI18n.text("rewarded_cooldown", language)} ${rewardedCooldownSec}s"
-                    },
-                    enabled = rewardedAvailable,
-                    onClick = onClaimRewarded
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            PortfolioStage(
+                                market = market,
+                                selected = selected,
+                                chartValues = chartValues,
+                                language = language,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            TokenMarketRail(
+                                tokens = market.tokens,
+                                selectedId = market.selectedToken,
+                                language = language,
+                                onSelectToken = onSelectToken,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+
+                QuickActionDeck(
+                    selected = selected,
+                    rewardedAvailable = rewardedAvailable,
+                    rewardedCooldownSec = rewardedCooldownSec,
+                    language = language,
+                    onBuy = onBuy,
+                    onSell = onSell,
+                    onClaimRewarded = onClaimRewarded,
+                    onOpenBallRoom = onOpenBallRoom
                 )
-                Spacer(Modifier.height(10.dp))
-                ArcadeSecondaryButton(
-                    text = AppI18n.text("play_paying_10", language),
-                    onClick = onOpenBallRoom
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopBarDivider() {
+    Box(
+        modifier = Modifier
+            .width(1.dp)
+            .height(44.dp)
+            .background(PureWhite.copy(alpha = 0.10f))
+    )
+}
+
+@Composable
+private fun CompactTopMetric(
+    label: String,
+    value: String,
+    detail: String,
+    valueColor: Color,
+    modifier: Modifier = Modifier,
+    detailColor: Color = TextSecondary
+) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.Center) {
+        Text(
+            text = label,
+            maxLines = 1,
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = TextSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
+        )
+        Text(
+            text = value,
+            maxLines = 1,
+            style = MaterialTheme.typography.titleMedium.copy(
+                color = valueColor,
+                fontWeight = FontWeight.ExtraBold
+            )
+        )
+        Text(
+            text = detail,
+            maxLines = 1,
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = detailColor,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
+        )
+    }
+}
+
+@Composable
+private fun CompactNotificationButton(
+    count: Int,
+    isOpen: Boolean,
+    language: AppLanguage,
+    onClick: () -> Unit
+) {
+    Box {
+        Surface(
+            modifier = Modifier
+                .size(42.dp)
+                .clickable(onClick = onClick),
+            shape = RoundedCornerShape(8.dp),
+            color = if (isOpen) Gold.copy(alpha = 0.20f) else Color.Transparent
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .border(1.dp, PureWhite.copy(alpha = 0.08f), RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Notifications,
+                    contentDescription = AppI18n.text("notifications", language),
+                    tint = if (isOpen) Gold else PureWhite,
+                    modifier = Modifier.size(24.dp)
                 )
+            }
+        }
+
+        if (count > 0) {
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(16.dp),
+                shape = CircleShape,
+                color = Gold
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = if (count > 9) "9+" else count.toString(),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = NightBlue,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 8.sp
+                        )
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MarketCommandPattern(accent: Color) {
+    Canvas(modifier = Modifier.fillMaxSize()) {
+        val grid = 80.dp.toPx()
+        var y = grid
+        while (y < size.height) {
+            drawLine(
+                color = PureWhite.copy(alpha = 0.035f),
+                start = Offset(0f, y),
+                end = Offset(size.width, y),
+                strokeWidth = 1.dp.toPx()
+            )
+            y += grid
+        }
+        var x = grid
+        while (x < size.width) {
+            drawLine(
+                color = Gold.copy(alpha = 0.030f),
+                start = Offset(x, 0f),
+                end = Offset(x, size.height),
+                strokeWidth = 1.dp.toPx()
+            )
+            x += grid
+        }
+        val chipRadius = 34.dp.toPx()
+        val centers = listOf(
+            Offset(size.width * 0.78f, size.height * 0.10f),
+            Offset(size.width * 0.90f, size.height * 0.34f),
+            Offset(size.width * 0.70f, size.height * 0.55f)
+        )
+        centers.forEachIndexed { index, center ->
+            val tint = if (index == 0) Gold else accent
+            drawCircle(
+                color = tint.copy(alpha = 0.06f),
+                radius = chipRadius + index * 10.dp.toPx(),
+                center = center
+            )
+            drawCircle(
+                color = tint.copy(alpha = 0.18f),
+                radius = chipRadius,
+                center = center,
+                style = Stroke(width = 2.dp.toPx())
+            )
+        }
+    }
+}
+
+@Composable
+private fun LivePortfolioBadge(
+    total: Double,
+    change: Double,
+    positive: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val tint = if (positive) Gold else ChipRed
+    Surface(
+        modifier = modifier.widthIn(min = 220.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = NightBlue.copy(alpha = 0.70f)
+    ) {
+        Column(
+            modifier = Modifier
+                .border(1.dp, tint.copy(alpha = 0.46f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.End
+        ) {
+            Text(
+                text = "FTC LIVE",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = TextSecondary,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+            )
+            Text(
+                text = formatCurrency(total),
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    color = Gold,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            )
+            Text(
+                text = formatCurrency(change),
+                style = MaterialTheme.typography.labelMedium.copy(
+                    color = tint,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun PortfolioStage(
+    market: MarketUiState,
+    selected: MarketToken,
+    chartValues: List<Double>,
+    language: AppLanguage,
+    modifier: Modifier = Modifier
+) {
+    val accent = tokenAccent(selected)
+    val positive = selected.changePercent >= 0.0
+    val holdingPositive = selected.holdingChangeValue >= 0.0
+
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        color = NightBlue.copy(alpha = 0.62f)
+    ) {
+        Column(
+            modifier = Modifier
+                .border(1.dp, PureWhite.copy(alpha = 0.10f), RoundedCornerShape(8.dp))
+                .padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(
+                    modifier = Modifier.widthIn(min = 250.dp, max = 330.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = AppI18n.text("portfolio_title", language),
+                        style = MaterialTheme.typography.labelLarge.copy(
+                            color = TextSecondary,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.7.sp
+                        )
+                    )
+                    Text(
+                        text = formatCurrency(market.totalBalance),
+                        maxLines = 1,
+                        style = MaterialTheme.typography.displaySmall.copy(
+                            color = Gold,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SmallValuePill(
+                            label = AppI18n.text("token_value", language),
+                            value = formatCurrency(market.holdingsValue),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(208.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF070D19).copy(alpha = 0.86f)
+                ) {
+                    TokenSparkChart(
+                        values = chartValues,
+                        lineColor = if (market.totalHoldingChange >= 0.0) Gold else ChipRed,
+                        glowColor = (if (market.totalHoldingChange >= 0.0) Gold else ChipRed).copy(alpha = 0.20f),
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(8.dp)
+                    )
+                }
+            }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                color = DeepBlue.copy(alpha = 0.42f)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .border(1.dp, accent.copy(alpha = 0.34f), RoundedCornerShape(8.dp))
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TokenMedallion(token = selected, diameter = 66.dp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = selected.displayName,
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                color = PureWhite,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        )
+                        Text(
+                            text = "${selected.ticker} · ${formatPercent(selected.changePercent)}",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                color = if (positive) Gold else ChipRed,
+                                fontWeight = FontWeight.Bold
+                            )
+                        )
+                    }
+                    TokenNumberBlock(AppI18n.text("price", language), formatCurrency(selected.currentPrice), PureWhite)
+                    TokenNumberBlock(AppI18n.text("units", language), formatQuantity(selected.holdings), TextSecondary)
+                    TokenNumberBlock(
+                        AppI18n.text("contribution", language),
+                        formatCurrency(selected.portfolioValue),
+                        if (holdingPositive) Gold else ChipRed
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SmallValuePill(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.height(58.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = DeepBlue.copy(alpha = 0.40f)
+    ) {
+        Column(
+            modifier = Modifier
+                .border(1.dp, PureWhite.copy(alpha = 0.08f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = label,
+                maxLines = 1,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = TextSecondary,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+            Text(
+                text = value,
+                maxLines = 1,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = Gold,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun TokenMedallion(token: MarketToken, diameter: Dp) {
+    val accent = tokenAccent(token)
+    Box(
+        modifier = Modifier
+            .size(diameter)
+            .clip(CircleShape)
+            .background(Brush.radialGradient(listOf(accent.copy(alpha = 0.95f), NightBlue))),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawCircle(color = Gold.copy(alpha = 0.42f), style = Stroke(width = 3.dp.toPx()))
+            drawCircle(
+                color = PureWhite.copy(alpha = 0.15f),
+                radius = diameter.toPx() * 0.26f,
+                style = Stroke(width = 2.dp.toPx())
+            )
+        }
+        Text(
+            text = tokenInitial(token.id),
+            style = MaterialTheme.typography.titleLarge.copy(
+                color = NightBlue,
+                fontWeight = FontWeight.Black
+            )
+        )
+    }
+}
+
+@Composable
+private fun TokenNumberBlock(label: String, value: String, color: Color) {
+    Column(horizontalAlignment = Alignment.End) {
+        Text(
+            text = label,
+            maxLines = 1,
+            style = MaterialTheme.typography.labelSmall.copy(
+                color = TextSecondary,
+                fontWeight = FontWeight.Bold
+            )
+        )
+        Text(
+            text = value,
+            maxLines = 1,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                color = color,
+                fontWeight = FontWeight.ExtraBold
+            )
+        )
+    }
+}
+
+@Composable
+private fun TokenMarketRail(
+    tokens: List<MarketToken>,
+    selectedId: TokenId,
+    language: AppLanguage,
+    onSelectToken: (TokenId) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(8.dp),
+        color = NightBlue.copy(alpha = 0.58f)
+    ) {
+        Column(
+            modifier = Modifier
+                .border(1.dp, Color(0xFF00D7FF).copy(alpha = 0.28f), RoundedCornerShape(8.dp))
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = AppI18n.text("side_panel", language),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        color = PureWhite,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                )
+                Text(
+                    text = AppI18n.text("value", language),
+                    style = MaterialTheme.typography.labelMedium.copy(
+                        color = TextSecondary,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+            tokens.forEach { token ->
+                TokenRailCard(
+                    token = token,
+                    selected = token.id == selectedId,
+                    language = language,
+                    onClick = { onSelectToken(token.id) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TokenRailCard(
+    token: MarketToken,
+    selected: Boolean,
+    language: AppLanguage,
+    onClick: () -> Unit
+) {
+    val accent = tokenAccent(token)
+    val positive = token.changePercent >= 0.0
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(88.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(8.dp),
+        color = if (selected) accent.copy(alpha = 0.18f) else DeepBlue.copy(alpha = 0.42f)
+    ) {
+        Row(
+            modifier = Modifier
+                .border(1.dp, if (selected) accent else PureWhite.copy(alpha = 0.10f), RoundedCornerShape(8.dp))
+                .padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            TokenMedallion(token = token, diameter = 44.dp)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = token.displayName,
+                    maxLines = 1,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = PureWhite,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                )
+                Text(
+                    text = "${token.ticker} · ${formatQuantity(token.holdings)} ${AppI18n.text("units", language).lowercase()}",
+                    maxLines = 1,
+                    style = MaterialTheme.typography.labelSmall.copy(color = TextSecondary)
+                )
+                Text(
+                    text = formatPercent(token.changePercent),
+                    maxLines = 1,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = if (positive) Gold else ChipRed,
+                        fontWeight = FontWeight.Bold
+                    )
+                )
+            }
+            TokenSparkChart(
+                values = token.history,
+                lineColor = if (positive) Gold else ChipRed,
+                glowColor = (if (positive) Gold else ChipRed).copy(alpha = 0.16f),
+                showLabels = false,
+                modifier = Modifier
+                    .width(112.dp)
+                    .height(42.dp)
+            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = formatCurrency(token.portfolioValue),
+                    maxLines = 1,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = Gold,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                )
+                Text(
+                    text = formatCurrency(token.currentPrice),
+                    maxLines = 1,
+                    style = MaterialTheme.typography.labelSmall.copy(color = TextSecondary)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickActionDeck(
+    selected: MarketToken,
+    rewardedAvailable: Boolean,
+    rewardedCooldownSec: Int,
+    language: AppLanguage,
+    onBuy: () -> Unit,
+    onSell: () -> Unit,
+    onClaimRewarded: () -> Unit,
+    onOpenBallRoom: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = NightBlue.copy(alpha = 0.58f)
+    ) {
+        Column(
+            modifier = Modifier
+                .border(1.dp, PureWhite.copy(alpha = 0.10f), RoundedCornerShape(8.dp))
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = AppI18n.text("quick_actions", language),
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        color = PureWhite,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                )
+                Text(
+                    text = selected.ticker,
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        color = tokenAccent(selected),
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 1.sp
+                    )
+                )
+            }
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val wide = maxWidth >= 760.dp
+                if (wide) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ArcadePrimaryButton(AppI18n.text("buy_1", language), Modifier.weight(1f), onClick = onBuy)
+                        ArcadeSecondaryButton(AppI18n.text("sell_1", language), Modifier.weight(1f), onClick = onSell)
+                        ArcadePrimaryButton(
+                            text = if (rewardedAvailable) AppI18n.text("rewarded_claim", language) else "${AppI18n.text("rewarded_cooldown", language)} ${rewardedCooldownSec}s",
+                            modifier = Modifier.weight(1f),
+                            enabled = rewardedAvailable,
+                            onClick = onClaimRewarded
+                        )
+                        ArcadeSecondaryButton(AppI18n.text("play_paying_10", language), Modifier.weight(1f), onClick = onOpenBallRoom)
+                    }
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ArcadePrimaryButton(AppI18n.text("buy_1", language), Modifier.weight(1f), onClick = onBuy)
+                            ArcadeSecondaryButton(AppI18n.text("sell_1", language), Modifier.weight(1f), onClick = onSell)
+                        }
+                        ArcadePrimaryButton(
+                            text = if (rewardedAvailable) AppI18n.text("rewarded_claim", language) else "${AppI18n.text("rewarded_cooldown", language)} ${rewardedCooldownSec}s",
+                            enabled = rewardedAvailable,
+                            onClick = onClaimRewarded
+                        )
+                        ArcadeSecondaryButton(AppI18n.text("play_paying_10", language), onClick = onOpenBallRoom)
+                    }
+                }
             }
         }
     }
@@ -795,7 +2345,7 @@ private fun PortfolioHero(
     modifier: Modifier = Modifier
 ) {
     val holdingChangePositive = market.totalHoldingChange >= 0.0
-    val chartValues = remember(market.tokens, market.cashBalance) { market.portfolioHistory() }
+    val chartValues = remember(market.tokens, market.totalBalance) { market.portfolioHistory() }
 
     ArcadePanel(modifier = modifier, contentPadding = PaddingValues(16.dp)) {
         Row(
@@ -876,19 +2426,13 @@ private fun PortfolioMetricRow(
                 modifier = Modifier.weight(1f)
             )
             PortfolioMetric(
-                label = AppI18n.text("cash_balance", language),
-                value = formatCurrency(market.cashBalance),
-                accent = TextSecondary,
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PortfolioMetric(
                 label = AppI18n.text("token_value", language),
                 value = formatCurrency(market.holdingsValue),
                 accent = Gold,
                 modifier = Modifier.weight(1f)
             )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PortfolioMetric(
                 label = AppI18n.text("portfolio_change", language),
                 value = formatCurrency(market.totalHoldingChange),
@@ -2064,20 +3608,34 @@ private fun tokenAccent(token: MarketToken): Color {
         }
 }
 
+private fun tokenInitial(tokenId: TokenId): String {
+    return when (tokenId) {
+        TokenId.ROJA -> "R"
+        TokenId.AZUL -> "A"
+        TokenId.VERDE -> "V"
+        TokenId.DORADA -> "D"
+    }
+}
+
 private fun MarketUiState.portfolioHistory(): List<Double> {
     val maxPoints = tokens.maxOfOrNull { it.history.size } ?: 0
     if (maxPoints == 0) {
         return listOf(totalBalance)
     }
 
-    return (0 until maxPoints).map { index ->
+    val values = (0 until maxPoints).map { index ->
         val tokenValue = tokens.sumOf { token ->
             val offset = maxPoints - token.history.size
             val historyIndex = (index - offset).coerceAtLeast(0)
             val price = token.history.getOrNull(historyIndex) ?: token.currentPrice
             price * token.holdings
         }
-        cashBalance + tokenValue
+        tokenValue
+    }
+    return if (values.all { it <= 0.0 } && totalBalance > 0.0) {
+        List(maxPoints) { totalBalance }
+    } else {
+        values
     }
 }
 
