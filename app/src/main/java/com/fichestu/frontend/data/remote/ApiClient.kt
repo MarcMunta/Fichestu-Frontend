@@ -9,8 +9,12 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
-    private val retrofit: Retrofit by lazy {
-
+    private fun buildRetrofit(
+        connectTimeoutSeconds: Long,
+        readTimeoutSeconds: Long,
+        writeTimeoutSeconds: Long,
+        callTimeoutSeconds: Long
+    ): Retrofit {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BASIC
@@ -33,21 +37,39 @@ object ApiClient {
                 chain.proceed(request)
             }
             .addInterceptor(logging)
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
-            .writeTimeout(20, TimeUnit.SECONDS)
-            .callTimeout(25, TimeUnit.SECONDS)
+            .connectTimeout(connectTimeoutSeconds, TimeUnit.SECONDS)
+            .readTimeout(readTimeoutSeconds, TimeUnit.SECONDS)
+            .writeTimeout(writeTimeoutSeconds, TimeUnit.SECONDS)
+            .callTimeout(callTimeoutSeconds, TimeUnit.SECONDS)
             .build()
 
-        Retrofit.Builder()
+        return Retrofit.Builder()
             .baseUrl(BuildConfig.BASE_URL)
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
     }
 
+    private val retrofit: Retrofit by lazy {
+        buildRetrofit(
+            connectTimeoutSeconds = 15,
+            readTimeoutSeconds = 20,
+            writeTimeoutSeconds = 20,
+            callTimeoutSeconds = 25
+        )
+    }
+
+    private val authRetrofit: Retrofit by lazy {
+        buildRetrofit(
+            connectTimeoutSeconds = 45,
+            readTimeoutSeconds = 180,
+            writeTimeoutSeconds = 45,
+            callTimeoutSeconds = 180
+        )
+    }
+
     val authApi: AuthApi by lazy {
-        retrofit.create(AuthApi::class.java)
+        authRetrofit.create(AuthApi::class.java)
     }
 
     val gameApi: GameApi by lazy {
@@ -59,7 +81,7 @@ object ApiClient {
     }
 
     val userApi: UserApi by lazy {
-        retrofit.create(UserApi::class.java)
+        authRetrofit.create(UserApi::class.java)
     }
 
     val profileApi: ProfileApi by lazy {

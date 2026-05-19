@@ -204,6 +204,7 @@ object AppI18n {
         "badge_bonus_hunter_desc" to tr("Reclama 3 rewarded ads.", "Reclama 3 rewarded ads.", "Claim 3 rewarded ads."),
         "or_separator" to tr("-- O --", "-- O --", "-- OR --"),
         "continue_google" to tr("CONTINUAR CON GOOGLE", "CONTINUAR AMB GOOGLE", "CONTINUE WITH GOOGLE"),
+        "server_waking_auth" to tr("Conectando con servidor. Si estaba dormido puede tardar hasta 2 minutos...", "Connectant amb el servidor. Si estava adormit pot tardar fins a 2 minuts...", "Connecting to server. If it was sleeping, this can take up to 2 minutes..."),
         "login_success" to tr("Has iniciado sesión correctamente", "Has iniciat sessió correctament", "Signed in successfully"),
         "send_code_error" to tr("No se pudo enviar el código", "No s'ha pogut enviar el codi", "Could not send the code"),
         "password_update_error" to tr("No se pudo actualizar la contraseña", "No s'ha pogut actualitzar la contrasenya", "Could not update the password"),

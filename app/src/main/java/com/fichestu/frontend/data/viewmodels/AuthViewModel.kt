@@ -3,7 +3,7 @@ package com.fichestu.frontend.data.viewmodels
 import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.fichestu.frontend.BuildConfig
+import com.fichestu.frontend.data.i18n.AppI18n
 import com.fichestu.frontend.data.repository.AuthRepository
 import com.fichestu.frontend.data.repository.SessionStore
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -140,7 +140,12 @@ class AuthViewModel(
         if (!isValidInput(state)) return
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, message = "") }
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    message = AppI18n.text("server_waking_auth")
+                )
+            }
 
             val result = if (state.isLoginMode) {
                 repository.login(
