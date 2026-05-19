@@ -126,11 +126,9 @@ class GameRepository {
         val response = ApiClient.gameApi.enterBallRoom(auth)
         val responseReceivedAt = System.currentTimeMillis()
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
-        val market = loadMarketState(currentState.market.selectedToken, auth)
         currentState.copy(
             currentMatchId = dto.matchId,
             activeTab = MainTab.BALL_ROOM,
-            market = market,
             ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
             battle = BattleUiState(phase = BattlePhase.LOCKED, log = listOf("Completa el sorteo de bolas para desbloquear el Battle Royale.")),
             profile = currentState.profile.copy(stats = currentState.profile.stats.copy(ballRoomsPlayed = currentState.profile.stats.ballRoomsPlayed + 1)),
@@ -144,11 +142,9 @@ class GameRepository {
         val response = ApiClient.gameApi.cancelMatchmaking(auth, matchId)
         val responseReceivedAt = System.currentTimeMillis()
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
-        val market = loadMarketState(currentState.market.selectedToken, auth)
         currentState.copy(
             currentMatchId = null,
             activeTab = MainTab.BALL_ROOM,
-            market = market,
             ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
             battle = BattleUiState(
                 phase = BattlePhase.LOCKED,
@@ -164,11 +160,9 @@ class GameRepository {
         val response = ApiClient.gameApi.abandonMatch(auth, matchId)
         val responseReceivedAt = System.currentTimeMillis()
         val dto = parseResponse(response.isSuccessful, response.body(), response.errorBody()?.string(), response.code())
-        val market = loadMarketState(currentState.market.selectedToken, auth)
         currentState.copy(
             currentMatchId = null,
             activeTab = MainTab.BALL_ROOM,
-            market = market,
             ballRoom = mapBallRoom(dto.ballRoom, requestStartedAt = requestStartedAt, responseReceivedAt = responseReceivedAt),
             battle = BattleUiState(
                 phase = BattlePhase.LOCKED,
