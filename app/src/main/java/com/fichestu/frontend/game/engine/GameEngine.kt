@@ -414,11 +414,10 @@ class GameEngine(
     }
 
     private fun randomBattleCard(): BattleCardType {
-        val roll = random.nextDouble()
-        return when {
-            roll < 0.55 -> BattleCardType.ATTACK
-            roll < 0.80 -> BattleCardType.SHIELD
-            else -> BattleCardType.REBOUND
+        return when (random.nextInt(11)) {
+            0 -> BattleCardType.SHIELD
+            1 -> BattleCardType.REBOUND
+            else -> BattleCardType.ATTACK
         }
     }
 

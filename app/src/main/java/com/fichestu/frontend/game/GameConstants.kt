@@ -10,7 +10,7 @@ object GameRules {
 
     const val BATTLE_INITIAL_HP = 50
     const val BATTLE_ATTACK_MIN = 1
-    const val BATTLE_ATTACK_MAX = 9
+    const val BATTLE_ATTACK_MAX = 11
 
     const val MULTIPLIER_MIN = 0.5
     const val MULTIPLIER_MAX = 3.0

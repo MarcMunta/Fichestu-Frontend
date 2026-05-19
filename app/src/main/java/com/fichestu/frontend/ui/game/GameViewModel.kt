@@ -11,6 +11,7 @@ import com.fichestu.frontend.data.repository.SessionExpiredException
 import com.fichestu.frontend.game.GameRules
 import com.fichestu.frontend.game.model.AppLanguage
 import com.fichestu.frontend.game.model.BadgeUi
+import com.fichestu.frontend.game.model.BallPlayer
 import com.fichestu.frontend.game.model.BallRoomPhase
 import com.fichestu.frontend.game.model.BattleHandCard
 import com.fichestu.frontend.game.model.BallRoomUiState
@@ -264,6 +265,25 @@ class GameViewModel(
                         battle = BattleUiState(phase = BattlePhase.LOCKED)
                     )
                 }
+            }
+            _uiState.update { state ->
+                state.copy(
+                    activeTab = MainTab.BALL_ROOM,
+                    ballRoom = BallRoomUiState(
+                        phase = BallRoomPhase.MATCHMAKING,
+                        players = listOf(
+                            BallPlayer(
+                                id = GameRules.USER_PLAYER_ID,
+                                nickname = state.profile.playerName,
+                                isUser = true
+                            )
+                        ),
+                        statusMessage = AppI18n.text("entry_paid_waiting"),
+                        selectionDeadlineEpochMs = System.currentTimeMillis() + 15_000L
+                    ),
+                    battle = BattleUiState(phase = BattlePhase.LOCKED),
+                    transientMessage = AppI18n.text("matchmaking_started")
+                )
             }
             val result = repository.enterBallRoom(_uiState.value)
             applyResult(result)
@@ -664,16 +684,16 @@ class GameViewModel(
     private fun drawBattleHand(): List<BattleHandCard> = List(5) { drawBattleCard() }
 
     private fun drawBattleCard(): BattleHandCard {
-        val type = when (Random.nextInt(100)) {
-            in 0..74 -> BattleCardType.ATTACK
-            in 75..88 -> BattleCardType.SHIELD
-            else -> BattleCardType.REBOUND
+        val type = when (Random.nextInt(11)) {
+            0 -> BattleCardType.SHIELD
+            1 -> BattleCardType.REBOUND
+            else -> BattleCardType.ATTACK
         }
         return BattleHandCard(
             id = nextBattleCardId++,
             type = type,
             power = when (type) {
-                BattleCardType.ATTACK -> Random.nextInt(1, 11)
+                BattleCardType.ATTACK -> Random.nextInt(GameRules.BATTLE_ATTACK_MIN, GameRules.BATTLE_ATTACK_MAX + 1)
                 BattleCardType.SHIELD -> Random.nextInt(5, 11)
                 BattleCardType.REBOUND -> Random.nextInt(3, 8)
             }
